@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net"
 	"time"
@@ -115,4 +116,13 @@ func NumToIP(num uint32) net.IP {
 	ip := make(net.IP, 4)
 	binary.BigEndian.PutUint32(ip, num)
 	return ip
+}
+
+// SendPacket Takes a given byte stream and puts on the wire towards the given host
+func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer) {
+	n, err := conn.WriteTo(data.Bytes(), addr)
+	if err != nil {
+		log.Fatal("Write:", err)
+	}
+	fmt.Println("Sent", n, "bytes", conn.LocalAddr(), "->", addr)
 }

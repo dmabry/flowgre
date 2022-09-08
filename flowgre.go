@@ -5,16 +5,10 @@
 package main
 
 import (
-	"bytes"
-	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/dmabry/flowgre/flow/netflow"
-	"log"
-	"math/rand"
-	"net"
+	"github.com/dmabry/flowgre/single"
 	"os"
-	"time"
 )
 
 // TODO: Better error handling
@@ -69,7 +63,8 @@ func main() {
 		fmt.Println("  hexdump:", *singleHexDump)
 		fmt.Println()
 
-		singleRun(*singleServer, *singleDstPort, *singleSrcPort, *singleCount, *singleHexDump)
+		printHelpHeader()
+		single.Run(*singleServer, *singleDstPort, *singleSrcPort, *singleCount, *singleHexDump)
 		os.Exit(0)
 
 	// Setup and run Barrage
@@ -87,56 +82,6 @@ func main() {
 	}
 	os.Exit(0)
 
-}
-
-// singleRun Creates the given number of Netflow packets, including the required Template, for a Single run.  Creates the packets
-// and puts the on the wire to the targeted host.
-func singleRun(collectorIP string, destPort int, srcPort int, count int, hexDump bool) {
-	printHelpHeader()
-	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
-	if srcPort == 0 {
-		rand.Seed(time.Now().UnixNano())
-		//Pick random source port between 10000 and 15000
-		srcPort = rand.Intn(15000-10000) + 10000
-	} // else use the given srcPort number
-
-	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
-	if err != nil {
-		log.Fatal("Listen:", err)
-	}
-	// Convert given IP String to net.IP type
-	destIP := net.ParseIP(collectorIP)
-
-	// Generate and send Template Flow(s)
-	tFlow := netflow.GenerateTemplateNetflow()
-	tBuf := tFlow.ToBytes()
-	fmt.Printf("\nSending Template Flow\n\n")
-	fmt.Println(netflow.GetNetFlowSizes(tFlow))
-	if hexDump {
-		fmt.Printf("%s", hex.Dump(tBuf.Bytes()))
-	}
-	sendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, tBuf)
-
-	// Generate and send Data Flow(s)
-	fmt.Printf("\nSending Data Flows\n\n")
-	for i := 1; i <= count; i++ {
-		flow := netflow.GenerateDataNetflow(10)
-		buf := flow.ToBytes()
-		fmt.Println(netflow.GetNetFlowSizes(flow))
-		if hexDump {
-			fmt.Printf("%s", hex.Dump(buf.Bytes()))
-		}
-		sendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, buf)
-	}
-}
-
-// sendPacket Takes a given byte stream and puts on the wire towards the given host
-func sendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer) {
-	n, err := conn.WriteTo(data.Bytes(), addr)
-	if err != nil {
-		log.Fatal("Write:", err)
-	}
-	fmt.Println("Sent", n, "bytes", conn.LocalAddr(), "->", addr)
 }
 
 // printHelpHeader Generates the help header
