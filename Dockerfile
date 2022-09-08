@@ -1,3 +1,6 @@
+# Use of this source code is governed by Apache License 2.0
+# that can be found in the LICENSE file.
+
 FROM golang:1.19-alpine3.16 AS build-stage
 
 COPY . /opt/src

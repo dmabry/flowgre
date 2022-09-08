@@ -1,4 +1,7 @@
-// netflow funcs and structs
+// Use of this source code is governed by Apache License 2.0
+// that can be found in the LICENSE file.
+
+// Netflow v9 funcs and structs used for generating netflow packet to be put on the wire
 
 package netflow
 
@@ -14,10 +17,10 @@ import (
 // StartTime Start time for this instance, used to compute sysUptime
 var StartTime = time.Now().UnixNano()
 
-// current sysUptime in msec - recalculated in CreateNFlowHeader()
+// Current sysUptime in msec
 var sysUptime uint32 = 0
 
-// Counter of flow packets that have been sent
+// Counter of flow packets
 var flowSequence uint32 = 0
 
 // Constants for ports
@@ -39,7 +42,7 @@ const (
 	payloadAvgSmall  = 256
 )
 
-// Constants for Fields
+// Constants for Field Types
 const (
 	IN_BYTES                     = 1
 	IN_PKTS                      = 2
@@ -146,6 +149,7 @@ type Header struct {
 	SourceID     uint32
 }
 
+// Get the size of the Header in bytes
 func (h *Header) size() int {
 	size := binary.Size(h.Version)
 	size += binary.Size(h.FlowCount)
@@ -156,6 +160,7 @@ func (h *Header) size() int {
 	return size
 }
 
+// Get the Header in String
 func (h *Header) String() string {
 	return "Version: " + strconv.Itoa(int(h.Version)) +
 		" Count: " + strconv.Itoa(int(h.FlowCount)) +
@@ -166,6 +171,8 @@ func (h *Header) String() string {
 		" || "
 }
 
+// Generate a Header accounting for the given flowCount.  Flowcount should match the expected number of flows in the
+// Netflow packet that the Header will be used for.
 func (h *Header) Generate(flowCount int) Header {
 	now := time.Now().UnixNano()
 	secs := now / int64(time.Second)
@@ -183,21 +190,25 @@ func (h *Header) Generate(flowCount int) Header {
 	return *header
 }
 
+// Field for Template struct
 type Field struct {
 	Type   uint16
 	Length uint16
 }
 
+// Get the Field in String
 func (f *Field) String() string {
 	return "Type: " + strconv.Itoa(int(f.Type)) + "Length: " + strconv.Itoa(int(f.Length))
 }
 
+// Template for TemplateFlowSet
 type Template struct {
 	TemplateID uint16 // 0-255
 	FieldCount uint16
 	Fields     []Field
 }
 
+// Get the size of the Template in bytes
 func (t *Template) size() int {
 	size := binary.Size(t.TemplateID)
 	size += binary.Size(t.FieldCount)
@@ -207,6 +218,7 @@ func (t *Template) size() int {
 	return size
 }
 
+// Get the size of the Fields in a given Template in bytes
 func (t *Template) sizeOfFields() int {
 	var size int
 	for _, field := range t.Fields {
@@ -215,12 +227,17 @@ func (t *Template) sizeOfFields() int {
 	return size
 }
 
+// TemplateFlowSet for Netflow
 type TemplateFlowSet struct {
 	FlowSetID uint16 // seems to always be 0???
 	Length    uint16
 	Templates []Template
 }
 
+// Generate a TemplateFlowSet.
+// Per Netflow v9 spec, FlowSetID is *always* 0 for a TemplateFlow.
+// Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255
+// TODO: Hardcoded FieldCount and Fields for HTTPS Flow.  Need to work on Generating different flows
 func (t *TemplateFlowSet) Generate() TemplateFlowSet {
 	templateFlowSet := new(TemplateFlowSet)
 	templateFlowSet.FlowSetID = 0
@@ -239,13 +256,13 @@ func (t *TemplateFlowSet) Generate() TemplateFlowSet {
 	fields[5] = Field{Type: L4_DST_PORT, Length: 4}
 	// add them to the template
 	template.Fields = fields
-	// chicken and egg.... need to rethink this TODO: Solve this differently
 	templates = append(templates, *template)
 	templateFlowSet.Templates = templates
 	templateFlowSet.Length += uint16(templateFlowSet.size())
 	return *templateFlowSet
 }
 
+// Get the size of the TemplateFlowSet in bytes
 func (t *TemplateFlowSet) size() int {
 	size := binary.Size(t.FlowSetID)
 	size += binary.Size(t.Length)
@@ -260,10 +277,12 @@ func (t *TemplateFlowSet) size() int {
 	return size
 }
 
+// DataItem for DataFlowSet
 type DataItem struct {
 	Fields []uint32
 }
 
+// DataFlowSet for Netflow
 type DataFlowSet struct {
 	FlowSetID uint16 // should equal template id previously passed... for generation maybe always use 256?
 	Length    uint16
@@ -271,6 +290,12 @@ type DataFlowSet struct {
 	Padding   int //used to calculate "pad" the flowset to 32 bit
 }
 
+// Generate a DataFlowSet.
+// Per Netflow v9 spec, FlowSetID is *always* set to the TemplateID from a given TemplateFlowSet.
+// Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255
+// Currently hardcoded to generate random src/dst IPs from 10.0.0.0/8.
+// TODO: Modify src/dst IP handling to allow for passing of values
+// TODO: Currently hardcoded to be a HTTPS flow.
 func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 	dataFlowSet := new(DataFlowSet)
 	dataFlowSet.FlowSetID = 256
@@ -281,9 +306,9 @@ func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 		dstIP, _ := utils.RandomIP("10.0.0.0/8")
 		fields := make([]uint32, 6)
 		//IN_BYTES
-		fields[0] = utils.GenRand32(10000)
+		fields[0] = utils.GenerateRand32(10000)
 		//IN_PKTS
-		fields[1] = utils.GenRand32(10000)
+		fields[1] = utils.GenerateRand32(10000)
 		//IPV4_SRC_ADDR
 		//fields[2] = IPto32("10.0.0.32")
 		fields[2] = utils.IPToNum(srcIP)
@@ -291,7 +316,7 @@ func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 		//fields[3] = IPto32("10.0.0.42")
 		fields[3] = utils.IPToNum(dstIP)
 		//L4_SRC_PORT
-		fields[4] = utils.GenRand32(10000)
+		fields[4] = utils.GenerateRand32(10000)
 		//L4_DST_PORT
 		fields[5] = uint32(httpsPort)
 		//add fields to the item
@@ -302,6 +327,7 @@ func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 	return *dataFlowSet
 }
 
+// Get the size of the DataFlowSet in bytes
 func (d *DataFlowSet) size() int {
 	size := binary.Size(d.FlowSetID)
 	size += binary.Size(d.Length)
@@ -317,23 +343,25 @@ func (d *DataFlowSet) size() int {
 	return size
 }
 
-// Netflow Complete netflow records
+// Netflow complete record
 type Netflow struct {
 	Header           Header
 	TemplateFlowSets []TemplateFlowSet
 	DataFlowSets     []DataFlowSet
 }
 
+// ToBytes Converts Netflow struct to a bytes buffer than can be written to the wire
+// TODO: Better error handling.
 func (n *Netflow) ToBytes() bytes.Buffer {
 	var buf bytes.Buffer
 	err := binary.Write(&buf, binary.BigEndian, &n.Header)
 	if err != nil {
 		log.Println("[ERROR] Issue writing header: ", err)
 	}
-	//write template flow if any exists
+	// Write Template flow if any exists
 	if len(n.TemplateFlowSets) > 0 {
 		for _, tFlow := range n.TemplateFlowSets {
-			//order flowsetid, length, template(s)
+			// Order FlowSetID, Length, Template(s)
 			err := binary.Write(&buf, binary.BigEndian, tFlow.FlowSetID)
 			if err != nil {
 				log.Println("[ERROR] Issue writing Template FlowSetID: ", err)
@@ -343,7 +371,7 @@ func (n *Netflow) ToBytes() bytes.Buffer {
 				log.Println("[ERROR] Issue writing Template Length: ", err)
 			}
 			for _, template := range tFlow.Templates {
-				// templateId, Field Count, Field(s)
+				// Order TemplateId, Field Count, Field(s)
 				err = binary.Write(&buf, binary.BigEndian, template.TemplateID)
 				if err != nil {
 					log.Println("[ERROR] Issue writing Template ID: ", err)
@@ -365,10 +393,10 @@ func (n *Netflow) ToBytes() bytes.Buffer {
 			}
 		}
 	}
-	//write dataflow(s)
+	// Write Data flow(s) if any exists
 	if len(n.DataFlowSets) > 0 {
 		for _, dFlow := range n.DataFlowSets {
-			// order FlowSetID, Length, Record(s)
+			// Order FlowSetID, Length, Record(s)
 			err := binary.Write(&buf, binary.BigEndian, dFlow.FlowSetID)
 			if err != nil {
 				log.Println("[ERROR] Issue writing Data FlowSetID: ", err)
@@ -385,7 +413,7 @@ func (n *Netflow) ToBytes() bytes.Buffer {
 					}
 				}
 			}
-			//padding to 32 bit boundary
+			// Padding to 32 bit boundary per Netflow v9 RFC
 			if dFlow.Padding != 0 {
 				padtext := bytes.Repeat([]byte{byte(0)}, dFlow.Padding)
 				err = binary.Write(&buf, binary.BigEndian, padtext)
@@ -398,6 +426,7 @@ func (n *Netflow) ToBytes() bytes.Buffer {
 	return buf
 }
 
+// GetNetFlowSizes Gets the size of a given Netflow and returns it as a String
 func GetNetFlowSizes(netFlow Netflow) string {
 	output := "Header Size: " + strconv.Itoa(netFlow.Header.size()) + " bytes\n"
 	tSize := 0
@@ -413,6 +442,7 @@ func GetNetFlowSizes(netFlow Netflow) string {
 	return output
 }
 
+// GenerateNetflow Generates a combined Template and Data flow Netflow struct.  Not required by spec, but can be done.
 func GenerateNetflow(flowCount int) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
@@ -424,6 +454,7 @@ func GenerateNetflow(flowCount int) Netflow {
 	return *netflow
 }
 
+// GenerateDataNetflow Generates a Netflow containing Data flows
 func GenerateDataNetflow(flowCount int) Netflow {
 	netflow := new(Netflow)
 	dataFlow := new(DataFlowSet).Generate(flowCount)
@@ -433,6 +464,7 @@ func GenerateDataNetflow(flowCount int) Netflow {
 	return *netflow
 }
 
+// GenerateTemplateNetflow Generates a Netflow containing Template flow
 func GenerateTemplateNetflow() Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
