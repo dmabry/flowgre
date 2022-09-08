@@ -1,4 +1,7 @@
-// This tool will be used to generate netflow traffic for testing other netflow collectors.
+// Use of this source code is governed by Apache License 2.0
+// that can be found in the LICENSE file.
+
+// Flowgre is a tool used to generate netflow traffic for testing Netflow collectors.
 package main
 
 import (
@@ -14,6 +17,7 @@ import (
 	"time"
 )
 
+// TODO: Better error handling
 func main() {
 
 	// Single SubCommand setup
@@ -45,6 +49,7 @@ func main() {
 		barrageCmd.PrintDefaults()
 	}
 
+	// Start parsing command line args
 	if len(os.Args) < 2 {
 		printHelpHeader()
 		fmt.Println("Expected 'single' or 'barrage' subcommands")
@@ -53,6 +58,7 @@ func main() {
 
 	switch os.Args[1] {
 
+	// Setup and run Single
 	case "single":
 		singleCmd.Parse(os.Args[2:])
 		fmt.Println("subcommand 'single'")
@@ -66,12 +72,14 @@ func main() {
 		singleRun(*singleServer, *singleDstPort, *singleSrcPort, *singleCount, *singleHexDump)
 		os.Exit(0)
 
+	// Setup and run Barrage
 	case "barrage":
 		barrageCmd.Parse(os.Args[2:])
 		fmt.Println("subcommand 'barrage'")
 		fmt.Println("COMING SOON!!!")
 		os.Exit(404)
 
+	// Shouldn't get here, but if we do it is an error for sure.
 	default:
 		printHelpHeader()
 		fmt.Println("expected 'single' or 'barrage' subcommands")
@@ -81,9 +89,11 @@ func main() {
 
 }
 
+// singleRun Creates the given number of Netflow packets, including the required Template, for a Single run.  Creates the packets
+// and puts the on the wire to the targeted host.
 func singleRun(collectorIP string, destPort int, srcPort int, count int, hexDump bool) {
 	printHelpHeader()
-	//Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
+	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
 	if srcPort == 0 {
 		rand.Seed(time.Now().UnixNano())
 		//Pick random source port between 10000 and 15000
@@ -97,7 +107,7 @@ func singleRun(collectorIP string, destPort int, srcPort int, count int, hexDump
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(collectorIP)
 
-	//Generate and send Template Flow(s)
+	// Generate and send Template Flow(s)
 	tFlow := netflow.GenerateTemplateNetflow()
 	tBuf := tFlow.ToBytes()
 	fmt.Printf("\nSending Template Flow\n\n")
@@ -120,6 +130,7 @@ func singleRun(collectorIP string, destPort int, srcPort int, count int, hexDump
 	}
 }
 
+// sendPacket Takes a given byte stream and puts on the wire towards the given host
 func sendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer) {
 	n, err := conn.WriteTo(data.Bytes(), addr)
 	if err != nil {
@@ -128,6 +139,7 @@ func sendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer) {
 	fmt.Println("Sent", n, "bytes", conn.LocalAddr(), "->", addr)
 }
 
+// printHelpHeader Generates the help header
 func printHelpHeader() {
 	fmt.Printf("\n   ___ _                             \n  / __\\ | _____      ____ _ _ __ ___ \n / _\\ | |/ _" +
 		" \\ \\ /\\ / / _` | '__/ _ \\\n/ /   | | (_) \\ V  V / (_| | | |  __/\n\\/    |_|\\___/ \\_/\\_/ \\__, |_|  \\" +
