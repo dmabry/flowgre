@@ -5,12 +5,8 @@ package netflow
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/gob"
-	"errors"
-	"fmt"
+	"github.com/dmabry/flowgre/utils"
 	"log"
-	"math/rand"
-	"net"
 	"strconv"
 	"time"
 )
@@ -281,21 +277,21 @@ func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 	// dataFlowSet.Length = 0 // need to figure out how to calculate this
 	items := make([]DataItem, flowCount)
 	for i := 0; i < flowCount; i++ {
-		srcIP, _ := RandomIP("10.0.0.0/8")
-		dstIP, _ := RandomIP("10.0.0.0/8")
+		srcIP, _ := utils.RandomIP("10.0.0.0/8")
+		dstIP, _ := utils.RandomIP("10.0.0.0/8")
 		fields := make([]uint32, 6)
 		//IN_BYTES
-		fields[0] = genRand32(10000)
+		fields[0] = utils.GenRand32(10000)
 		//IN_PKTS
-		fields[1] = genRand32(10000)
+		fields[1] = utils.GenRand32(10000)
 		//IPV4_SRC_ADDR
 		//fields[2] = IPto32("10.0.0.32")
-		fields[2] = ipToNum(srcIP)
+		fields[2] = utils.IPToNum(srcIP)
 		//IPV4_DST_ADDR
 		//fields[3] = IPto32("10.0.0.42")
-		fields[3] = ipToNum(dstIP)
+		fields[3] = utils.IPToNum(dstIP)
 		//L4_SRC_PORT
-		fields[4] = genRand32(10000)
+		fields[4] = utils.GenRand32(10000)
 		//L4_DST_PORT
 		fields[5] = uint32(httpsPort)
 		//add fields to the item
@@ -444,74 +440,4 @@ func GenerateTemplateNetflow() Netflow {
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
 	return *netflow
-}
-
-func genRand16(max int) uint16 {
-	return uint16(rand.Intn(max))
-}
-
-func IPto32(s string) uint32 {
-	ip := net.ParseIP(s)
-	return binary.BigEndian.Uint32(ip.To4())
-}
-
-func genRand32(max int) uint32 {
-	return uint32(rand.Intn(max))
-}
-
-func randomNum(min, max int) int {
-	return rand.Intn(max-min) + min
-}
-
-// Not used currently, but handy to have for later maybe
-func ToBytes(key interface{}) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(key)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func ipToNum(ip net.IP) uint32 {
-	if len(ip) == 16 {
-		return binary.BigEndian.Uint32(ip[12:16])
-	}
-	return binary.BigEndian.Uint32(ip)
-}
-
-func numToIP(num uint32) net.IP {
-	ip := make(net.IP, 4)
-	binary.BigEndian.PutUint32(ip, num)
-	return ip
-}
-
-func RandomIP(cidr string) (net.IP, error) {
-	_, ipNet, err := net.ParseCIDR(cidr)
-	if err != nil {
-		fmt.Println("[ERROR] Parsing CIDR", cidr, " failed. error: ", err)
-	}
-	ipMin := ipNet.IP
-	ipMax, _ := getLastIP(ipNet)
-	ipMinNum := ipToNum(ipMin)
-	ipMaxNum := ipToNum(ipMax)
-	rand.Seed(time.Now().UnixNano())
-	randIPNum := uint32(rand.Int31n(int32(ipMaxNum-ipMinNum)) + int32(ipMinNum))
-	randIP := numToIP(randIPNum)
-
-	//check if in range
-
-	if ipNet.Contains(randIP) {
-		return randIP, nil
-	}
-	return nil, errors.New("random IP broken")
-
-	//fmt.Println("ipMin: ", ipMin.String(), " ipMax: ", ipMax.String())
-}
-
-func getLastIP(ipNet *net.IPNet) (net.IP, error) {
-	ip := make(net.IP, len(ipNet.IP.To4()))
-	binary.BigEndian.PutUint32(ip, binary.BigEndian.Uint32(ipNet.IP.To4())|^binary.BigEndian.Uint32(ipNet.Mask))
-	return ip, nil
 }
