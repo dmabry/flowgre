@@ -36,7 +36,6 @@ func main() {
 	barrageCmd := flag.NewFlagSet("barrage", flag.ExitOnError)
 	barrageCmd.Usage = func() {
 		printHelpHeader()
-		fmt.Println("COMING SOON!")
 		fmt.Println("Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.")
 		fmt.Println()
 		fmt.Fprintf(barrageCmd.Output(), "Usage of %s:\n", os.Args[0])
