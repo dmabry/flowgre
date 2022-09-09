@@ -25,6 +25,8 @@ func Run(collectorIP string, destPort int, srcPort int, count int, hexDump bool)
 		//Pick random source port between 10000 and 15000
 		srcPort = rand.Intn(15000-10000) + 10000
 	} // else use the given srcPort number
+	// Generate random sourceID for All Netflow headers.  This is essentially a virtual ID.
+	sourceID := utils.RandomNum(100, 10000)
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
@@ -34,24 +36,24 @@ func Run(collectorIP string, destPort int, srcPort int, count int, hexDump bool)
 	destIP := net.ParseIP(collectorIP)
 
 	// Generate and send Template Flow(s)
-	tFlow := netflow.GenerateTemplateNetflow()
+	tFlow := netflow.GenerateTemplateNetflow(sourceID)
 	tBuf := tFlow.ToBytes()
 	fmt.Printf("\nSending Template Flow\n\n")
 	fmt.Println(netflow.GetNetFlowSizes(tFlow))
 	if hexDump {
 		fmt.Printf("%s", hex.Dump(tBuf.Bytes()))
 	}
-	utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, tBuf)
+	utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, tBuf, true)
 
 	// Generate and send Data Flow(s)
 	fmt.Printf("\nSending Data Flows\n\n")
 	for i := 1; i <= count; i++ {
-		flow := netflow.GenerateDataNetflow(10)
+		flow := netflow.GenerateDataNetflow(10, sourceID)
 		buf := flow.ToBytes()
 		fmt.Println(netflow.GetNetFlowSizes(flow))
 		if hexDump {
 			fmt.Printf("%s", hex.Dump(buf.Bytes()))
 		}
-		utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, buf)
+		utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, buf, true)
 	}
 }
