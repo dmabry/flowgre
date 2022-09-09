@@ -7,6 +7,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/dmabry/flowgre/barrage"
 	"github.com/dmabry/flowgre/single"
 	"os"
 )
@@ -35,13 +36,16 @@ func main() {
 	barrageCmd := flag.NewFlagSet("barrage", flag.ExitOnError)
 	barrageCmd.Usage = func() {
 		printHelpHeader()
-		fmt.Println("COMING SOON!")
 		fmt.Println("Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.")
 		fmt.Println()
 		fmt.Fprintf(barrageCmd.Output(), "Usage of %s:\n", os.Args[0])
 		fmt.Println()
 		barrageCmd.PrintDefaults()
 	}
+	barrageServer := barrageCmd.String("server", "localhost", "servername or ip address of the flow collector")
+	barrageDstPort := barrageCmd.Int("port", 9995, "destination port used by the flow collector")
+	barrageWorkers := barrageCmd.Int("workers", 4, "number of workers to create. Unique sources per worker")
+	barrageDelay := barrageCmd.Int("delay", 100, "number of milliseconds between packets sent")
 
 	// Start parsing command line args
 	if len(os.Args) < 2 {
@@ -71,8 +75,12 @@ func main() {
 	case "barrage":
 		barrageCmd.Parse(os.Args[2:])
 		fmt.Println("subcommand 'barrage'")
-		fmt.Println("COMING SOON!!!")
-		os.Exit(404)
+		fmt.Println("  server:", *barrageServer)
+		fmt.Println("  port:", *barrageDstPort)
+		fmt.Println("  workers:", *barrageWorkers)
+		fmt.Println("  delay:", *barrageDelay)
+		barrage.Run(*barrageServer, *barrageDstPort, *barrageDelay, *barrageWorkers)
+		os.Exit(0)
 
 	// Shouldn't get here, but if we do it is an error for sure.
 	default:

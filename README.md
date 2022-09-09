@@ -10,13 +10,14 @@ Slinging packets since 2022!
 \/    |_|\___/ \_/\_/ \__, |_|  \___|
                       |___/
 ```
+For sending fabricated Netflow v9 traffic at a collector for testing
 
 ## Single
 ```shell
 Single is used to send a given number of flows in sequence to a collector for testing.
 Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range.
 
-Usage of ./flowgre:
+Usage of flowgre single:
 
   -count int
     	count of flow to send in sequence. (default 1)
@@ -37,7 +38,19 @@ flowgre single -server 10.10.10.10 -count 10
 
 ## Barrage
 ```shell
-COMING SOON!
+Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.
+Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range.
+
+Usage of flowgre barrage:
+
+  -delay int
+    	number of milliseconds between packets sent (default 100)
+  -port int
+    	destination port used by the flow collector (default 9995)
+  -server string
+    	servername or ip address of the flow collector (default "localhost")
+  -workers int
+    	number of workers to create. Unique sources per worker (default 4)
 Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.
 ```
 

@@ -173,7 +173,7 @@ func (h *Header) String() string {
 
 // Generate a Header accounting for the given flowCount.  Flowcount should match the expected number of flows in the
 // Netflow packet that the Header will be used for.
-func (h *Header) Generate(flowCount int) Header {
+func (h *Header) Generate(flowCount int, sourceID int) Header {
 	now := time.Now().UnixNano()
 	secs := now / int64(time.Second)
 	sysUptime = uint32((now-StartTime)/int64(time.Millisecond)) + 1000
@@ -185,7 +185,7 @@ func (h *Header) Generate(flowCount int) Header {
 	header.UnixSec = uint32(secs)
 	header.FlowCount = uint16(flowCount)
 	header.FlowSequence = flowSequence
-	header.SourceID = uint32(618)
+	header.SourceID = uint32(sourceID)
 
 	return *header
 }
@@ -443,11 +443,11 @@ func GetNetFlowSizes(netFlow Netflow) string {
 }
 
 // GenerateNetflow Generates a combined Template and Data flow Netflow struct.  Not required by spec, but can be done.
-func GenerateNetflow(flowCount int) Netflow {
+func GenerateNetflow(flowCount int, sourceID int) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
 	dataFlow := new(DataFlowSet).Generate(flowCount)
-	header := new(Header).Generate(flowCount + 1) // always +1 of dataflow count, because we are counting the template
+	header := new(Header).Generate(flowCount+1, sourceID) // always +1 of dataflow count, because we are counting the template
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)
@@ -455,20 +455,20 @@ func GenerateNetflow(flowCount int) Netflow {
 }
 
 // GenerateDataNetflow Generates a Netflow containing Data flows
-func GenerateDataNetflow(flowCount int) Netflow {
+func GenerateDataNetflow(flowCount int, sourceID int) Netflow {
 	netflow := new(Netflow)
 	dataFlow := new(DataFlowSet).Generate(flowCount)
-	header := new(Header).Generate(flowCount) // always +1 of dataflow count, because we are counting the template
+	header := new(Header).Generate(flowCount, sourceID) // always +1 of dataflow count, because we are counting the template
 	netflow.Header = header
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)
 	return *netflow
 }
 
 // GenerateTemplateNetflow Generates a Netflow containing Template flow
-func GenerateTemplateNetflow() Netflow {
+func GenerateTemplateNetflow(sourceID int) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
-	header := new(Header).Generate(1) // always 1 counting the template only
+	header := new(Header).Generate(1, sourceID) // always 1 counting the template only
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
 	return *netflow

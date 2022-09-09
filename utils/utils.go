@@ -119,10 +119,12 @@ func NumToIP(num uint32) net.IP {
 }
 
 // SendPacket Takes a given byte stream and puts on the wire towards the given host
-func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer) {
+func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer, verbose bool) {
 	n, err := conn.WriteTo(data.Bytes(), addr)
 	if err != nil {
 		log.Fatal("Write:", err)
 	}
-	fmt.Println("Sent", n, "bytes", conn.LocalAddr(), "->", addr)
+	if verbose {
+		fmt.Println("Sent", n, "bytes", conn.LocalAddr(), "->", addr)
+	}
 }
