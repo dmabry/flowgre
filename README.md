@@ -12,6 +12,8 @@ Slinging packets since 2022!
 ```
 For sending fabricated Netflow v9 traffic at a collector for testing
 
+[![Build Status](https://drone.dmabry.net/api/badges/dmabry/flowgre/status.svg?ref=refs/heads/main)](https://drone.dmabry.net/dmabry/flowgre)
+
 ## Single
 ```shell
 Single is used to send a given number of flows in sequence to a collector for testing.
