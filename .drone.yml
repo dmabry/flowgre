@@ -10,6 +10,7 @@ steps:
   - apk add --no-cache build-base
   - go test -v ./...
   - go build
-  when:
-    event:
-      - pull_request
+
+trigger:
+  event:
+    - pull_request
