@@ -17,7 +17,7 @@ For sending fabricated Netflow v9 traffic at a collector for testing
 ## Single
 ```shell
 Single is used to send a given number of flows in sequence to a collector for testing.
-Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range.
+Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range and hardcoded for HTTPS flows.
 
 Usage of flowgre single:
 
@@ -41,7 +41,7 @@ flowgre single -server 10.10.10.10 -count 10
 ## Barrage
 ```shell
 Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.
-Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range.
+Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range and hardcoded for HTTPS flows.
 
 Usage of flowgre barrage:
 
