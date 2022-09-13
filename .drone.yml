@@ -8,5 +8,5 @@ steps:
   image: golang:1.19-alpine3.16
   commands:
   - apk add --no-cache build-base
-  - go test -v
+  - go test -v ./...
   - go build
