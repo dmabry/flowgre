@@ -32,7 +32,7 @@ steps:
   image: golang:1.19-alpine3.16
   commands:
     - apk add --no-cache build-base
-    - scripts/build-multiplatform.sh
+    - /drone/src/scripts/build-multiplatform.sh
     - ls -l flowgre_*
 - name: release
   image: plugins/github-release
@@ -49,6 +49,6 @@ trigger:
     - refs/tags/*
 ---
 kind: signature
-hmac: 85cd395e13274ea49f992d24d16de2685c914b3c4438139dbe0a2c2aef3617b6
+hmac: 2b51736746f0c9dc1195b4c1ea30a0543ee717516597003e78b39d6fe71df2fa
 
 ...
