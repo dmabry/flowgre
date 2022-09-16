@@ -1,7 +1,7 @@
 ---
 kind: pipeline
 type: docker
-name: default
+name: test
 
 steps:
 - name: test
@@ -10,12 +10,44 @@ steps:
   - apk add --no-cache build-base
   - go test -v ./...
   - go build
-
+  when:
+    event:
+    - pull_request
 trigger:
   event:
     - pull_request
+
+---
+kind: pipeline
+type: docker
+name: release
+
+steps:
+- name: test
+  image: golang:1.19-alpine3.16
+  commands:
+    - apk add --no-cache build-base
+    - go test -v ./...
+- name: build
+  image: golang:1.19-alipine3.16
+  commands:
+    - apk add --no-cache build-base
+    - ./scripts/build-multiplatform.sh
+- name: release
+  image: plugins/github-release
+  settings:
+    api_key:
+      from_secret: GITHUB_TOKEN
+    files:
+      - flowgre_*
+    note: 'Flowgre, version ${DRONE_TAG}.'
+    title: '${DRONE_TAG}'
+    prerelease: true
+trigger:
+  ref:
+    - refs/tags/*
 ---
 kind: signature
-hmac: d92166f06af8fd0efaac3d259dc282965ffce6068d9a49ed0cc004fae1ba260a
+hmac: 83d43a7882116f74c00c3313d2562f1cca125855240ed38ced27a4eed2f93540
 
 ...
