@@ -29,7 +29,7 @@ steps:
     - apk add --no-cache build-base
     - go test -v ./...
 - name: build
-  image: golang:1.19-alipine3.16
+  image: golang:1.19-alpine3.16
   commands:
     - apk add --no-cache build-base
     - ./scripts/build-multiplatform.sh
@@ -48,6 +48,6 @@ trigger:
     - refs/tags/*
 ---
 kind: signature
-hmac: 83d43a7882116f74c00c3313d2562f1cca125855240ed38ced27a4eed2f93540
+hmac: cb6f1b0f96653d649a332a1cc0b919105c92a96adf8bba5885bb0e83de025058
 
 ...
