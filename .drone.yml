@@ -1,7 +1,7 @@
 ---
 kind: pipeline
 type: docker
-name: default
+name: test
 
 steps:
 - name: test
@@ -20,7 +20,7 @@ trigger:
 ---
 kind: pipeline
 type: docker
-name: default
+name: release
 
 steps:
 - name: test
@@ -48,6 +48,6 @@ trigger:
     - refs/tags/*
 ---
 kind: signature
-hmac: 7dda79f39df64f958e0b5270164ac947e2e67897ca0e1d4017ddab648da9cc49
+hmac: 83d43a7882116f74c00c3313d2562f1cca125855240ed38ced27a4eed2f93540
 
 ...
