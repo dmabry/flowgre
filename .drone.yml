@@ -32,7 +32,7 @@ steps:
   image: golang:1.19-alpine3.16
   commands:
     - apk add --no-cache build-base bash
-    - bash ./scripts/build-multiplatform.sh
+    - bash ./scripts/build-multiplatform.sh ${DRONE_TAG##v}
     - ls -l flowgre_*
 - name: release
   image: plugins/github-release
@@ -41,7 +41,7 @@ steps:
       from_secret: GITHUB_TOKEN
     files:
       - flowgre_*
-    note: 'Flowgre, version ${DRONE_TAG}.'
+    note: 'Flowgre, version ${DRONE_TAG}'
     title: '${DRONE_TAG}'
     prerelease: true
 trigger:
@@ -49,6 +49,6 @@ trigger:
     - refs/tags/*
 ---
 kind: signature
-hmac: d76add862ee34170a76a98ead51ec2ae66855d2341f4092b59d156bff42b893e
+hmac: 05d4af5c762a29b6d20c6782f4125f5e922b19cd2bb1bf8226af1449987c46c1
 
 ...
