@@ -13,7 +13,8 @@ Slinging packets since 2022!
 For sending fabricated Netflow v9 traffic at a collector for testing
 
 [![Build Status](https://drone.dmabry.net/api/badges/dmabry/flowgre/status.svg?ref=refs/heads/main)](https://drone.dmabry.net/dmabry/flowgre)
-
+[![Go Report Card](https://goreportcard.com/badge/github.com/dmabry/flowgre)](https://goreportcard.com/report/github.com/dmabry/flowgre)
+[![Go Reference](https://pkg.go.dev/badge/github.com/dmabry/flowgre.svg)](https://pkg.go.dev/github.com/dmabry/flowgre)
 ## Single
 ```shell
 Single is used to send a given number of flows in sequence to a collector for testing.
