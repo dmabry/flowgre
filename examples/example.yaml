@@ -1,0 +1,6 @@
+targets:
+  server1:
+    ip: 127.0.0.1
+    port: 9995
+    workers: 4
+    delay: 100
