@@ -7,7 +7,6 @@ package barrage
 
 import (
 	"context"
-	"fmt"
 	"github.com/dmabry/flowgre/flow/netflow"
 	"github.com/dmabry/flowgre/utils"
 	"log"
@@ -48,7 +47,7 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 	// Generate and send Template Flow(s)
 	tFlow := netflow.GenerateTemplateNetflow(sourceID)
 	tBuf := tFlow.ToBytes()
-	fmt.Printf("Worker [%d] Sending Template Flow\n", id)
+	log.Printf("Worker [%d] Sending Template Flow\n", id)
 	utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 
 	log.Printf("Worker [%d] Slinging packets at %s:%d with Source ID: %d and delay of %dms \n",
