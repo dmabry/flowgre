@@ -16,6 +16,11 @@ import (
 	"strconv"
 )
 
+const (
+	version = "main" // semantic version
+	license = "Apache License, Version 2.0"
+)
+
 // TODO: Better error handling
 func main() {
 
@@ -55,7 +60,7 @@ func main() {
 	// Start parsing command line args
 	if len(os.Args) < 2 {
 		printGenericHelp()
-		fmt.Println("expected 'single' or 'barrage' subcommands")
+		fmt.Println("expected 'single', 'barrage' or 'version' subcommands")
 		os.Exit(1)
 	}
 
@@ -137,14 +142,17 @@ func main() {
 			os.Exit(0)
 		}
 
+	case "version":
+		printHelpHeader()
+		fmt.Printf("Version: %s\n", version)
+		fmt.Printf("License: %s\n", license)
 	case "help":
 		printGenericHelp()
 	default:
 		printGenericHelp()
-		fmt.Println("expected 'single' or 'barrage' subcommands")
+		fmt.Println("expected 'single', 'barrage' or 'version' subcommands")
 		os.Exit(2)
 	}
-	//os.Exit(0)
 }
 
 // printHelpHeader Generates the help header
@@ -154,13 +162,13 @@ func printHelpHeader() {
 		"___|\n                      |___/          \n")
 	fmt.Println("Slinging packets since 2022!")
 	fmt.Println("Used for Netflow Collector Stress testing and other fun activities.")
-	fmt.Println()
 }
 
 // printGenericHelp prints out the top-level generic help
 func printGenericHelp() {
 	printHelpHeader()
-	fmt.Println("expected 'single' or 'barrage' subcommands")
+	fmt.Printf("Version: %s\n", version)
+	fmt.Println("expected 'single', 'barrage' or 'version' subcommands")
 	fmt.Println("to print more details pass '-help' after the subcommand")
 	fmt.Println()
 	fmt.Println("Single is used to send a given number of flows in sequence to a collector for testing.")
@@ -168,6 +176,5 @@ func printGenericHelp() {
 	fmt.Println()
 	fmt.Println("Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.")
 	fmt.Println()
-	// Shouldn't get here, but if we do it is an error for sure.
 
 }

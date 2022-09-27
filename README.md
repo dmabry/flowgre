@@ -2,7 +2,7 @@
 Slinging packets since 2022!
 
 
-```shell   
+```
     ___ _                             
   / __\ | _____      ____ _ _ __ ___
  / _\ | |/ _ \ \ /\ / / _` | '__/ _ \
@@ -42,19 +42,19 @@ flowgre single -server 10.10.10.10 -count 10
 ## Barrage
 ```shell
 Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.
-Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range and hardcoded for HTTPS flows.
 
 Usage of flowgre barrage:
 
+  -config string
+    	Config file to use.  Supersedes all given args
   -delay int
     	number of milliseconds between packets sent (default 100)
   -port int
     	destination port used by the flow collector (default 9995)
   -server string
-    	servername or ip address of the flow collector (default "localhost")
+    	servername or ip address of the flow collector (default "127.0.0.1")
   -workers int
     	number of workers to create. Unique sources per worker (default 4)
-Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.
 ```
 
 ## License
