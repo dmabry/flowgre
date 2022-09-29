@@ -18,7 +18,7 @@ steps:
   commands:
     - apk add --no-cache build-base
     - wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.13.1
-    - gosec ./...
+    - ./bin/gosec ./...
 trigger:
   event:
     - pull_request
@@ -55,6 +55,6 @@ trigger:
     - refs/tags/*
 ---
 kind: signature
-hmac: 805ea17fb5621c55f509b8bb8121037d61b2bfded3b996bd4703fd2738c3dae7
+hmac: 4970d65ae40ad2524b4a9d2cd17fd29218c42d8225f74da633d88d3f1d81d152
 
 ...
