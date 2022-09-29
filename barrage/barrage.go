@@ -10,7 +10,6 @@ import (
 	"github.com/dmabry/flowgre/flow/netflow"
 	"github.com/dmabry/flowgre/utils"
 	"log"
-	"math/rand"
 	"net"
 	"os"
 	"os/signal"
@@ -33,8 +32,7 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 	limiter := time.Tick(time.Millisecond * time.Duration(delay))
 
 	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
-	rand.Seed(time.Now().UnixNano())
-	srcPort := rand.Intn(15000-10000) + 10000
+	srcPort := utils.RandomNum(10000, 15000)
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {

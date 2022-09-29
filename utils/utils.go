@@ -7,27 +7,37 @@ package utils
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"encoding/binary"
 	"encoding/gob"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"math/rand"
 	"net"
 	"time"
 )
 
-// Constant used for generating random strings... not cryptographically safe.
+// Constant used for generating random strings.
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 // RandStringBytes Generates a random string of given length
 func RandStringBytes(n int) string {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+		b[i] = letterBytes[CryptoRandomNumber(int64(len(letterBytes)))]
 	}
 	return string(b)
+}
+
+func CryptoRandomNumber(max int64) int64 {
+	n, err := crand.Int(crand.Reader, big.NewInt(max))
+	if err != nil {
+		panic(fmt.Errorf("crypto number failed to read bytes %v", err))
+	}
+	return n.Int64()
 }
 
 // BinaryDecoder decodes the given payload from a binary stream and puts it in dest
@@ -43,7 +53,7 @@ func BinaryDecoder(payload io.Reader, dests ...interface{}) error {
 
 // GenerateRand16 Generates random uint16 num within the given max
 func GenerateRand16(max int) uint16 {
-	return uint16(rand.Intn(max))
+	return uint16(CryptoRandomNumber(int64(max)))
 }
 
 // IPto32 Converts given IP string to uint32 representation
@@ -54,12 +64,13 @@ func IPto32(s string) uint32 {
 
 // GenerateRand32 Generates a random uint32 within the given max
 func GenerateRand32(max int) uint32 {
-	return uint32(rand.Intn(max))
+	// return uint32(rand.Intn(max))
+	return uint32(CryptoRandomNumber(int64(max)))
 }
 
 // RandomNum Generates a random number between the given min and max
 func RandomNum(min, max int) int {
-	return rand.Intn(max-min) + min
+	return int(CryptoRandomNumber(int64(max-min))) + min
 }
 
 // ToBytes Converts a given interface to a byte stream.
@@ -87,7 +98,7 @@ func RandomIP(cidr string) (net.IP, error) {
 	ipMinNum := IPToNum(ipMin)
 	ipMaxNum := IPToNum(ipMax)
 	rand.Seed(time.Now().UnixNano())
-	randIPNum := uint32(rand.Int31n(int32(ipMaxNum-ipMinNum)) + int32(ipMinNum))
+	randIPNum := uint32(rand.Int31n(int32(ipMaxNum-ipMinNum)) + int32(ipMinNum)) //#nosec This just used for IP generation
 	randIP := NumToIP(randIPNum)
 	//check if in range
 	if ipNet.Contains(randIP) {

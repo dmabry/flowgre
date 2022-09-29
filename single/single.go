@@ -23,7 +23,7 @@ func Run(collectorIP string, destPort int, srcPort int, count int, hexDump bool)
 	if srcPort == 0 {
 		rand.Seed(time.Now().UnixNano())
 		//Pick random source port between 10000 and 15000
-		srcPort = rand.Intn(15000-10000) + 10000
+		srcPort = utils.RandomNum(10000, 15000)
 	} // else use the given srcPort number
 	// Generate random sourceID for All Netflow headers.  This is essentially a virtual ID.
 	sourceID := utils.RandomNum(100, 10000)
