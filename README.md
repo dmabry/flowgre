@@ -75,6 +75,3 @@ under the License.
 
 Please see the [LICENSE](LICENSE) file included in the root directory
 of the source tree for extended license details.
-
-testing drone gosec
-
