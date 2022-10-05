@@ -7,6 +7,7 @@ package barrage
 
 import (
 	"context"
+	"fmt"
 	"github.com/dmabry/flowgre/flow/netflow"
 	"github.com/dmabry/flowgre/utils"
 	"log"
@@ -18,8 +19,10 @@ import (
 )
 
 type WorkerStats struct {
-	FlowsSent int
-	Cycles    int
+	SourceID  int
+	FlowsSent uint64
+	Cycles    uint64
+	BytesSent uint64
 }
 
 type Config struct {
@@ -34,12 +37,20 @@ type Config struct {
 	Context   context.Context
 }
 
+const (
+	sizeKB = uint64(1 << (10 * 1))
+	sizeMB = uint64(1 << (10 * 2))
+	sizeGB = uint64(1 << (10 * 3))
+)
+
 // Worker is the goroutine used to create workers
 func worker(id int, ctx context.Context, server string, port int, sourceID int, delay int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	wStats := WorkerStats{
+		SourceID:  sourceID,
 		FlowsSent: 0,
 		Cycles:    0,
+		BytesSent: 0,
 	}
 
 	startTime := time.Now().UnixNano()
@@ -51,7 +62,6 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
 		log.Fatal("Listen:", err)
-		os.Exit(55)
 	}
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(server)
@@ -60,19 +70,38 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 	tFlow := netflow.GenerateTemplateNetflow(sourceID)
 	tBuf := tFlow.ToBytes()
 	log.Printf("Worker [%d] Sending Template Flow\n", id)
-	utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
+	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
+	if err != nil {
+		fmt.Errorf("Worker [%d] Issue sending packet %v\n", id, err)
+		fmt.Println(err.Error())
+	}
 
 	log.Printf("Worker [%d] Slinging packets at %s:%d with Source ID: %d and delay of %dms \n",
 		id, server, port, sourceID, delay)
 	//Infinite loop to keep slinging until we receive context done.
 	printStats := false
+	sizeLabel := "bytes"
+	var sizeOut uint64 = 0
 	for {
 		now := time.Now().UnixNano()
 		statsCycle := (now - startTime) / int64(time.Second) % 30
 		// Print out basic statistics per worker every 30 seconds
 		if statsCycle == 0 {
 			if printStats {
-				log.Printf("Worker [%d] Cycles: %d Flows Sent: %d\n", id, wStats.Cycles, wStats.FlowsSent)
+				switch {
+				case wStats.BytesSent >= sizeKB && wStats.BytesSent <= sizeMB:
+					sizeLabel = "KB"
+					sizeOut = wStats.BytesSent / sizeKB
+				case wStats.BytesSent >= sizeMB && wStats.BytesSent <= sizeGB:
+					sizeLabel = "MB"
+					sizeOut = wStats.BytesSent / sizeMB
+				case wStats.BytesSent > sizeGB:
+					sizeLabel = "GB"
+					sizeOut = wStats.BytesSent / sizeGB
+				default:
+					sizeOut = wStats.BytesSent
+				}
+				log.Printf("Worker [%d] Cycles: %d Flows Sent: %d Bytes Sent: %d %s\n", id, wStats.Cycles, wStats.FlowsSent, sizeOut, sizeLabel)
 				printStats = false
 			}
 		} else {
@@ -88,18 +117,21 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 			flowCount := utils.RandomNum(20, 150)
 			flow := netflow.GenerateDataNetflow(flowCount, sourceID)
 			buf := flow.ToBytes()
-			utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
-			wStats.FlowsSent += flowCount
+			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
+			if err != nil {
+				fmt.Errorf("Worker [%d] Issue sending packet %v\n", id, err)
+				fmt.Println(err.Error())
+			}
+			wStats.FlowsSent += uint64(flowCount)
 			wStats.Cycles++
-			//log.Printf("Worker [%d] Doing Stuff!\n", id)
-			//time.Sleep(time.Duration(utils.RandomNum(1, 5)) * time.Second)
+			wStats.BytesSent += uint64(bytes)
 		}
 	}
 }
 
 // Run the Barrage
 // func Run(server string, port int, delay int, workers int) {
-func Run(config Config) {
+func Run(config *Config) {
 	//waitgroup and context used to track and control workers
 	//wg := sync.WaitGroup{}
 	if &config.WaitGroup == nil {

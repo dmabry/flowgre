@@ -138,7 +138,7 @@ func main() {
 							fmt.Printf("target: %s ip: %s port: %s workers: %s delay: %s\n",
 								targetName, targetIP, strconv.Itoa(targetPort),
 								strconv.Itoa(targetWorkers), strconv.Itoa(targetDelay))
-							barrage.Run(bConfig)
+							barrage.Run(&bConfig)
 						}
 					default:
 						var r = reflect.TypeOf(v)
@@ -160,7 +160,7 @@ func main() {
 				WebPort: *barrageWebPort,
 			}
 
-			barrage.Run(bConfig)
+			barrage.Run(&bConfig)
 			os.Exit(0)
 		}
 
