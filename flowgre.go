@@ -14,6 +14,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"sync"
 )
 
 const (
@@ -56,6 +57,9 @@ func main() {
 	barrageWorkers := barrageCmd.Int("workers", 4, "number of workers to create. Unique sources per worker")
 	barrageDelay := barrageCmd.Int("delay", 100, "number of milliseconds between packets sent")
 	barrageConfigFile := barrageCmd.String("config", "", "Config file to use.  Supersedes all given args")
+	barrageWebPort := barrageCmd.Int("web-port", 8080, "Port to bind the web server on")
+	barrageWebIP := barrageCmd.String("web-ip", "0.0.0.0", "IP address the web server will listen on")
+	barrageWeb := barrageCmd.Bool("web", false, "Whether to use the web server or not")
 
 	// Start parsing command line args
 	if len(os.Args) < 2 {
@@ -123,10 +127,18 @@ func main() {
 							targetPort := t["port"].(int)
 							targetWorkers := t["workers"].(int)
 							targetDelay := t["delay"].(int)
+							bConfig := barrage.Config{
+								Server:    targetIP,
+								DstPort:   targetPort,
+								Workers:   targetWorkers,
+								Delay:     targetDelay,
+								WaitGroup: sync.WaitGroup{},
+							}
+
 							fmt.Printf("target: %s ip: %s port: %s workers: %s delay: %s\n",
 								targetName, targetIP, strconv.Itoa(targetPort),
 								strconv.Itoa(targetWorkers), strconv.Itoa(targetDelay))
-							barrage.Run(targetIP, targetPort, targetDelay, targetWorkers)
+							barrage.Run(bConfig)
 						}
 					default:
 						var r = reflect.TypeOf(v)
@@ -138,7 +150,17 @@ func main() {
 			}
 		} else {
 			// Run with the args given from cmd line
-			barrage.Run(*barrageServer, *barrageDstPort, *barrageDelay, *barrageWorkers)
+			bConfig := barrage.Config{
+				Server:  *barrageServer,
+				DstPort: *barrageDstPort,
+				Delay:   *barrageDelay,
+				Workers: *barrageWorkers,
+				Web:     *barrageWeb,
+				WebIP:   *barrageWebIP,
+				WebPort: *barrageWebPort,
+			}
+
+			barrage.Run(bConfig)
 			os.Exit(0)
 		}
 

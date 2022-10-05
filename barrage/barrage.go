@@ -22,12 +22,26 @@ type WorkerStats struct {
 	Cycles    int
 }
 
+type Config struct {
+	Server    string
+	DstPort   int
+	Workers   int
+	Delay     int
+	WebIP     string
+	WebPort   int
+	Web       bool
+	WaitGroup sync.WaitGroup
+	Context   context.Context
+}
+
 // Worker is the goroutine used to create workers
 func worker(id int, ctx context.Context, server string, port int, sourceID int, delay int, wg *sync.WaitGroup) {
 	defer wg.Done()
-	wStats := new(WorkerStats)
-	wStats.FlowsSent = 0
-	wStats.Cycles = 0
+	wStats := WorkerStats{
+		FlowsSent: 0,
+		Cycles:    0,
+	}
+
 	startTime := time.Now().UnixNano()
 	limiter := time.Tick(time.Millisecond * time.Duration(delay))
 
@@ -84,19 +98,25 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 }
 
 // Run the Barrage
-func Run(server string, port int, delay int, workers int) {
+// func Run(server string, port int, delay int, workers int) {
+func Run(config Config) {
 	//waitgroup and context used to track and control workers
-	wg := sync.WaitGroup{}
+	//wg := sync.WaitGroup{}
+	if &config.WaitGroup == nil {
+		config.WaitGroup = sync.WaitGroup{}
+	}
+	wg := &config.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
+	config.Context = ctx
 
 	// TODO: I'm thinking about using a chan to return results...
 	// results := make(chan string, 1000)
 
 	// Start up the workers
-	wg.Add(workers)
-	for w := 1; w <= workers; w++ {
+	wg.Add(config.Workers)
+	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(100, 10000)
-		go worker(w, ctx, server, port, sourceID, delay, &wg)
+		go worker(w, ctx, config.Server, config.DstPort, sourceID, config.Delay, wg)
 	}
 
 	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
