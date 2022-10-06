@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/dmabry/flowgre/flow/netflow"
 	"github.com/dmabry/flowgre/utils"
+	"github.com/dmabry/flowgre/web"
 	"log"
 	"net"
 	"os"
@@ -73,7 +74,7 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 	if err != nil {
 		fmt.Errorf("Worker [%d] Issue sending packet %v\n", id, err)
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 	}
 
 	log.Printf("Worker [%d] Slinging packets at %s:%d with Source ID: %d and delay of %dms \n",
@@ -120,7 +121,7 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
 				fmt.Errorf("Worker [%d] Issue sending packet %v\n", id, err)
-				fmt.Println(err.Error())
+				log.Println(err.Error())
 			}
 			wStats.FlowsSent += uint64(flowCount)
 			wStats.Cycles++
@@ -139,6 +140,7 @@ func Run(config *Config) {
 	}
 	wg := &config.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
+	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	config.Context = ctx
 
 	// TODO: I'm thinking about using a chan to return results...
@@ -149,6 +151,11 @@ func Run(config *Config) {
 	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(100, 10000)
 		go worker(w, ctx, config.Server, config.DstPort, sourceID, config.Delay, wg)
+	}
+
+	if config.Web {
+		wg.Add(1)
+		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx)
 	}
 
 	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
