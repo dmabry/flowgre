@@ -7,21 +7,33 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	crand "crypto/rand"
 	"encoding/binary"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/dmabry/flowgre/models"
 	"io"
 	"log"
 	"math/big"
 	"math/rand"
 	"net"
+	"net/http"
+	"sync"
 	"time"
 )
 
 // Constant used for generating random strings.
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// Constants used for calculating byte sizing for output
+const (
+	sizeKB = uint64(1 << (10 * 1))
+	sizeMB = uint64(1 << (10 * 2))
+	sizeGB = uint64(1 << (10 * 3))
+)
 
 // RandStringBytes Generates a random string of given length
 func RandStringBytes(n int) string {
@@ -140,4 +152,78 @@ func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer, verbose
 		fmt.Println("Sent", n, "bytes", conn.LocalAddr(), "->", addr)
 	}
 	return n, err
+}
+
+// GatherStats is the function that is called to read all items on the statsChan
+func GatherStats(statsChan <-chan models.WorkerStat) (stats models.WorkerStats) {
+	var workerStats models.WorkerStats
+	select {
+	case stat, ok := <-statsChan:
+		if ok {
+			workerStats = append(workerStats, stat)
+			// pull all items off the channel
+			for item := range statsChan {
+				workerStats = append(workerStats, item)
+			}
+		} else {
+			log.Println("Stats Channel Closed!")
+		}
+	default:
+		// nothing on channel
+	}
+	return workerStats
+}
+
+type StatCollector struct {
+	StatsMap  map[int]models.WorkerStat
+	StatsChan chan models.WorkerStat
+}
+
+func (sc *StatCollector) Run(wg *sync.WaitGroup, ctx context.Context) {
+	defer wg.Done()
+	// check the stats channel every 5 seconds
+	limiter := time.Tick(time.Second * time.Duration(5))
+	// map for aggregated for web output
+	//statsMap := make(map[int]models.WorkerStat)
+	log.Println("Stats Collector started")
+	sizeLabel := "bytes"
+	var sizeOut uint64 = 0
+	for {
+		select {
+		case stat, ok := <-sc.StatsChan:
+			if ok {
+				switch {
+				case stat.BytesSent >= sizeKB && stat.BytesSent <= sizeMB:
+					sizeLabel = "KB"
+					sizeOut = stat.BytesSent / sizeKB
+				case stat.BytesSent >= sizeMB && stat.BytesSent <= sizeGB:
+					sizeLabel = "MB"
+					sizeOut = stat.BytesSent / sizeMB
+				case stat.BytesSent > sizeGB:
+					sizeLabel = "GB"
+					sizeOut = stat.BytesSent / sizeGB
+				default:
+					sizeOut = stat.BytesSent
+				}
+				log.Printf("Worker [%d] SourceID: %4d Cycles: %d Flows Sent: %d Bytes Sent: %d %s\n", stat.WorkerID, stat.SourceID, stat.Cycles, stat.FlowsSent, sizeOut, sizeLabel)
+				sc.StatsMap[stat.WorkerID] = stat
+			} else {
+				log.Println("Stats Channel Closed!")
+			}
+		case <-ctx.Done(): //Caught the signal to be done.... time to wrap it up
+			log.Printf("Stats Collector Exiting due to signal\n")
+			return
+		default:
+			// nothing on channel
+			<-limiter
+		}
+	}
+}
+
+func (sc *StatCollector) StatsHandler(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(sc.StatsMap)
+}
+
+func (sc *StatCollector) Stop() {
+	close(sc.StatsChan)
 }

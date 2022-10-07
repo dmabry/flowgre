@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/dmabry/flowgre/barrage"
+	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/single"
 	"github.com/spf13/viper"
 	"log"
@@ -127,7 +128,7 @@ func main() {
 							targetPort := t["port"].(int)
 							targetWorkers := t["workers"].(int)
 							targetDelay := t["delay"].(int)
-							bConfig := barrage.Config{
+							bConfig := models.Config{
 								Server:    targetIP,
 								DstPort:   targetPort,
 								Workers:   targetWorkers,
@@ -150,7 +151,7 @@ func main() {
 			}
 		} else {
 			// Run with the args given from cmd line
-			bConfig := barrage.Config{
+			bConfig := models.Config{
 				Server:  *barrageServer,
 				DstPort: *barrageDstPort,
 				Delay:   *barrageDelay,

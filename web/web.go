@@ -9,37 +9,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/utils"
+	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
-
-	"github.com/gorilla/mux"
 )
 
-type Worker struct {
-	Name      string
-	Completed bool
-	Due       time.Time
-}
-
-type Workers []Worker
-
-type Health struct {
-	Status  string
-	Message string
-}
-
-func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context) {
+func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, sc *utils.StatCollector) {
 	defer wg.Done()
 	listenAddr := ip + ":" + strconv.Itoa(port)
 	log.Printf("Starting Web server %s\n", listenAddr)
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/", HealthHandler)
+	router.HandleFunc("/", IndexHandler)
 	router.HandleFunc("/health", HealthHandler)
-	//router.HandleFunc("/workers", TodoIndex)
-	//router.HandleFunc("/workers/{workerId}", TodoShow)
+	router.HandleFunc("/stats", sc.StatsHandler)
 	go func() {
 		err := http.ListenAndServe(listenAddr, router)
 		if err != nil {
@@ -56,27 +42,17 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context) 
 }
 
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
-	health := Health{
+	health := models.Health{
 		Status:  "OK",
 		Message: "Everything is OK!",
 	}
-
 	json.NewEncoder(w).Encode(health)
 }
 
-/*
-func TodoIndex(w http.ResponseWriter, r *http.Request) {
-	todos := Todos{
-		Todo{Name: "Write presentation"},
-		Todo{Name: "Host meetup"},
+func IndexHandler(w http.ResponseWriter, r *http.Request) {
+	health := models.Health{
+		Status:  "OK",
+		Message: "Flowgre is flinging packets!",
 	}
-
-	json.NewEncoder(w).Encode(todos)
+	json.NewEncoder(w).Encode(health)
 }
-
-func TodoShow(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	todoId := vars["todoId"]
-	fmt.Fprintf(w, "Todo show: %s\n", todoId)
-}
-*/

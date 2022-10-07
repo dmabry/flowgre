@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/dmabry/flowgre/flow/netflow"
+	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/utils"
 	"github.com/dmabry/flowgre/web"
 	"log"
@@ -19,35 +20,11 @@ import (
 	"time"
 )
 
-type WorkerStats struct {
-	SourceID  int
-	FlowsSent uint64
-	Cycles    uint64
-	BytesSent uint64
-}
-
-type Config struct {
-	Server    string
-	DstPort   int
-	Workers   int
-	Delay     int
-	WebIP     string
-	WebPort   int
-	Web       bool
-	WaitGroup sync.WaitGroup
-	Context   context.Context
-}
-
-const (
-	sizeKB = uint64(1 << (10 * 1))
-	sizeMB = uint64(1 << (10 * 2))
-	sizeGB = uint64(1 << (10 * 3))
-)
-
 // Worker is the goroutine used to create workers
-func worker(id int, ctx context.Context, server string, port int, sourceID int, delay int, wg *sync.WaitGroup) {
+func worker(id int, ctx context.Context, server string, port int, sourceID int, delay int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat) {
 	defer wg.Done()
-	wStats := WorkerStats{
+	wStats := models.WorkerStat{
+		WorkerID:  id,
 		SourceID:  sourceID,
 		FlowsSent: 0,
 		Cycles:    0,
@@ -81,28 +58,14 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 		id, server, port, sourceID, delay)
 	//Infinite loop to keep slinging until we receive context done.
 	printStats := false
-	sizeLabel := "bytes"
-	var sizeOut uint64 = 0
+
 	for {
 		now := time.Now().UnixNano()
 		statsCycle := (now - startTime) / int64(time.Second) % 30
 		// Print out basic statistics per worker every 30 seconds
 		if statsCycle == 0 {
 			if printStats {
-				switch {
-				case wStats.BytesSent >= sizeKB && wStats.BytesSent <= sizeMB:
-					sizeLabel = "KB"
-					sizeOut = wStats.BytesSent / sizeKB
-				case wStats.BytesSent >= sizeMB && wStats.BytesSent <= sizeGB:
-					sizeLabel = "MB"
-					sizeOut = wStats.BytesSent / sizeMB
-				case wStats.BytesSent > sizeGB:
-					sizeLabel = "GB"
-					sizeOut = wStats.BytesSent / sizeGB
-				default:
-					sizeOut = wStats.BytesSent
-				}
-				log.Printf("Worker [%d] Cycles: %d Flows Sent: %d Bytes Sent: %d %s\n", id, wStats.Cycles, wStats.FlowsSent, sizeOut, sizeLabel)
+				statsChan <- wStats
 				printStats = false
 			}
 		} else {
@@ -132,9 +95,8 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 
 // Run the Barrage
 // func Run(server string, port int, delay int, workers int) {
-func Run(config *Config) {
+func Run(config *models.Config) {
 	//waitgroup and context used to track and control workers
-	//wg := sync.WaitGroup{}
 	if &config.WaitGroup == nil {
 		config.WaitGroup = sync.WaitGroup{}
 	}
@@ -143,19 +105,25 @@ func Run(config *Config) {
 	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	config.Context = ctx
 
-	// TODO: I'm thinking about using a chan to return results...
-	// results := make(chan string, 1000)
+	buffer := 20
+	// Start the StatsCollector
+	sc := &utils.StatCollector{}
+	sc.StatsChan = make(chan models.WorkerStat, config.Workers+buffer)
+	sc.StatsMap = make(map[int]models.WorkerStat)
+	wg.Add(1)
+	go sc.Run(wg, ctx)
 
 	// Start up the workers
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(100, 10000)
-		go worker(w, ctx, config.Server, config.DstPort, sourceID, config.Delay, wg)
+		go worker(w, ctx, config.Server, config.DstPort, sourceID, config.Delay, wg, sc.StatsChan)
 	}
 
+	// Start WebServer if needed
 	if config.Web {
 		wg.Add(1)
-		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx)
+		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx, sc)
 	}
 
 	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
@@ -173,5 +141,6 @@ func Run(config *Config) {
 	}()
 	<-cleanupDone
 	wg.Wait()
+	sc.Stop()
 	os.Exit(0)
 }
