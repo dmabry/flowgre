@@ -7,7 +7,6 @@ package barrage
 
 import (
 	"context"
-	"fmt"
 	"github.com/dmabry/flowgre/flow/netflow"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/utils"
@@ -50,8 +49,7 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 	log.Printf("Worker [%d] Sending Template Flow\n", id)
 	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 	if err != nil {
-		fmt.Errorf("Worker [%d] Issue sending packet %v\n", id, err)
-		log.Println(err.Error())
+		log.Fatalf("Worker [%d] Issue sending packet %v\n", id, err)
 	}
 
 	log.Printf("Worker [%d] Slinging packets at %s:%d with Source ID: %d and delay of %dms \n",
@@ -83,8 +81,7 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 			buf := flow.ToBytes()
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
-				fmt.Errorf("Worker [%d] Issue sending packet %v\n", id, err)
-				log.Println(err.Error())
+				log.Fatalf("Worker [%d] Issue sending packet %v\n", id, err)
 			}
 			wStats.FlowsSent += uint64(flowCount)
 			wStats.Cycles++

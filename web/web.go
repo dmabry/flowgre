@@ -8,7 +8,6 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/utils"
 	"github.com/gorilla/mux"
@@ -27,10 +26,17 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 	router.HandleFunc("/health", HealthHandler)
 	router.HandleFunc("/stats", sc.StatsHandler)
 	go func() {
-		err := http.ListenAndServe(listenAddr, router)
+		s := &http.Server{
+			Addr:              listenAddr,
+			Handler:           router,
+			ReadTimeout:       5,
+			ReadHeaderTimeout: 5,
+			WriteTimeout:      5,
+			IdleTimeout:       5,
+		}
+		err := s.ListenAndServe()
 		if err != nil {
-			fmt.Errorf("Issue starting web server! %v\n", err)
-			log.Println(err.Error())
+			log.Fatalf("Issue starting web server! %v\n", err)
 		}
 	}()
 	select {
@@ -46,7 +52,10 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 		Status:  "OK",
 		Message: "Everything is OK!",
 	}
-	json.NewEncoder(w).Encode(health)
+	err := json.NewEncoder(w).Encode(health)
+	if err != nil {
+		log.Fatalf("Web server had an issue: %v\n", err)
+	}
 }
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
@@ -54,5 +63,8 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 		Status:  "OK",
 		Message: "Flowgre is flinging packets!",
 	}
-	json.NewEncoder(w).Encode(health)
+	err := json.NewEncoder(w).Encode(health)
+	if err != nil {
+		log.Fatalf("Web server had an issue: %v\n", err)
+	}
 }
