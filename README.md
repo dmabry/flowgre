@@ -53,8 +53,24 @@ Usage of flowgre barrage:
     	destination port used by the flow collector (default 9995)
   -server string
     	servername or ip address of the flow collector (default "127.0.0.1")
+  -web
+    	Whether to use the web server or not
+  -web-ip string
+    	IP address the web server will listen on (default "0.0.0.0")
+  -web-port int
+    	Port to bind the web server on (default 8080)
   -workers int
     	number of workers to create. Unique sources per worker (default 4)
+```
+
+## Example Config File
+```yaml
+targets:
+  server1:
+    ip: 127.0.0.1
+    port: 9995
+    workers: 4
+    delay: 100
 ```
 
 ## License
