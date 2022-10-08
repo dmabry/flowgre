@@ -43,7 +43,7 @@ func Run(collectorIP string, destPort int, srcPort int, count int, hexDump bool)
 	if hexDump {
 		fmt.Printf("%s", hex.Dump(tBuf.Bytes()))
 	}
-	utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, tBuf, true)
+	log.Fatal(utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, tBuf, true))
 
 	// Generate and send Data Flow(s)
 	fmt.Printf("\nSending Data Flows\n\n")
@@ -54,6 +54,6 @@ func Run(collectorIP string, destPort int, srcPort int, count int, hexDump bool)
 		if hexDump {
 			fmt.Printf("%s", hex.Dump(buf.Bytes()))
 		}
-		utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, buf, true)
+		log.Fatal(utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, buf, true))
 	}
 }

@@ -8,7 +8,9 @@ package barrage
 import (
 	"context"
 	"github.com/dmabry/flowgre/flow/netflow"
+	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/utils"
+	"github.com/dmabry/flowgre/web"
 	"log"
 	"net"
 	"os"
@@ -17,17 +19,17 @@ import (
 	"time"
 )
 
-type WorkerStats struct {
-	FlowsSent int
-	Cycles    int
-}
-
 // Worker is the goroutine used to create workers
-func worker(id int, ctx context.Context, server string, port int, sourceID int, delay int, wg *sync.WaitGroup) {
+func worker(id int, ctx context.Context, server string, port int, sourceID int, delay int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat) {
 	defer wg.Done()
-	wStats := new(WorkerStats)
-	wStats.FlowsSent = 0
-	wStats.Cycles = 0
+	wStats := models.WorkerStat{
+		WorkerID:  id,
+		SourceID:  sourceID,
+		FlowsSent: 0,
+		Cycles:    0,
+		BytesSent: 0,
+	}
+
 	startTime := time.Now().UnixNano()
 	limiter := time.Tick(time.Millisecond * time.Duration(delay))
 
@@ -37,7 +39,6 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
 		log.Fatal("Listen:", err)
-		os.Exit(55)
 	}
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(server)
@@ -46,19 +47,23 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 	tFlow := netflow.GenerateTemplateNetflow(sourceID)
 	tBuf := tFlow.ToBytes()
 	log.Printf("Worker [%d] Sending Template Flow\n", id)
-	utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
+	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
+	if err != nil {
+		log.Fatalf("Worker [%d] Issue sending packet %v\n", id, err)
+	}
 
 	log.Printf("Worker [%d] Slinging packets at %s:%d with Source ID: %d and delay of %dms \n",
 		id, server, port, sourceID, delay)
 	//Infinite loop to keep slinging until we receive context done.
 	printStats := false
+
 	for {
 		now := time.Now().UnixNano()
 		statsCycle := (now - startTime) / int64(time.Second) % 30
 		// Print out basic statistics per worker every 30 seconds
 		if statsCycle == 0 {
 			if printStats {
-				log.Printf("Worker [%d] Cycles: %d Flows Sent: %d\n", id, wStats.Cycles, wStats.FlowsSent)
+				statsChan <- wStats
 				printStats = false
 			}
 		} else {
@@ -74,29 +79,48 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 			flowCount := utils.RandomNum(20, 150)
 			flow := netflow.GenerateDataNetflow(flowCount, sourceID)
 			buf := flow.ToBytes()
-			utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
-			wStats.FlowsSent += flowCount
+			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
+			if err != nil {
+				log.Fatalf("Worker [%d] Issue sending packet %v\n", id, err)
+			}
+			wStats.FlowsSent += uint64(flowCount)
 			wStats.Cycles++
-			//log.Printf("Worker [%d] Doing Stuff!\n", id)
-			//time.Sleep(time.Duration(utils.RandomNum(1, 5)) * time.Second)
+			wStats.BytesSent += uint64(bytes)
 		}
 	}
 }
 
 // Run the Barrage
-func Run(server string, port int, delay int, workers int) {
+// func Run(server string, port int, delay int, workers int) {
+func Run(config *models.Config) {
 	//waitgroup and context used to track and control workers
-	wg := sync.WaitGroup{}
+	if &config.WaitGroup == nil {
+		config.WaitGroup = sync.WaitGroup{}
+	}
+	wg := &config.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
+	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	config.Context = ctx
 
-	// TODO: I'm thinking about using a chan to return results...
-	// results := make(chan string, 1000)
+	buffer := 20
+	// Start the StatsCollector
+	sc := &utils.StatCollector{}
+	sc.StatsChan = make(chan models.WorkerStat, config.Workers+buffer)
+	sc.StatsMap = make(map[int]models.WorkerStat)
+	wg.Add(1)
+	go sc.Run(wg, ctx)
 
 	// Start up the workers
-	wg.Add(workers)
-	for w := 1; w <= workers; w++ {
+	wg.Add(config.Workers)
+	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(100, 10000)
-		go worker(w, ctx, server, port, sourceID, delay, &wg)
+		go worker(w, ctx, config.Server, config.DstPort, sourceID, config.Delay, wg, sc.StatsChan)
+	}
+
+	// Start WebServer if needed
+	if config.Web {
+		wg.Add(1)
+		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx, sc)
 	}
 
 	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
@@ -114,5 +138,6 @@ func Run(server string, port int, delay int, workers int) {
 	}()
 	<-cleanupDone
 	wg.Wait()
+	sc.Stop()
 	os.Exit(0)
 }
