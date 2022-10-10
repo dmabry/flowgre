@@ -11,6 +11,7 @@ import (
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/utils"
 	"github.com/gorilla/mux"
+	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -25,6 +26,8 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 	router.HandleFunc("/", IndexHandler)
 	router.HandleFunc("/health", HealthHandler)
 	router.HandleFunc("/stats", sc.StatsHandler)
+	// router.HandleFunc("/dashboard", DashboardHandler)
+
 	go func() {
 		s := &http.Server{
 			Addr:              listenAddr,
@@ -67,4 +70,13 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("Web server had an issue: %v\n", err)
 	}
+}
+
+func DashboardHandler(w http.ResponseWriter, r *http.Request) {
+	d := models.DashboardPage{
+		Title:   "Flowgre Dashboard",
+		Comment: "Basic metrics about flowgre",
+	}
+	t, _ := template.ParseFiles("dashboard.tmpl")
+	t.Execute(w, d)
 }
