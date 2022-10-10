@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 )
 
 func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, sc *utils.StatCollector) {
@@ -32,10 +33,10 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 		s := &http.Server{
 			Addr:              listenAddr,
 			Handler:           router,
-			ReadTimeout:       5,
-			ReadHeaderTimeout: 5,
-			WriteTimeout:      5,
-			IdleTimeout:       5,
+			ReadTimeout:       time.Second * 5,
+			ReadHeaderTimeout: time.Second * 5,
+			WriteTimeout:      time.Second * 5,
+			IdleTimeout:       time.Second * 5,
 		}
 		err := s.ListenAndServe()
 		if err != nil {
