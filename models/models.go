@@ -30,6 +30,12 @@ type WorkerStat struct {
 	BytesSent uint64 `json:"bytes_sent,omitempty"`
 }
 
+type StatTotals struct {
+	FlowsSent uint64
+	Cycles    uint64
+	BytesSent uint64
+}
+
 type WorkerStats []WorkerStat
 
 type Health struct {
@@ -38,9 +44,10 @@ type Health struct {
 }
 
 type DashboardPage struct {
-	Title          string      `json:"title,omitempty"`
-	Comment        string      `json:"comment,omitempty"`
-	HealthOut      Health      `json:"health_out"`
-	ConfigOut      Config      `json:"config_out"`
-	WorkerStatsOut WorkerStats `json:"worker_stats_out,omitempty"`
+	Title       string             `json:"title,omitempty"`
+	Comment     string             `json:"comment,omitempty"`
+	HealthOut   Health             `json:"health_out"`
+	ConfigOut   *Config            `json:"config_out"`
+	StatsMapOut map[int]WorkerStat `json:"stats_map_out"`
+	StatsTotal  StatTotals         `json:"stats_total"`
 }
