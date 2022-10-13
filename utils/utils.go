@@ -15,6 +15,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/web/templates"
+	"html/template"
 	"io"
 	"log"
 	"math/big"
@@ -175,8 +177,10 @@ func GatherStats(statsChan <-chan models.WorkerStat) (stats models.WorkerStats) 
 }
 
 type StatCollector struct {
-	StatsMap  map[int]models.WorkerStat
-	StatsChan chan models.WorkerStat
+	StatsMap    map[int]models.WorkerStat
+	StatsChan   chan models.WorkerStat
+	StatsTotals models.StatTotals
+	Config      *models.Config
 }
 
 func (sc *StatCollector) Run(wg *sync.WaitGroup, ctx context.Context) {
@@ -205,8 +209,11 @@ func (sc *StatCollector) Run(wg *sync.WaitGroup, ctx context.Context) {
 				default:
 					sizeOut = stat.BytesSent
 				}
-				log.Printf("Worker [%d] SourceID: %4d Cycles: %d Flows Sent: %d Bytes Sent: %d %s\n", stat.WorkerID, stat.SourceID, stat.Cycles, stat.FlowsSent, sizeOut, sizeLabel)
+				log.Printf("Worker [%d] SourceID: %4d Cycles: %d Flows Sent: %d BytesSent Sent: %d %s\n", stat.WorkerID, stat.SourceID, stat.Cycles, stat.FlowsSent, sizeOut, sizeLabel)
 				sc.StatsMap[stat.WorkerID] = stat
+				sc.StatsTotals.Cycles += stat.Cycles
+				sc.StatsTotals.FlowsSent += stat.FlowsSent
+				sc.StatsTotals.BytesSent += stat.BytesSent
 			} else {
 				log.Println("Stats Channel Closed!")
 			}
@@ -224,6 +231,30 @@ func (sc *StatCollector) StatsHandler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewEncoder(w).Encode(sc.StatsMap)
 	if err != nil {
 		log.Fatalf("Web server had an issue: %v\n", err)
+	}
+}
+
+func (sc *StatCollector) DashboardHandler(w http.ResponseWriter, r *http.Request) {
+	d := models.DashboardPage{
+		Title:   "Flowgre Dashboard",
+		Comment: "Basic metrics about flowgre",
+		HealthOut: models.Health{
+			Status:  "OK",
+			Message: "Flowgre is Flinging Packets!",
+		},
+		ConfigOut:   sc.Config,
+		StatsMapOut: sc.StatsMap,
+		StatsTotal:  sc.StatsTotals,
+	}
+
+	t, err := template.New("dashboard").Parse(templates.DashboardTpl)
+	if err != nil {
+		log.Printf("Web server had issue: %v\n", err)
+	} else {
+		err := t.Execute(w, d)
+		if err != nil {
+			log.Printf("Web server had issue: %v\n", err)
+		}
 	}
 }
 

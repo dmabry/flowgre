@@ -107,6 +107,12 @@ func Run(config *models.Config) {
 	sc := &utils.StatCollector{}
 	sc.StatsChan = make(chan models.WorkerStat, config.Workers+buffer)
 	sc.StatsMap = make(map[int]models.WorkerStat)
+	sc.StatsTotals = models.StatTotals{
+		FlowsSent: 0,
+		Cycles:    0,
+		BytesSent: 0,
+	}
+	sc.Config = config
 	wg.Add(1)
 	go sc.Run(wg, ctx)
 
