@@ -10,10 +10,17 @@ steps:
   - apk add --no-cache build-base
   - go test -v ./...
   - go build
-  when:
-    event:
+trigger:
+  event:
     - pull_request
-- name: security_gosec
+
+---
+kind: pipeline
+type: docker
+name: security
+
+steps:
+- name: gosec
   image: golang:1.19-alpine3.16
   commands:
     - wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.13.1
@@ -26,7 +33,6 @@ steps:
 trigger:
   event:
     - pull_request
-
 ---
 kind: pipeline
 type: docker
@@ -64,6 +70,6 @@ trigger:
     - refs/tags/*
 ---
 kind: signature
-hmac: 5921fdd3c6a3c64e001afe1f211f66dd1107d2cf68c4fccb0b26876ea37d99f6
+hmac: 4635e8f907ac4c1f6fa04bfbc1c3b035c4ce25107faa11070ba7f37ef4e51902
 
 ...
