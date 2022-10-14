@@ -13,8 +13,7 @@ steps:
 trigger:
   event:
     - pull_request
-  ref:
-    - refs/tags/*
+    - tag
 
 ---
 kind: pipeline
@@ -35,8 +34,7 @@ steps:
 trigger:
   event:
     - pull_request
-  ref:
-    - refs/tags/*
+    - tag
 
 ---
 kind: pipeline
@@ -61,10 +59,11 @@ steps:
     title: '${DRONE_TAG}'
     prerelease: true
 trigger:
-  ref:
-    - refs/tags/*
+  event:
+    - tag
+
 ---
 kind: signature
-hmac: 8a1a59f7482eab9b74a386d65cc617bf991157d22036ae4cc43f4b5d8e4cbeaa
+hmac: 515c17eab2781704824d9be1701fe7ae2b11bbd4a23b2f8d81c4a7fbc1b17f32
 
 ...
