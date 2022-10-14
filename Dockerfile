@@ -8,6 +8,8 @@ WORKDIR /opt/src
 
 ENV GO111MODULE on
 
+# prepare for build
+RUN apk add --no-cache build-base git
 # build
 RUN git submodule -q init
 RUN git submodule -q update
