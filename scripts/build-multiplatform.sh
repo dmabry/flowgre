@@ -12,6 +12,7 @@ for os in ${oses[@]}
 do
   for arch in ${archs[@]}
   do
+	echo "Building binary flowgre_${os}_${arch}_${tag}"
         env GOOS=${os} GOARCH=${arch} go build -o flowgre_${os}_${arch}_${tag}
   done
 done
