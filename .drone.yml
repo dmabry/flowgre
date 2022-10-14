@@ -67,9 +67,12 @@ steps:
 trigger:
   event:
     - tag
+depends_on:
+  - test
+  - security
 
 ---
 kind: signature
-hmac: 60a560ce895944926901950850142399764a47dcf63adc5839b1b0c681f09004
+hmac: c76a19b505ac21d79c735a875c7863e2e00148a9810ca30218484c99e25a34dd
 
 ...
