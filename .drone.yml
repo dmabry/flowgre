@@ -10,17 +10,31 @@ steps:
   - apk add --no-cache build-base
   - go test -v ./...
   - go build
-  when:
-    event:
+trigger:
+  event:
     - pull_request
-- name: security
+    - tag
+
+---
+kind: pipeline
+type: docker
+name: security
+
+steps:
+- name: gosec
   image: golang:1.19-alpine3.16
   commands:
     - wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.13.1
     - ./bin/gosec ./...
+- name: trivy
+  image: golang:1.19-alpine3.16
+  commands:
+    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.32.1
+    - ./bin/trivy fs .
 trigger:
   event:
     - pull_request
+    - tag
 
 ---
 kind: pipeline
@@ -28,22 +42,17 @@ type: docker
 name: release
 
 steps:
-- name: test
-  image: golang:1.19-alpine3.16
-  commands:
-    - apk add --no-cache build-base
-    - go test -v ./...
 - name: build
   image: golang:1.19-alpine3.16
   commands:
     - apk add --no-cache build-base bash
     - bash ./scripts/build-multiplatform.sh ${DRONE_TAG##v}
     - ls -l flowgre_*
-- name: security
+- name: generate_sbom
   image: golang:1.19-alpine3.16
   commands:
-    - wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.13.1
-    - ./bin/gosec ./...
+    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.32.1
+    - ./bin/trivy fs --format cyclonedx --output sbom_${DRONE_TAG##v}.json .
 - name: release
   image: plugins/github-release
   settings:
@@ -51,14 +60,16 @@ steps:
       from_secret: GITHUB_TOKEN
     files:
       - flowgre_*
+      - sbom_*
     note: 'Flowgre, version ${DRONE_TAG}'
     title: '${DRONE_TAG}'
     prerelease: true
 trigger:
-  ref:
-    - refs/tags/*
+  event:
+    - tag
+
 ---
 kind: signature
-hmac: b8a1424c1acd9c526c90d4aeafe2b8592a43ddedcc666958a2dc0e5dfb2296ae
+hmac: 60a560ce895944926901950850142399764a47dcf63adc5839b1b0c681f09004
 
 ...

@@ -73,6 +73,13 @@ targets:
     delay: 100
 ```
 
+## Web Dashboard
+Flowgre provides a basic web dashboard that will display the number of workers, how much work they've done and the
+config used to start Flowgre.  The stats shown all come from the stats collector and should match the stdout worker
+stats.
+
+![Dashboard Image](https://github.com/dmabry/flowgre/blob/main/docs/images/dashboard.png?raw=true)
+
 ## License
 Licensed to the Flowgre Team under one
 or more contributor license agreements. The Flowgre Team licenses this file to you
