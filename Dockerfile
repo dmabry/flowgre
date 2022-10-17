@@ -29,3 +29,6 @@ COPY --from=build-stage /opt/src/flowgre	./flowgre
 
 # override default entrypoint on final container
 ENTRYPOINT [ "/opt/app/flowgre" ]
+LABEL org.opencontainers.image.source=https://github.com/dmabry/flowgre
+LABEL org.opencontainers.image.description="Flowgre container image"
+LABEL org.opencontainers.image.licenses="Apache License 2.0"
