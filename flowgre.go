@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/dmabry/flowgre/barrage"
 	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/record"
 	"github.com/dmabry/flowgre/single"
 	"github.com/spf13/viper"
 	"log"
@@ -62,10 +63,24 @@ func main() {
 	barrageWebIP := barrageCmd.String("web-ip", "0.0.0.0", "IP address the web server will listen on")
 	barrageWeb := barrageCmd.Bool("web", false, "Whether to use the web server or not")
 
+	// Record SubCommand setup
+	recordCmd := flag.NewFlagSet("record", flag.ExitOnError)
+	recordCmd.Usage = func() {
+		printHelpHeader()
+		fmt.Println("Record is used to record flows to a file for later replay testing.")
+		fmt.Println()
+		fmt.Fprintf(recordCmd.Output(), "Usage of %s:\n", os.Args[0])
+		fmt.Println()
+		recordCmd.PrintDefaults()
+	}
+	recordIP := recordCmd.String("ip", "127.0.0.1", "ip address record should listen on")
+	recordPort := recordCmd.Int("port", 9995, "listen udp port")
+	recordFile := recordCmd.String("file", "recorded_flows.db", "File to place recorded flows for later replay")
+
 	// Start parsing command line args
 	if len(os.Args) < 2 {
 		printGenericHelp()
-		fmt.Println("expected 'single', 'barrage' or 'version' subcommands")
+		fmt.Println("expected 'single', 'barrage', 'record' or 'version' subcommands")
 		os.Exit(1)
 	}
 
@@ -164,7 +179,15 @@ func main() {
 			barrage.Run(&bConfig)
 			os.Exit(0)
 		}
+	case "record":
+		printHelpHeader()
+		err := recordCmd.Parse(os.Args[2:])
+		if err != nil {
+			panic(fmt.Errorf("error parsing args: %v\n", err))
+		}
 
+		record.Run(*recordIP, *recordPort, *recordFile)
+		os.Exit(0)
 	case "version":
 		printHelpHeader()
 		fmt.Printf("Version: %s\n", version)
