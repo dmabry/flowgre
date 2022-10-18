@@ -75,7 +75,7 @@ func main() {
 	}
 	recordIP := recordCmd.String("ip", "127.0.0.1", "ip address record should listen on")
 	recordPort := recordCmd.Int("port", 9995, "listen udp port")
-	recordFile := recordCmd.String("file", "recorded_flows.db", "File to place recorded flows for later replay")
+	recordDB := recordCmd.String("db", "recorded_flows", "Directory to place recorded flows for later replay")
 
 	// Start parsing command line args
 	if len(os.Args) < 2 {
@@ -186,7 +186,7 @@ func main() {
 			panic(fmt.Errorf("error parsing args: %v\n", err))
 		}
 
-		record.Run(*recordIP, *recordPort, *recordFile)
+		record.Run(*recordIP, *recordPort, *recordDB)
 		os.Exit(0)
 	case "version":
 		printHelpHeader()
