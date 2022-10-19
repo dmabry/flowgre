@@ -25,7 +25,7 @@ RUN apk add --no-cache tzdata
 # copy stuff in
 WORKDIR /opt/app
 
-COPY --from=build-stage /opt/src/flowgre	./flowgre
+COPY --from=build-stage /opt/src/flowgre ./flowgre
 
 # override default entrypoint on final container
 ENTRYPOINT [ "/opt/app/flowgre" ]
