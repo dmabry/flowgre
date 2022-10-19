@@ -43,10 +43,15 @@ name: release
 
 steps:
 - name: build
+  image: golang:1.19
+  commands:
+    - bash ./scripts/build-multiplatform.sh ${DRONE_TAG##v}
+    - ls -l flowgre_*
+- name: build-musl
   image: golang:1.19-alpine3.16
   commands:
-    - apk add --no-cache build-base bash
-    - bash ./scripts/build-multiplatform.sh ${DRONE_TAG##v}
+    - apk add --no-cache build-base
+    - go build -ldflags '-s -w' -a -o flowgre_linux_amd64_musl_${DRONE_TAG##v}
     - ls -l flowgre_*
 - name: generate_sbom
   image: golang:1.19-alpine3.16
@@ -73,6 +78,6 @@ depends_on:
 
 ---
 kind: signature
-hmac: c76a19b505ac21d79c735a875c7863e2e00148a9810ca30218484c99e25a34dd
+hmac: e4d2f80f3a63dfb0a7a36d70dad214c16c212866c92d2ceb0b5563333a590a93
 
 ...
