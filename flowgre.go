@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	version = "0.3.2" // semantic version
+	version = "0.3.3" // semantic version
 	license = "Apache License, Version 2.0"
 )
 
