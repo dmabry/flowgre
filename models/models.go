@@ -30,6 +30,11 @@ type WorkerStat struct {
 	BytesSent uint64 `json:"bytes_sent,omitempty"`
 }
 
+type RecordStat struct {
+	ValidCount   uint64
+	InvalidCount uint64
+}
+
 type StatTotals struct {
 	FlowsSent uint64
 	Cycles    uint64
