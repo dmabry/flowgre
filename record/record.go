@@ -6,9 +6,11 @@
 package record
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dmabry/flowgre/models"
 	"log"
 	"net"
 	"os"
@@ -19,7 +21,7 @@ import (
 )
 
 // netIngest is used to pull packets off the wire and put the byte payload on the data chan
-func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, data chan<- []byte) {
+func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, data chan<- []byte, verbose bool) {
 	defer wg.Done()
 	// Create UDP listener and setup db to catch files
 	listenIP := net.ParseIP(ip)
@@ -50,12 +52,13 @@ func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, dat
 			}
 			length, fromIP, err := conn.ReadFromUDP(payload)
 			if err != nil {
-				// log.Fatalf("Error reading packet from %s: %v", fromIP, err)
-				log.Println("No packets received")
+				// No packets received before deadline moving on ...
 				continue
 			}
 			payload = payload[:length]
-			log.Printf("Packet Recieved from %s with size of %d", fromIP.String(), length)
+			if verbose {
+				log.Printf("Packet Received from %s with size of %d", fromIP.String(), length)
+			}
 			// Send payload to the data channel
 			data <- payload
 		}
@@ -63,7 +66,7 @@ func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, dat
 }
 
 // dbIngest pulls byte payload off the data chan and puts them in the badger db
-func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan []byte) {
+func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan []byte, verbose bool) {
 	defer wg.Done()
 	// Create/Open DB for writing
 	options := badger.DefaultOptions(dbdir)
@@ -104,19 +107,76 @@ func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan
 	}
 }
 
+// Ingest pulls byte payload off the data chan and puts them in the badger db
+func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []byte, dataChan chan<- []byte, verbose bool) {
+	defer wg.Done()
+	// Prep the loop
+	rStats := models.RecordStat{
+		ValidCount:   0,
+		InvalidCount: 0,
+	}
+	printStats := false
+	startTime := time.Now().UnixNano()
+	// Start the loop
+	for {
+		now := time.Now().UnixNano()
+		statsCycle := (now - startTime) / int64(time.Second) % 10
+		// Print out basic statistics per worker every 10 seconds
+		if statsCycle == 0 {
+			if printStats {
+				log.Printf("Netflow v9 Packets: %d Ignored Packets: %d ",
+					rStats.ValidCount, rStats.InvalidCount)
+				printStats = false
+			}
+		} else {
+			printStats = true
+		}
+		// Check to see if context is done and return, otherwise pull payloads and write
+		select {
+		case <-ctx.Done():
+			log.Println("Netflow parser exiting due to signal")
+			return
+		case payload := <-parseChan:
+			// Decode first uint16 and see if it is a version 9
+			buf := bytes.NewReader(payload)
+			var nfVersion uint16
+			err := binary.Read(buf, binary.BigEndian, &nfVersion)
+			if err != nil {
+				log.Printf("Skipping packet due to issue parsing: %v", err)
+				continue
+			}
+			if nfVersion == 9 {
+				// Netflow v9 Packet send it on
+				rStats.ValidCount++
+				dataChan <- payload
+			} else {
+				// Not a Netflow v9 Packet... skip
+				rStats.InvalidCount++
+			}
+		default:
+			// Non-blocking
+		}
+	}
+}
+
 // Run Record. Kicks off the recording process.
-func Run(ip string, port int, dbdir string) {
+func Run(ip string, port int, dbdir string, verbose bool) {
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	dataChan := make(chan []byte, 1024)
+	parseChan := make(chan []byte, 1024)
 
 	// Start netIngest
 	wg.Add(1)
-	go netIngest(ctx, wg, ip, port, dataChan)
+	go netIngest(ctx, wg, ip, port, parseChan, verbose)
+
+	// Start parseNetflow
+	wg.Add(1)
+	go parseNetflow(ctx, wg, parseChan, dataChan, verbose)
 
 	// Start dbIngest
 	wg.Add(1)
-	go dbIngest(ctx, wg, dbdir, dataChan)
+	go dbIngest(ctx, wg, dbdir, dataChan, verbose)
 
 	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
 	// Run cleanup when signal is received
