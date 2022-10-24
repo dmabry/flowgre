@@ -43,35 +43,41 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(server)
 
-	// Generate and send Template Flow(s)
+	// Generate and send first Template Flow(s)
 	tFlow := netflow.GenerateTemplateNetflow(sourceID)
 	tBuf := tFlow.ToBytes()
-	log.Printf("Worker [%d] Sending Template Flow\n", id)
 	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 	if err != nil {
-		log.Fatalf("Worker [%d] Issue sending packet %v\n", id, err)
+		log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
 	}
 
-	log.Printf("Worker [%d] Slinging packets at %s:%d with Source ID: %d and delay of %dms \n",
+	log.Printf("Worker [%2d] Slinging packets at %s:%d with Source ID: %5d and delay of %dms \n",
 		id, server, port, sourceID, delay)
 	//Infinite loop to keep slinging until we receive context done.
-	printStats := false
+	takeAction := false
 
 	for {
 		now := time.Now().UnixNano()
-		statsCycle := (now - startTime) / int64(time.Second) % 30
+		cycle := (now - startTime) / int64(time.Second) % 30
 		// Print out basic statistics per worker every 30 seconds
-		if statsCycle == 0 {
-			if printStats {
+		if cycle == 0 {
+			if takeAction {
+				takeAction = false
+				// Send Template per worker every 30 seconds
+				bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
+				if err != nil {
+					log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
+				}
+				wStats.FlowsSent++
+				wStats.BytesSent += uint64(bytes)
 				statsChan <- wStats
-				printStats = false
 			}
 		} else {
-			printStats = true
+			takeAction = true
 		}
 		select {
 		case <-ctx.Done(): //Caught the signal to be done.... time to wrap it up
-			log.Printf("Worker [%d] Exiting due to signal\n", id)
+			log.Printf("Worker [%2d] Exiting due to signal\n", id)
 			return
 		default:
 			// Basic limiter to throttle/delay packets
@@ -81,7 +87,7 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 			buf := flow.ToBytes()
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
-				log.Fatalf("Worker [%d] Issue sending packet %v\n", id, err)
+				log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
 			}
 			wStats.FlowsSent += uint64(flowCount)
 			wStats.Cycles++
@@ -136,7 +142,7 @@ func Run(config *models.Config) {
 	signal.Notify(signalChan, os.Interrupt)
 	go func() {
 		for range signalChan {
-			log.Printf("\nReceived an interrupt, closing connections...\n\n")
+			log.Printf("\rReceived an interrupt, closing connections...\n\n")
 			// Cancel workers via context
 			cancel()
 			cleanupDone <- true
