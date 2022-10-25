@@ -1,7 +1,7 @@
 // Use of this source code is governed by Apache License 2.0
 // that can be found in the LICENSE file.
 
-// Replay is used to send netflow packets recorded off the wire and stored in a db at a specificed target
+// Replay is used to send netflow packets recorded off the wire and stored in a db at a specified target
 
 package replay
 
@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/binary"
 	badger "github.com/dgraph-io/badger/v3"
-	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/utils"
 	"log"
 	"net"
@@ -23,7 +22,7 @@ import (
 )
 
 // Worker is the goroutine used to create workers
-func worker(id int, ctx context.Context, server string, port int, delay int, wg *sync.WaitGroup, dataChan <-chan []byte) {
+func worker(id int, ctx context.Context, server string, port int, delay int, wg *sync.WaitGroup, loop bool, dataChan <-chan []byte) {
 	defer wg.Done()
 	// Sent limiter to given delay
 	limiter := time.Tick(time.Millisecond * time.Duration(delay))
@@ -57,18 +56,24 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 				log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
 			}
 			<-limiter
+		case <-time.After(time.Second * 1):
+			if !loop {
+				log.Printf("Worker [%2d] Exiting due to empty channel\n", id)
+				return
+			}
 		}
 	}
 }
 
 // dbReader pulls byte payload out of the database and puts it on the data chan
-func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan chan<- []byte, verbose bool) {
+func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan chan<- []byte, loop bool, verbose bool) {
 	defer wg.Done()
 	// Create/Open DB for writing
 	options := badger.DefaultOptions(dbdir)
 	// Disable badger logging output
 	options.Logger = nil
 	db, err := badger.Open(options)
+	defer db.Close()
 	if err != nil {
 		log.Fatalf("Failed to open DB: %v", err)
 	}
@@ -77,96 +82,52 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 	count := 0
 	itOptions := badger.DefaultIteratorOptions
 	itOptions.PrefetchSize = runtime.GOMAXPROCS(0)
-	err = db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(itOptions)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			// Check to see if context is done and return, otherwise pull payloads and write
-			select {
-			case <-ctx.Done():
-				log.Println("Database Reader exiting due to signal")
-				err := db.Close()
-				if err != nil {
-					log.Printf("Issue closing database: %v", err)
-					return err
-				}
-				return nil
-			default:
-			}
-			item := it.Item()
-			key := item.Key()
-			err := item.Value(func(val []byte) error {
-				buf := bytes.NewReader(key)
-				var k uint32
-				err := binary.Read(buf, binary.BigEndian, &k)
-				if err != nil {
-					log.Printf("Issue reading key: %v\n", err)
-				}
-				v := val
-				//log.Printf("key: %v value: %v \n", k, v)
-				dataChan <- v
-				return nil
-			})
-			if err != nil {
-				log.Printf("Issue getting value from db: %v", err)
-			}
-			count++
-		}
-		log.Printf("Read %d payloads from the database\n", count)
-		return nil
-	})
-}
-
-// Ingest pulls byte payload off the data chan and puts them in the badger db
-func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []byte, dataChan chan<- []byte, verbose bool) {
-	defer wg.Done()
-	// Prep the loop
-	rStats := models.RecordStat{
-		ValidCount:   0,
-		InvalidCount: 0,
-	}
-	printStats := false
-	startTime := time.Now().UnixNano()
-	// Start the loop
 	for {
-		now := time.Now().UnixNano()
-		statsCycle := (now - startTime) / int64(time.Second) % 10
-		// Print out basic statistics per worker every 10 seconds
-		if statsCycle == 0 {
-			if printStats {
-				log.Printf("Netflow v9 Packets: %d Ignored Packets: %d ",
-					rStats.ValidCount, rStats.InvalidCount)
-				printStats = false
-			}
-		} else {
-			printStats = true
-		}
-		// Check to see if context is done and return, otherwise pull payloads and write
 		select {
 		case <-ctx.Done():
-			log.Println("Netflow parser exiting due to signal")
+			log.Println("Database Reader exiting due to signal")
 			return
-		case payload := <-parseChan:
-			// Decode first uint16 and see if it is a version 9
-			buf := bytes.NewReader(payload)
-			var nfVersion uint16
-			err := binary.Read(buf, binary.BigEndian, &nfVersion)
-			if err != nil {
-				log.Printf("Skipping packet due to issue parsing: %v", err)
-				continue
-			}
-			if nfVersion == 9 {
-				// Netflow v9 Packet send it on
-				rStats.ValidCount++
-				dataChan <- payload
-			} else {
-				// Not a Netflow v9 Packet... skip
-				rStats.InvalidCount++
-			}
 		default:
-			// Non-blocking
+			err = db.View(func(txn *badger.Txn) error {
+				it := txn.NewIterator(itOptions)
+				defer it.Close()
+				for it.Rewind(); it.Valid(); it.Next() {
+					// Check to see if context is done and return, otherwise pull payloads and write
+					select {
+					case <-ctx.Done():
+						return nil
+					default:
+					}
+					item := it.Item()
+					key := item.Key()
+					err := item.Value(func(val []byte) error {
+						buf := bytes.NewReader(key)
+						var k uint32
+						err := binary.Read(buf, binary.BigEndian, &k)
+						if err != nil {
+							log.Printf("Issue reading key: %v\n", err)
+						}
+						v := val
+						//log.Printf("key: %v value: %v \n", k, v)
+						dataChan <- v
+						return nil
+					})
+					if err != nil {
+						log.Printf("Issue getting value from db: %v", err)
+					}
+					count++
+				}
+				log.Printf("Read %d payloads from the database\n", count)
+				return nil
+			})
+		}
+		// only run once if not a loop
+		if !loop {
+			break
 		}
 	}
+	log.Printf("Reader done.")
+	return
 }
 
 // Run Replay. Kicks off the replay of netflow packets from a db.
@@ -174,24 +135,15 @@ func Run(server string, port int, delay int, dbdir string, loop bool, workers in
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	dataChan := make(chan []byte, 1024)
-	//parseChan := make(chan []byte, 1024)
 
-	// Start netIngest
-	//wg.Add(1)
-	//go netIngest(ctx, wg, ip, port, parseChan, verbose)
-
-	// Start parseNetflow
-	//wg.Add(1)
-	//go parseNetflow(ctx, wg, parseChan, dataChan, verbose)
-
-	// Start dbIngest
+	// Start dbReader
 	wg.Add(1)
-	go dbReader(ctx, wg, dbdir, dataChan, verbose)
+	go dbReader(ctx, wg, dbdir, dataChan, loop, verbose)
 
 	// Start up the workers
 	wg.Add(workers)
 	for w := 1; w <= workers; w++ {
-		go worker(w, ctx, server, port, delay, wg, dataChan)
+		go worker(w, ctx, server, port, delay, wg, loop, dataChan)
 	}
 
 	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
@@ -200,15 +152,38 @@ func Run(server string, port int, delay int, dbdir string, loop bool, workers in
 	cleanupDone := make(chan bool)
 	signal.Notify(signalChan, os.Interrupt, os.Kill, os.Signal(syscall.SIGTERM), os.Signal(syscall.SIGHUP))
 
+	/*	go func() {
+			for range signalChan {
+				log.Printf("\rReceived signal, shutting down...\n\n")
+				cancel()
+				cleanupDone <- true
+			}
+		}()
+	*/
 	go func() {
-		for range signalChan {
-			log.Printf("\rReceived signal, shutting down...\n\n")
-			cancel()
-			cleanupDone <- true
+		for {
+			select {
+			case <-signalChan:
+				log.Printf("\rReceived signal, shutting down...\n\n")
+				cancel()
+				cleanupDone <- true
+			case <-ctx.Done():
+				cleanupDone <- true
+			case <-time.After(time.Second * 1):
+				if !loop {
+					if len(dataChan) == 0 {
+						log.Printf("Replay complete, shutting down...\n\n")
+						cancel()
+						cleanupDone <- true
+					}
+				}
+				continue
+			}
 		}
 	}()
 	<-cleanupDone
 	wg.Wait()
 	close(signalChan)
+	close(cleanupDone)
 	os.Exit(0)
 }
