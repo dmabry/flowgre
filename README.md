@@ -73,6 +73,44 @@ targets:
     delay: 100
 ```
 
+## Record
+```shell
+Record is used to record flows to a file for later replay testing.
+
+Usage of flowgre record:
+
+  -db string
+        Directory to place recorded flows for later replay (default "recorded_flows")
+  -ip string
+        ip address record should listen on (default "127.0.0.1")
+  -port int
+        listen udp port (default 9995)
+  -verbose
+        Whether to log every packet received. Warning can be a lot
+```
+
+## Replay
+```shell
+Replay is used to send recorded flows to a target server.
+
+Usage of flowgre replay:
+
+  -db string
+        Directory to read recorded flows from (default "recorded_flows")
+  -delay int
+        number of milliseconds between packets sent (default 100)
+  -loop
+        Loops the replays forever
+  -port int
+        target server udp port (default 9995)
+  -server string
+        target server to replay flows at (default "127.0.0.1")
+  -verbose
+        Whether to log every packet received. Warning can be a lot
+  -workers int
+        Number of workers to spawn for replay (default 1)
+```
+
 ## Web Dashboard
 Flowgre provides a basic web dashboard that will display the number of workers, how much work they've done and the
 config used to start Flowgre.  The stats shown all come from the stats collector and should match the stdout worker

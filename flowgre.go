@@ -225,7 +225,7 @@ func main() {
 		printGenericHelp()
 	default:
 		printGenericHelp()
-		fmt.Println("expected 'single', 'barrage' or 'version' subcommands")
+		fmt.Println("expected 'single', 'barrage', 'record', 'replay' or 'version' subcommands")
 		os.Exit(2)
 	}
 }
@@ -243,7 +243,7 @@ func printHelpHeader() {
 func printGenericHelp() {
 	printHelpHeader()
 	fmt.Printf("Version: %s\n", version)
-	fmt.Println("expected 'single', 'barrage' or 'version' subcommands")
+	fmt.Println("expected 'single', 'barrage', 'record', 'replay' or 'version' subcommands")
 	fmt.Println("to print more details pass '-help' after the subcommand")
 	fmt.Println()
 	fmt.Println("Single is used to send a given number of flows in sequence to a collector for testing.")
@@ -251,5 +251,8 @@ func printGenericHelp() {
 	fmt.Println()
 	fmt.Println("Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.")
 	fmt.Println()
-
+	fmt.Println("Record is used to record flows to a file for later replay testing.")
+	fmt.Println()
+	fmt.Println("Replay is used to send recorded flows to a target server.")
+	fmt.Println()
 }

@@ -152,14 +152,6 @@ func Run(server string, port int, delay int, dbdir string, loop bool, workers in
 	cleanupDone := make(chan bool)
 	signal.Notify(signalChan, os.Interrupt, os.Kill, os.Signal(syscall.SIGTERM), os.Signal(syscall.SIGHUP))
 
-	/*	go func() {
-			for range signalChan {
-				log.Printf("\rReceived signal, shutting down...\n\n")
-				cancel()
-				cleanupDone <- true
-			}
-		}()
-	*/
 	go func() {
 		for {
 			select {
