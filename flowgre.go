@@ -10,6 +10,7 @@ import (
 	"github.com/dmabry/flowgre/barrage"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/record"
+	"github.com/dmabry/flowgre/replay"
 	"github.com/dmabry/flowgre/single"
 	"github.com/spf13/viper"
 	"log"
@@ -77,6 +78,24 @@ func main() {
 	recordPort := recordCmd.Int("port", 9995, "listen udp port")
 	recordDB := recordCmd.String("db", "recorded_flows", "Directory to place recorded flows for later replay")
 	recordVerbose := recordCmd.Bool("verbose", false, "Whether to log every packet received. Warning can be a lot")
+
+	// Replay SubCommand setup
+	replayCmd := flag.NewFlagSet("replay", flag.ExitOnError)
+	replayCmd.Usage = func() {
+		printHelpHeader()
+		fmt.Println("Replay is used to send recorded flows to a target server.")
+		fmt.Println()
+		fmt.Fprintf(replayCmd.Output(), "Usage of %s:\n", os.Args[0])
+		fmt.Println()
+		replayCmd.PrintDefaults()
+	}
+	replayServer := replayCmd.String("server", "127.0.0.1", "target server to replay flows at")
+	replayPort := replayCmd.Int("port", 9995, "target server udp port")
+	replayDelay := replayCmd.Int("delay", 100, "number of milliseconds between packets sent")
+	replayDB := replayCmd.String("db", "recorded_flows", "Directory to read recorded flows from")
+	replayLoop := replayCmd.Bool("loop", false, "Loops the replays forever")
+	replayWorkers := replayCmd.Int("workers", 1, "Number of workers to spawn for replay")
+	replayVerbose := replayCmd.Bool("verbose", false, "Whether to log every packet received. Warning can be a lot")
 
 	// Start parsing command line args
 	if len(os.Args) < 2 {
@@ -188,6 +207,15 @@ func main() {
 		}
 
 		record.Run(*recordIP, *recordPort, *recordDB, *recordVerbose)
+		os.Exit(0)
+	case "replay":
+		printHelpHeader()
+		err := replayCmd.Parse(os.Args[2:])
+		if err != nil {
+			panic(fmt.Errorf("error parsing args: %v\n", err))
+		}
+
+		replay.Run(*replayServer, *replayPort, *replayDelay, *replayDB, *replayLoop, *replayWorkers, *replayVerbose)
 		os.Exit(0)
 	case "version":
 		printHelpHeader()

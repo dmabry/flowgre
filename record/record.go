@@ -94,7 +94,7 @@ func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan
 		case payload := <-data:
 			count++
 			key := make([]byte, 4)
-			binary.LittleEndian.PutUint32(key, count)
+			binary.BigEndian.PutUint32(key, count)
 			err := db.Update(func(txn *badger.Txn) error {
 				entry := badger.NewEntry(key, payload)
 				terr := txn.SetEntry(entry)
@@ -186,7 +186,7 @@ func Run(ip string, port int, dbdir string, verbose bool) {
 
 	go func() {
 		for range signalChan {
-			log.Println("Received signal, shutting down...")
+			log.Printf("\rReceived signal, shutting down...\n\n")
 			cancel()
 			cleanupDone <- true
 		}
