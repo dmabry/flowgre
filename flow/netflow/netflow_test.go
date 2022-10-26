@@ -3,7 +3,11 @@
 
 package netflow
 
-import "testing"
+import (
+	"bytes"
+	"encoding/binary"
+	"testing"
+)
 
 func TestHeader_Generate(t *testing.T) {
 	flowCount := 10
@@ -67,4 +71,115 @@ func TestGenerateDataNetflow(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestToBytes(t *testing.T) {
+	// Generate Netflow Data
+	sourceID := 618
+	flowcount := 10
+	tflow := GenerateTemplateNetflow(sourceID)
+	dflow := GenerateDataNetflow(flowcount, sourceID)
+	// Convert to Bytes
+	tbuf := tflow.ToBytes()
+	dbuf := dflow.ToBytes()
+	// Verify Bytes match generated Netflow Data
+	tLength := tbuf.Len()
+	dLength := dbuf.Len()
+	tread := make([]byte, tLength)
+	tn, err := tbuf.Read(tread)
+	if err != nil {
+		t.Errorf("Error during NetFlow Template Read! Got: %v", err)
+	}
+	if tn != tLength {
+		t.Errorf("Returned invalid NetFlow Template buffer length! Got: %d Want: %d", tn, tbuf.Len())
+	}
+	dread := make([]byte, dLength)
+	dn, err := dbuf.Read(dread)
+	if err != nil {
+		t.Errorf("Error during NetFlow Data Read! Got: %v", err)
+	}
+	if dn != dLength {
+		t.Errorf("Returned invalid Netflow Data buffer length! Got: %d Want: %d", dn, dbuf.Len())
+	}
+	// Create readers and parse into new netflow structs
+	tparsed := new(Netflow)
+	dparsed := new(Netflow)
+	treader := bytes.NewReader(tread)
+	dreader := bytes.NewReader(dread)
+	// Parse Template Header
+	err = binary.Read(treader, binary.BigEndian, &tparsed.Header)
+	if err != nil {
+		t.Errorf("Failed to parse Netflow Header! Got: %v", err)
+	}
+	if int(tparsed.Header.SourceID) != sourceID {
+		t.Errorf("Failed to parse Netflow Header Source ID! Got: %d Want: %d",
+			int(tparsed.Header.SourceID), sourceID)
+	}
+	// Parse TemplateFlow
+	tFlowCount := int(tparsed.Header.FlowCount)
+	for i := 0; i < tFlowCount; i++ {
+		tFlowSet := new(TemplateFlowSet)
+		template := new(Template)
+		err := binary.Read(treader, binary.BigEndian, &tFlowSet.FlowSetID)
+		if err != nil {
+			t.Errorf("Failed to parse Netflow FlowSetID! Got: %v", err)
+		}
+		err = binary.Read(treader, binary.BigEndian, &tFlowSet.Length)
+		if err != nil {
+			t.Errorf("Failed to parse Netflow FlowSet Length! Got: %v", err)
+		}
+		err = binary.Read(treader, binary.BigEndian, &template.TemplateID)
+		if err != nil {
+			t.Errorf("Failed to parse Netflow FlowSet TemplateID! Got: %v", err)
+		}
+		err = binary.Read(treader, binary.BigEndian, &template.FieldCount)
+		if err != nil {
+			t.Errorf("Failed to parse Netflow FlowSet FieldCount! Got: %v", err)
+		}
+		fc := int(template.FieldCount)
+		for f := 0; f < fc; f++ {
+			tField := new(Field)
+			err := binary.Read(treader, binary.BigEndian, &tField.Type)
+			if err != nil {
+				t.Errorf("Failed to parse Netflow FlowSet Field Type! Got: %v", err)
+			}
+			err = binary.Read(treader, binary.BigEndian, &tField.Length)
+			if err != nil {
+				t.Errorf("Failed to parse Netflow FlowSet Field Length! Got: %v", err)
+			}
+			template.Fields = append(template.Fields, *tField)
+		}
+		tFlowSet.Templates = append(tFlowSet.Templates, *template)
+		t.Log("Completed Template Flow parsing successfully")
+	}
+	// Parse Data Header
+	err = binary.Read(dreader, binary.BigEndian, &dparsed.Header)
+	if err != nil {
+		t.Errorf("Failed to parse Netflow Header! Got: %v", err)
+	}
+	if int(dparsed.Header.SourceID) != sourceID {
+		t.Errorf("Failed to parse Netflow Header Source ID! Got: %d Want: %d",
+			int(dparsed.Header.SourceID), sourceID)
+	}
+	// Parse DataFlows
+	dFlowSet := new(DataFlowSet)
+	err = binary.Read(dreader, binary.BigEndian, &dFlowSet.FlowSetID)
+	if err != nil {
+		t.Errorf("Failed to parse Netflow Data FlowSetID! Got: %v", err)
+	}
+	err = binary.Read(dreader, binary.BigEndian, &dFlowSet.Length)
+	if err != nil {
+		t.Errorf("Failed to parse Netflow Data Length! Got: %v", err)
+	}
+	dataItems := make([]uint32, 0)
+	for {
+		var dataItem uint32
+		err := binary.Read(dreader, binary.BigEndian, &dataItem)
+		if err != nil {
+			// found the end of the payload
+			break
+		}
+		dataItems = append(dataItems, dataItem)
+	}
+	t.Log("Completed Data Flow parsing successfully")
 }
