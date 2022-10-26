@@ -6,6 +6,7 @@ package netflow
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/google/go-cmp/cmp"
 	"testing"
 )
 
@@ -102,8 +103,8 @@ func TestToBytes(t *testing.T) {
 		t.Errorf("Returned invalid Netflow Data buffer length! Got: %d Want: %d", dn, dbuf.Len())
 	}
 	// Create readers and parse into new netflow structs
-	tparsed := new(Netflow)
-	dparsed := new(Netflow)
+	tparsed := Netflow{}
+	dparsed := Netflow{}
 	treader := bytes.NewReader(tread)
 	dreader := bytes.NewReader(dread)
 	// Parse Template Header
@@ -150,6 +151,7 @@ func TestToBytes(t *testing.T) {
 			template.Fields = append(template.Fields, *tField)
 		}
 		tFlowSet.Templates = append(tFlowSet.Templates, *template)
+		tparsed.TemplateFlowSets = append(tparsed.TemplateFlowSets, *tFlowSet)
 		t.Log("Completed Template Flow parsing successfully")
 	}
 	// Parse Data Header
@@ -171,15 +173,48 @@ func TestToBytes(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to parse Netflow Data Length! Got: %v", err)
 	}
-	dataItems := make([]uint32, 0)
-	for {
-		var dataItem uint32
-		err := binary.Read(dreader, binary.BigEndian, &dataItem)
-		if err != nil {
-			// found the end of the payload
-			break
+	// I know the field count from the template generated above.  Going to use that
+	fc := int(dflow.Header.FlowCount)
+	dataItems := make([]DataItem, fc)
+	for i := 0; i < fc; i++ {
+		fieldCount := int(tparsed.TemplateFlowSets[0].Templates[0].FieldCount)
+		fields := make([]uint32, fieldCount)
+		dataItem := new(DataItem)
+		for f := 0; f < fieldCount; f++ {
+			var field uint32
+			err := binary.Read(dreader, binary.BigEndian, &field)
+			if err != nil {
+				// found the end of the payload
+				break
+			} else {
+				fields[f] = field
+			}
 		}
-		dataItems = append(dataItems, dataItem)
+		dataItem.Fields = fields
+		dataItems[i] = *dataItem
 	}
+	dFlowSet.Items = dataItems
+	if dreader.Len() > 0 {
+		// read the rest as padding
+		padLength := dreader.Len()
+		padding := make([]byte, padLength)
+		err := binary.Read(dreader, binary.BigEndian, padding)
+		if err != nil {
+			t.Errorf("Failed to parse Netflow Data Padding! Got: %v", err)
+		}
+		dFlowSet.Padding = padLength
+	}
+	dparsed.DataFlowSets = append(dparsed.DataFlowSets, *dFlowSet)
 	t.Log("Completed Data Flow parsing successfully")
+	// make sure they are equal
+	if !cmp.Equal(tflow, tparsed) {
+		t.Error("Failed Generated Netflow Template Flow and Parsed is different!")
+	} else {
+		t.Log("Generated Netflow Template Flow and Parsed Match!")
+	}
+	if !cmp.Equal(dflow, dparsed) {
+		t.Error("Failed Generated Netflow Data Flow and Parsed is different!")
+	} else {
+		t.Log("Generated Netflow Data Flow and Parsed Match!")
+	}
 }
