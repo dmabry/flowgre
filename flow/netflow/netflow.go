@@ -302,8 +302,14 @@ func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 	// dataFlowSet.Length = 0 // need to figure out how to calculate this
 	items := make([]DataItem, flowCount)
 	for i := 0; i < flowCount; i++ {
-		srcIP, _ := utils.RandomIP("10.0.0.0/8")
-		dstIP, _ := utils.RandomIP("10.0.0.0/8")
+		srcIP, err := utils.RandomIP("10.0.0.0/8")
+		if err != nil {
+			log.Printf("Issue generating IP... proceeding anyway: %v", err)
+		}
+		dstIP, err := utils.RandomIP("10.0.0.0/8")
+		if err != nil {
+			log.Printf("Issue generating IP... proceeding anyway: %v", err)
+		}
 		fields := make([]uint32, 6)
 		//IN_BYTES
 		fields[0] = utils.GenerateRand32(10000)

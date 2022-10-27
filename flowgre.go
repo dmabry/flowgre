@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/dmabry/flowgre/barrage"
 	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/proxy"
 	"github.com/dmabry/flowgre/record"
 	"github.com/dmabry/flowgre/replay"
 	"github.com/dmabry/flowgre/single"
@@ -24,6 +25,29 @@ const (
 	version = "main" // semantic version
 	license = "Apache License, Version 2.0"
 )
+
+type targetFlags []string
+
+func (i *targetFlags) String() string {
+	var output string
+	var target string
+	first := true
+
+	for _, target = range *i {
+		if first {
+			output = target
+			first = false
+		} else {
+			output = output + ", " + target
+		}
+	}
+	return output
+}
+
+func (i *targetFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
 
 // TODO: Better error handling
 func main() {
@@ -97,10 +121,28 @@ func main() {
 	replayWorkers := replayCmd.Int("workers", 1, "Number of workers to spawn for replay")
 	replayVerbose := replayCmd.Bool("verbose", false, "Whether to log every packet received. Warning can be a lot")
 
+	// Proxy SubCommand setup
+	proxyCmd := flag.NewFlagSet("proxy", flag.ExitOnError)
+	proxyCmd.Usage = func() {
+		printHelpHeader()
+		fmt.Println("Proxy is used to accept flows and relay them to multiple targets")
+		fmt.Println()
+		fmt.Fprintf(proxyCmd.Output(), "Usage of %s:\n", os.Args[0])
+		fmt.Println()
+		proxyCmd.PrintDefaults()
+	}
+	var proxyTargetsFlags targetFlags
+
+	proxyIP := proxyCmd.String("ip", "127.0.0.1", "ip address proxy should listen on")
+	proxyPort := proxyCmd.Int("port", 9995, "proxy listen udp port")
+	//proxyTargets := proxyCmd.Var(&proxyTargetsFlags,"target", "Can be passed multiple times in IP:PORT format")
+	proxyCmd.Var(&proxyTargetsFlags, "target", "Can be passed multiple times in IP:PORT format")
+	proxyVerbose := proxyCmd.Bool("verbose", false, "Whether to log every flow received. Warning can be a lot")
+
 	// Start parsing command line args
 	if len(os.Args) < 2 {
 		printGenericHelp()
-		fmt.Println("expected 'single', 'barrage', 'record' or 'version' subcommands")
+		fmt.Println("expected 'single', 'barrage', 'record', 'replay, 'proxy' or 'version' subcommands")
 		os.Exit(1)
 	}
 
@@ -217,6 +259,22 @@ func main() {
 
 		replay.Run(*replayServer, *replayPort, *replayDelay, *replayDB, *replayLoop, *replayWorkers, *replayVerbose)
 		os.Exit(0)
+	case "proxy":
+		printHelpHeader()
+		err := proxyCmd.Parse(os.Args[2:])
+		if err != nil {
+			panic(fmt.Errorf("error parsing args: %v\n", err))
+		}
+		/*
+				fmt.Printf("args passed:\n"+
+					"Listen IP: %s\n"+
+					"Listen Port: %d\n"+
+					"Targets: %s\n"+
+					"Verbose: %t\n",
+			*proxyIP, *proxyPort, proxyTargetsFlags.String(), *proxyVerbose)
+		*/
+		proxy.Run(*proxyIP, *proxyPort, *proxyVerbose, proxyTargetsFlags)
+		os.Exit(0)
 	case "version":
 		printHelpHeader()
 		fmt.Printf("Version: %s\n", version)
@@ -225,7 +283,7 @@ func main() {
 		printGenericHelp()
 	default:
 		printGenericHelp()
-		fmt.Println("expected 'single', 'barrage', 'record', 'replay' or 'version' subcommands")
+		fmt.Println("expected 'single', 'barrage', 'record', 'replay', 'proxy' or 'version' subcommands")
 		os.Exit(2)
 	}
 }
@@ -254,5 +312,7 @@ func printGenericHelp() {
 	fmt.Println("Record is used to record flows to a file for later replay testing.")
 	fmt.Println()
 	fmt.Println("Replay is used to send recorded flows to a target server.")
+	fmt.Println()
+	fmt.Println("Proxy is used to accept flows and relay them to multiple targets")
 	fmt.Println()
 }
