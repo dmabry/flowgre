@@ -85,13 +85,22 @@ func TestToBytes(t *testing.T) {
 }
 
 func TestRandomIP(t *testing.T) {
-	cidr := "192.168.10.0/24"
-	_, ipNet, _ := net.ParseCIDR(cidr)
-	result, _ := RandomIP(cidr)
+	const (
+		cidr = "10.0.0.0/8"
+		itr  = 10000
+	)
+	for i := 0; i < itr; i++ {
+		_, ipNet, _ := net.ParseCIDR(cidr)
+		result, _ := RandomIP(cidr)
 
-	if !ipNet.Contains(result) {
-		t.Errorf("Result isn't within bounds! Got: %s Want: %s", result, cidr)
+		if !ipNet.Contains(result) {
+			t.Errorf("Result isn't within bounds! Got: %s Want: %s", result, cidr)
+		}
+		//else {
+		//	t.Logf("Result %s is found in %s", result, cidr)
+		//}
 	}
+	t.Logf("Generated %d random IPs inside %s", itr, cidr)
 }
 
 func TestSendPacket(t *testing.T) {

@@ -107,7 +107,7 @@ func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan
 	}
 }
 
-// Ingest pulls byte payload off the data chan and puts them in the badger db
+// parseNetflow validates that the payload received is valid netflow v9
 func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []byte, dataChan chan<- []byte, verbose bool) {
 	defer wg.Done()
 	// Prep the loop
