@@ -341,25 +341,6 @@ func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 			L4DstPort:   uint16(httpsPort),
 			Protocol:    uint8(6),
 		}
-		/*
-			fields := make([]uint32, 6)
-			//IN_BYTES
-			fields[0] = utils.GenerateRand32(10000)
-			//IN_PKTS
-			fields[1] = utils.GenerateRand32(10000)
-			//IPV4_SRC_ADDR
-			//fields[2] = IPto32("10.0.0.32")
-			fields[2] = utils.IPToNum(srcIP)
-			//IPV4_DST_ADDR
-			//fields[3] = IPto32("10.0.0.42")
-			fields[3] = utils.IPToNum(dstIP)
-			//L4_SRC_PORT
-			fields[4] = utils.GenerateRand32(10000)
-			//L4_DST_PORT
-			fields[5] = uint16(httpsPort)
-		*/
-		//add fields to the item
-		//items[i].Fields = fields
 		items[i] = httpsDetail
 	}
 	dataFlowSet.Items = items
