@@ -26,8 +26,10 @@ const (
 	license = "Apache License, Version 2.0"
 )
 
+// targetFlags is used to allow for multiple targets to be passed for proxy
 type targetFlags []string
 
+// String is used to return a string form of targets passed to proxy
 func (i *targetFlags) String() string {
 	var output string
 	var target string
@@ -44,12 +46,12 @@ func (i *targetFlags) String() string {
 	return output
 }
 
+// Set is used to put multiple targets into a slice
 func (i *targetFlags) Set(value string) error {
 	*i = append(*i, value)
 	return nil
 }
 
-// TODO: Better error handling
 func main() {
 
 	// Single SubCommand setup
@@ -135,7 +137,6 @@ func main() {
 
 	proxyIP := proxyCmd.String("ip", "127.0.0.1", "ip address proxy should listen on")
 	proxyPort := proxyCmd.Int("port", 9995, "proxy listen udp port")
-	//proxyTargets := proxyCmd.Var(&proxyTargetsFlags,"target", "Can be passed multiple times in IP:PORT format")
 	proxyCmd.Var(&proxyTargetsFlags, "target", "Can be passed multiple times in IP:PORT format")
 	proxyVerbose := proxyCmd.Bool("verbose", false, "Whether to log every flow received. Warning can be a lot")
 
@@ -196,10 +197,6 @@ func main() {
 					case map[string]interface{}:
 						// targetName, using the example above, is server1 and targetValues are a map of settings
 						for targetName, targetValues := range v {
-							// TODO: For Debug purposes... I'll figure out logging and debug flags
-							// for key, setting := range targetValues.(map[string]interface{}) {
-							//	fmt.Printf("target: %s key: %s setting: %s\n", targetName, key, setting.(string))
-							//}
 							t := targetValues.(map[string]interface{})
 							targetIP := t["ip"].(string)
 							targetPort := t["port"].(int)
@@ -265,14 +262,6 @@ func main() {
 		if err != nil {
 			panic(fmt.Errorf("error parsing args: %v\n", err))
 		}
-		/*
-				fmt.Printf("args passed:\n"+
-					"Listen IP: %s\n"+
-					"Listen Port: %d\n"+
-					"Targets: %s\n"+
-					"Verbose: %t\n",
-			*proxyIP, *proxyPort, proxyTargetsFlags.String(), *proxyVerbose)
-		*/
 		proxy.Run(*proxyIP, *proxyPort, *proxyVerbose, proxyTargetsFlags)
 		os.Exit(0)
 	case "version":

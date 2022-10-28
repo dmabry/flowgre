@@ -18,6 +18,7 @@ import (
 	"time"
 )
 
+// RunWebServer is used to start the web server goroutine
 func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, sc *utils.StatCollector) {
 	defer wg.Done()
 	listenAddr := ip + ":" + strconv.Itoa(port)
@@ -50,6 +51,7 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 	}
 }
 
+// HealthHandler is used to generate json payload for health.  static for now.
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	health := models.Health{
 		Status:  "OK",
@@ -61,6 +63,7 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// IndexHandler is used to produce a similar health payload.  static for now.
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	health := models.Health{
 		Status:  "OK",

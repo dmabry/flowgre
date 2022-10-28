@@ -108,7 +108,6 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 							log.Printf("Issue reading key: %v\n", err)
 						}
 						v := val
-						//log.Printf("key: %v value: %v \n", k, v)
 						dataChan <- v
 						return nil
 					})
