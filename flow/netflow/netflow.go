@@ -245,15 +245,16 @@ func (t *TemplateFlowSet) Generate() TemplateFlowSet {
 	// template
 	template := new(Template)
 	template.TemplateID = 256
-	template.FieldCount = 6
+	template.FieldCount = 7
 	// fields
 	fields := make([]Field, template.FieldCount)
 	fields[0] = Field{Type: IN_BYTES, Length: 4}
 	fields[1] = Field{Type: IN_PKTS, Length: 4}
 	fields[2] = Field{Type: IPV4_SRC_ADDR, Length: 4}
 	fields[3] = Field{Type: IPV4_DST_ADDR, Length: 4}
-	fields[4] = Field{Type: L4_SRC_PORT, Length: 4}
-	fields[5] = Field{Type: L4_DST_PORT, Length: 4}
+	fields[4] = Field{Type: L4_SRC_PORT, Length: 2}
+	fields[5] = Field{Type: L4_DST_PORT, Length: 2}
+	fields[6] = Field{Type: PROTOCOL, Length: 1}
 	// add them to the template
 	template.Fields = fields
 	templates = append(templates, *template)
@@ -278,16 +279,36 @@ func (t *TemplateFlowSet) size() int {
 }
 
 // DataItem for DataFlowSet
+
 type DataItem struct {
 	Fields []uint32
 }
+type DataAny interface {
+}
 
 // DataFlowSet for Netflow
-type DataFlowSet struct {
+type DataFlowSetOld struct {
 	FlowSetID uint16 // should equal template id previously passed... for generation maybe always use 256?
 	Length    uint16
 	Items     []DataItem
 	Padding   int //used to calculate "pad" the flowset to 32 bit
+}
+
+type DataFlowSet struct {
+	FlowSetID uint16
+	Length    uint16
+	Items     []DataAny
+	Padding   int
+}
+
+type HttpsFlow struct {
+	InBytes     uint32
+	InPkts      uint32
+	Ipv4SrcAddr uint32
+	Ipv4DstAddr uint32
+	L4SrcPort   uint16
+	L4DstPort   uint16
+	Protocol    uint8
 }
 
 // Generate a DataFlowSet.
@@ -300,7 +321,8 @@ func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 	dataFlowSet := new(DataFlowSet)
 	dataFlowSet.FlowSetID = 256
 	// dataFlowSet.Length = 0 // need to figure out how to calculate this
-	items := make([]DataItem, flowCount)
+	//items := make([]DataItem, flowCount)
+	items := make([]DataAny, flowCount)
 	for i := 0; i < flowCount; i++ {
 		srcIP, err := utils.RandomIP("10.0.0.0/8")
 		if err != nil {
@@ -310,23 +332,35 @@ func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 		if err != nil {
 			log.Printf("Issue generating IP... proceeding anyway: %v", err)
 		}
-		fields := make([]uint32, 6)
-		//IN_BYTES
-		fields[0] = utils.GenerateRand32(10000)
-		//IN_PKTS
-		fields[1] = utils.GenerateRand32(10000)
-		//IPV4_SRC_ADDR
-		//fields[2] = IPto32("10.0.0.32")
-		fields[2] = utils.IPToNum(srcIP)
-		//IPV4_DST_ADDR
-		//fields[3] = IPto32("10.0.0.42")
-		fields[3] = utils.IPToNum(dstIP)
-		//L4_SRC_PORT
-		fields[4] = utils.GenerateRand32(10000)
-		//L4_DST_PORT
-		fields[5] = uint32(httpsPort)
+		httpsDetail := HttpsFlow{
+			InBytes:     utils.GenerateRand32(10000),
+			InPkts:      utils.GenerateRand32(10000),
+			Ipv4SrcAddr: utils.IPToNum(srcIP),
+			Ipv4DstAddr: utils.IPToNum(dstIP),
+			L4SrcPort:   utils.GenerateRand16(10000),
+			L4DstPort:   uint16(httpsPort),
+			Protocol:    uint8(6),
+		}
+		/*
+			fields := make([]uint32, 6)
+			//IN_BYTES
+			fields[0] = utils.GenerateRand32(10000)
+			//IN_PKTS
+			fields[1] = utils.GenerateRand32(10000)
+			//IPV4_SRC_ADDR
+			//fields[2] = IPto32("10.0.0.32")
+			fields[2] = utils.IPToNum(srcIP)
+			//IPV4_DST_ADDR
+			//fields[3] = IPto32("10.0.0.42")
+			fields[3] = utils.IPToNum(dstIP)
+			//L4_SRC_PORT
+			fields[4] = utils.GenerateRand32(10000)
+			//L4_DST_PORT
+			fields[5] = uint16(httpsPort)
+		*/
 		//add fields to the item
-		items[i].Fields = fields
+		//items[i].Fields = fields
+		items[i] = httpsDetail
 	}
 	dataFlowSet.Items = items
 	dataFlowSet.Length = uint16(dataFlowSet.size())
@@ -337,10 +371,9 @@ func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 func (d *DataFlowSet) size() int {
 	size := binary.Size(d.FlowSetID)
 	size += binary.Size(d.Length)
+	//size += binary.Size(d.Items)
 	for _, item := range d.Items {
-		for _, field := range item.Fields {
-			size += binary.Size(field)
-		}
+		size += binary.Size(item)
 	}
 	remainder := size % 32
 	padding := 32 - remainder
@@ -357,7 +390,6 @@ type Netflow struct {
 }
 
 // ToBytes Converts Netflow struct to a bytes buffer than can be written to the wire
-// TODO: Better error handling.
 func (n *Netflow) ToBytes() bytes.Buffer {
 	var buf bytes.Buffer
 	err := binary.Write(&buf, binary.BigEndian, &n.Header)
@@ -412,11 +444,9 @@ func (n *Netflow) ToBytes() bytes.Buffer {
 				log.Println("[ERROR] Issue writing Data FlowSet Length: ", err)
 			}
 			for _, item := range dFlow.Items {
-				for _, field := range item.Fields {
-					err = binary.Write(&buf, binary.BigEndian, field)
-					if err != nil {
-						log.Println("[ERROR] Issue writing Data FlowSet Field: ", err)
-					}
+				err = binary.Write(&buf, binary.BigEndian, item)
+				if err != nil {
+					log.Println("[ERROR] Issue writing Data FlowSet Field: ", err)
 				}
 			}
 			// Padding to 32 bit boundary per Netflow v9 RFC
