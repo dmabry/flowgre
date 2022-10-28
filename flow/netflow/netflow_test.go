@@ -45,7 +45,7 @@ func TestGenerateTemplateNetflow(t *testing.T) {
 			if tFlow.FlowSetID != 0 {
 				t.Errorf("Returned wrong FlowSetID! Got: %d Want: %d", tFlow.FlowSetID, 0)
 			}
-			if tFlow.Length != 32 {
+			if tFlow.Length != 36 {
 				t.Errorf("Returned wrong length! Got: %d Want: %d", tFlow.Length, 32)
 			}
 		}
@@ -175,23 +175,14 @@ func TestToBytes(t *testing.T) {
 	}
 	// I know the field count from the template generated above.  Going to use that
 	fc := int(dflow.Header.FlowCount)
-	dataItems := make([]DataItem, fc)
+	dataItems := make([]DataAny, fc)
 	for i := 0; i < fc; i++ {
-		fieldCount := int(tparsed.TemplateFlowSets[0].Templates[0].FieldCount)
-		fields := make([]uint32, fieldCount)
-		dataItem := new(DataItem)
-		for f := 0; f < fieldCount; f++ {
-			var field uint32
-			err := binary.Read(dreader, binary.BigEndian, &field)
-			if err != nil {
-				// found the end of the payload
-				break
-			} else {
-				fields[f] = field
-			}
+		dataItem := HttpsFlow{}
+		err := binary.Read(dreader, binary.BigEndian, &dataItem)
+		if err != nil {
+			t.Errorf("Issue reading in HttpsFlow")
 		}
-		dataItem.Fields = fields
-		dataItems[i] = *dataItem
+		dataItems[i] = dataItem
 	}
 	dFlowSet.Items = dataItems
 	if dreader.Len() > 0 {
