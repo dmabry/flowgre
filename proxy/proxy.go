@@ -25,7 +25,6 @@ import (
 func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitGroup, workerChan <-chan []byte) {
 	defer wg.Done()
 	// Sent limiter to given delay
-	// limiter := time.Tick(time.Millisecond * time.Duration(delay))
 	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
 	srcPort := utils.RandomNum(10000, 15000)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
@@ -70,7 +69,6 @@ func replicator(ctx context.Context, wg *sync.WaitGroup, dataChan <-chan []byte,
 			return
 		// Validated received and needs to be passed on to workers
 		case payload := <-dataChan:
-			//log.Println("Received payload", payload)
 			for _, target := range targets {
 				target <- payload
 			}

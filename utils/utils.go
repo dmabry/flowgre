@@ -88,7 +88,7 @@ func RandomNum(min, max int) int {
 }
 
 // ToBytes Converts a given interface to a byte stream.
-// Not used currently, but handy to have for later maybe.  Did not work for encoding Netflow packets as it
+// Not used currently, but handy to have for later.  Did not work for encoding Netflow packets as it
 // encoded field names.
 func ToBytes(key interface{}) ([]byte, error) {
 	var buf bytes.Buffer
@@ -156,26 +156,7 @@ func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer, verbose
 	return n, err
 }
 
-// GatherStats is the function that is called to read all items on the statsChan
-func GatherStats(statsChan <-chan models.WorkerStat) (stats models.WorkerStats) {
-	var workerStats models.WorkerStats
-	select {
-	case stat, ok := <-statsChan:
-		if ok {
-			workerStats = append(workerStats, stat)
-			// pull all items off the channel
-			for item := range statsChan {
-				workerStats = append(workerStats, item)
-			}
-		} else {
-			log.Println("Stats Channel Closed!")
-		}
-	default:
-		// nothing on channel
-	}
-	return workerStats
-}
-
+// StatCollector is used to gather stats about barrage and emit those stats via stdout and web ui
 type StatCollector struct {
 	StatsMap    map[int]models.WorkerStat
 	StatsChan   chan models.WorkerStat
@@ -183,12 +164,12 @@ type StatCollector struct {
 	Config      *models.Config
 }
 
+// Run is used to start the StatCollector
 func (sc *StatCollector) Run(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	// check the stats channel every 5 seconds
 	limiter := time.Tick(time.Second * time.Duration(5))
 	// map for aggregated for web output
-	//statsMap := make(map[int]models.WorkerStat)
 	log.Println("Stats Collector started")
 	sizeLabel := "bytes"
 	var sizeOut uint64 = 0
@@ -209,7 +190,8 @@ func (sc *StatCollector) Run(wg *sync.WaitGroup, ctx context.Context) {
 				default:
 					sizeOut = stat.BytesSent
 				}
-				log.Printf("Worker [%2d] SourceID: %4d Cycles: %d Flows Sent: %d BytesSent Sent: %d %s\n", stat.WorkerID, stat.SourceID, stat.Cycles, stat.FlowsSent, sizeOut, sizeLabel)
+				log.Printf("Worker [%2d] SourceID: %4d Cycles: %d Flows Sent: %d BytesSent Sent: %d %s\n",
+					stat.WorkerID, stat.SourceID, stat.Cycles, stat.FlowsSent, sizeOut, sizeLabel)
 				sc.StatsMap[stat.WorkerID] = stat
 				sc.StatsTotals.Cycles += stat.Cycles
 				sc.StatsTotals.FlowsSent += stat.FlowsSent
@@ -227,6 +209,7 @@ func (sc *StatCollector) Run(wg *sync.WaitGroup, ctx context.Context) {
 	}
 }
 
+// StatsHandler is used by web server to emit stats as json
 func (sc *StatCollector) StatsHandler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewEncoder(w).Encode(sc.StatsMap)
 	if err != nil {
@@ -234,6 +217,7 @@ func (sc *StatCollector) StatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DashboardHandler is used by web server to emit the Dashboard
 func (sc *StatCollector) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	d := models.DashboardPage{
 		Title:   "Flowgre Dashboard",
@@ -258,6 +242,7 @@ func (sc *StatCollector) DashboardHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// Stop is used to close down the StatsChan gracefully
 func (sc *StatCollector) Stop() {
 	close(sc.StatsChan)
 }
