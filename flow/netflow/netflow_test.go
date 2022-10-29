@@ -13,7 +13,8 @@ import (
 func TestHeader_Generate(t *testing.T) {
 	flowCount := 10
 	sourceID := 618
-	header := new(Header).Generate(flowCount, sourceID)
+	ft := new(FlowTracker).Init()
+	header := new(Header).Generate(flowCount, sourceID, &ft)
 
 	if header.Version != 9 {
 		t.Errorf("Header returned the wrong version! Got: %d Want: 9", header.Version)
@@ -37,7 +38,8 @@ func TestHeader_Generate(t *testing.T) {
 
 func TestGenerateTemplateNetflow(t *testing.T) {
 	sourceID := 618
-	flow := GenerateTemplateNetflow(sourceID)
+	ft := new(FlowTracker).Init()
+	flow := GenerateTemplateNetflow(sourceID, &ft)
 	if len(flow.TemplateFlowSets) < 1 {
 		t.Errorf("Returned incorrect number of Template Flows! Got: %d Want: >1", len(flow.TemplateFlowSets))
 	} else {
@@ -55,7 +57,8 @@ func TestGenerateTemplateNetflow(t *testing.T) {
 func TestGenerateDataNetflow(t *testing.T) {
 	flowcount := 10
 	sourceID := 618
-	flow := GenerateDataNetflow(flowcount, sourceID)
+	ft := new(FlowTracker).Init()
+	flow := GenerateDataNetflow(flowcount, sourceID, &ft)
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Errorf("Returned incorrect number of Data Flows! Got: %d Want >: %d", len(flow.DataFlowSets), 1)
@@ -78,8 +81,9 @@ func TestToBytes(t *testing.T) {
 	// Generate Netflow Data
 	sourceID := 618
 	flowcount := 10
-	tflow := GenerateTemplateNetflow(sourceID)
-	dflow := GenerateDataNetflow(flowcount, sourceID)
+	ft := new(FlowTracker).Init()
+	tflow := GenerateTemplateNetflow(sourceID, &ft)
+	dflow := GenerateDataNetflow(flowcount, sourceID, &ft)
 	// Convert to Bytes
 	tbuf := tflow.ToBytes()
 	dbuf := dflow.ToBytes()
