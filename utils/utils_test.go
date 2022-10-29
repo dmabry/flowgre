@@ -69,15 +69,22 @@ func TestIPto32(t *testing.T) {
 }
 
 func TestRandomNum(t *testing.T) {
-	min := 10
-	max := 100
-	result := RandomNum(min, max)
-	if result > max {
-		t.Errorf("Result is greater than max! Got: %d Want: %d", result, max)
+	count := 10000
+	for i := 0; i < count; i++ {
+		min := 10
+		max := 250
+		result := RandomNum(min, max)
+		if result > max {
+			t.Errorf("Result is greater than max! Got: %d Want: %d", result, max)
+		}
+		if result < min {
+			t.Errorf("Result is less than min! Got: %d Want: %d", result, min)
+		}
+		if result == 0 {
+			t.Errorf("Result is less than min! Got: %d Want: %d", result, min)
+		}
 	}
-	if result < min {
-		t.Errorf("Result is less than min! Got: %d Want: %d", result, min)
-	}
+	t.Logf("Successfully generated %d random ints", count)
 }
 
 func TestToBytes(t *testing.T) {

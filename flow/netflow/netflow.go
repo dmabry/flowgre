@@ -139,6 +139,29 @@ const (
 	layer2packetSectionData      = 104
 )
 
+// FlowTracker
+type FlowTracker struct {
+	StartTime    int64
+	FlowSequence uint32
+}
+
+// FlowTracker Init starts a new counter
+func (ft *FlowTracker) Init() FlowTracker {
+	flowTracker := new(FlowTracker)
+	flowTracker.FlowSequence = 0
+	flowTracker.StartTime = time.Now().UnixNano()
+	return *flowTracker
+}
+
+func (ft *FlowTracker) GetStartTime() int64 {
+	return ft.StartTime
+}
+
+func (ft *FlowTracker) NextSeq() uint32 {
+	ft.FlowSequence = ft.FlowSequence + 1
+	return ft.FlowSequence
+}
+
 // Header NetflowHeader v9
 type Header struct {
 	Version      uint16
@@ -173,18 +196,18 @@ func (h *Header) String() string {
 
 // Generate a Header accounting for the given flowCount.  Flowcount should match the expected number of flows in the
 // Netflow packet that the Header will be used for.
-func (h *Header) Generate(flowCount int, sourceID int) Header {
+func (h *Header) Generate(flowCount int, sourceID int, flowTracker *FlowTracker) Header {
 	now := time.Now().UnixNano()
 	secs := now / int64(time.Second)
-	sysUptime = uint32((now-StartTime)/int64(time.Millisecond)) + 1000
-	flowSequence++
+	startTime := flowTracker.GetStartTime()
+	sysUptime = uint32((now-startTime)/int64(time.Millisecond)) + 1000
 
 	header := new(Header)
 	header.Version = 9
 	header.SysUptime = sysUptime
 	header.UnixSec = uint32(secs)
 	header.FlowCount = uint16(flowCount)
-	header.FlowSequence = flowSequence
+	header.FlowSequence = flowTracker.NextSeq()
 	header.SourceID = uint32(sourceID)
 
 	return *header
@@ -278,8 +301,6 @@ func (t *TemplateFlowSet) size() int {
 	return size
 }
 
-// DataItem for DataFlowSet
-
 type DataItem struct {
 	Fields []uint32
 }
@@ -287,13 +308,6 @@ type DataAny interface {
 }
 
 // DataFlowSet for Netflow
-type DataFlowSetOld struct {
-	FlowSetID uint16 // should equal template id previously passed... for generation maybe always use 256?
-	Length    uint16
-	Items     []DataItem
-	Padding   int //used to calculate "pad" the flowset to 32 bit
-}
-
 type DataFlowSet struct {
 	FlowSetID uint16
 	Length    uint16
@@ -320,8 +334,6 @@ type HttpsFlow struct {
 func (d *DataFlowSet) Generate(flowCount int) DataFlowSet {
 	dataFlowSet := new(DataFlowSet)
 	dataFlowSet.FlowSetID = 256
-	// dataFlowSet.Length = 0 // need to figure out how to calculate this
-	//items := make([]DataItem, flowCount)
 	items := make([]DataAny, flowCount)
 	for i := 0; i < flowCount; i++ {
 		srcIP, err := utils.RandomIP("10.0.0.0/8")
@@ -460,11 +472,11 @@ func GetNetFlowSizes(netFlow Netflow) string {
 }
 
 // GenerateNetflow Generates a combined Template and Data flow Netflow struct.  Not required by spec, but can be done.
-func GenerateNetflow(flowCount int, sourceID int) Netflow {
+func GenerateNetflow(flowCount int, sourceID int, flowTracker *FlowTracker) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
 	dataFlow := new(DataFlowSet).Generate(flowCount)
-	header := new(Header).Generate(flowCount+1, sourceID) // always +1 of dataflow count, because we are counting the template
+	header := new(Header).Generate(flowCount+1, sourceID, flowTracker) // always +1 of dataflow count, because we are counting the template
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)
@@ -472,20 +484,20 @@ func GenerateNetflow(flowCount int, sourceID int) Netflow {
 }
 
 // GenerateDataNetflow Generates a Netflow containing Data flows
-func GenerateDataNetflow(flowCount int, sourceID int) Netflow {
+func GenerateDataNetflow(flowCount int, sourceID int, flowTracker *FlowTracker) Netflow {
 	netflow := new(Netflow)
 	dataFlow := new(DataFlowSet).Generate(flowCount)
-	header := new(Header).Generate(flowCount, sourceID) // always +1 of dataflow count, because we are counting the template
+	header := new(Header).Generate(flowCount, sourceID, flowTracker)
 	netflow.Header = header
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)
 	return *netflow
 }
 
 // GenerateTemplateNetflow Generates a Netflow containing Template flow
-func GenerateTemplateNetflow(sourceID int) Netflow {
+func GenerateTemplateNetflow(sourceID int, flowTracker *FlowTracker) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
-	header := new(Header).Generate(1, sourceID) // always 1 counting the template only
+	header := new(Header).Generate(1, sourceID, flowTracker) // always 1 counting the template only
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
 	return *netflow

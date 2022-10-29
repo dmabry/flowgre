@@ -78,7 +78,6 @@ func IPto32(s string) uint32 {
 
 // GenerateRand32 Generates a random uint32 within the given max
 func GenerateRand32(max int) uint32 {
-	// return uint32(rand.Intn(max))
 	return uint32(CryptoRandomNumber(int64(max)))
 }
 
