@@ -189,7 +189,7 @@ func (sc *StatCollector) Run(wg *sync.WaitGroup, ctx context.Context) {
 				default:
 					sizeOut = stat.BytesSent
 				}
-				log.Printf("Worker [%2d] SourceID: %4d Cycles: %d Flows Sent: %d BytesSent Sent: %d %s\n",
+				log.Printf("Worker [%2d] SourceID: %4d Cycles: %d Flows Sent: %d Bytes Sent: %d %s\n",
 					stat.WorkerID, stat.SourceID, stat.Cycles, stat.FlowsSent, sizeOut, sizeLabel)
 				sc.StatsMap[stat.WorkerID] = stat
 				sc.StatsTotals.Cycles += stat.Cycles
