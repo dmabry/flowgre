@@ -47,8 +47,8 @@ func TestGenerateTemplateNetflow(t *testing.T) {
 			if tFlow.FlowSetID != 0 {
 				t.Errorf("Returned wrong FlowSetID! Got: %d Want: %d", tFlow.FlowSetID, 0)
 			}
-			if tFlow.Length != 36 {
-				t.Errorf("Returned wrong length! Got: %d Want: %d", tFlow.Length, 32)
+			if tFlow.Length != 64 {
+				t.Errorf("Returned wrong length! Got: %d Want: %d", tFlow.Length, 64)
 			}
 		}
 	}
