@@ -178,9 +178,8 @@ func TestToBytes(t *testing.T) {
 		t.Errorf("Failed to parse Netflow Data Length! Got: %v", err)
 	}
 	// I know the field count from the template generated above.  Going to use that
-	fc := int(dflow.Header.FlowCount)
-	dataItems := make([]DataAny, fc)
-	for i := 0; i < fc; i++ {
+	dataItems := make([]DataAny, flowcount)
+	for i := 0; i < flowcount; i++ {
 		dataItem := HttpsFlow{}
 		err := binary.Read(dreader, binary.BigEndian, &dataItem)
 		if err != nil {
