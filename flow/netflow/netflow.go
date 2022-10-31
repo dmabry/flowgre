@@ -196,7 +196,7 @@ func (h *Header) String() string {
 
 // Generate a Header accounting for the given flowCount.  Flowcount should match the expected number of flows in the
 // Netflow packet that the Header will be used for.
-func (h *Header) Generate(flowCount int, sourceID int, flowTracker *FlowTracker) Header {
+func (h *Header) Generate(flowSetCount int, sourceID int, flowTracker *FlowTracker) Header {
 	now := time.Now().UnixNano()
 	secs := now / int64(time.Second)
 	startTime := flowTracker.GetStartTime()
@@ -206,7 +206,7 @@ func (h *Header) Generate(flowCount int, sourceID int, flowTracker *FlowTracker)
 	header.Version = 9
 	header.SysUptime = sysUptime
 	header.UnixSec = uint32(secs)
-	header.FlowCount = uint16(flowCount)
+	header.FlowCount = uint16(flowSetCount)
 	header.FlowSequence = flowTracker.NextSeq()
 	header.SourceID = uint32(sourceID)
 
@@ -489,7 +489,7 @@ func GenerateNetflow(flowCount int, sourceID int, flowTracker *FlowTracker) Netf
 func GenerateDataNetflow(flowCount int, sourceID int, flowTracker *FlowTracker) Netflow {
 	netflow := new(Netflow)
 	dataFlow := new(DataFlowSet).Generate(flowCount)
-	header := new(Header).Generate(flowCount, sourceID, flowTracker)
+	header := new(Header).Generate(1, sourceID, flowTracker) // always 1 for but could be more in future
 	netflow.Header = header
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)
 	return *netflow
