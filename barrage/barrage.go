@@ -1,7 +1,7 @@
 // Use of this source code is governed by Apache License 2.0
 // that can be found in the LICENSE file.
 
-// Barrage is used to setup a continuous stream of netflow packets towards a single collector
+// Barrage is used to set up a continuous stream of netflow packets towards a single collector
 
 package barrage
 
@@ -20,7 +20,7 @@ import (
 )
 
 // Worker is the goroutine used to create workers
-func worker(id int, ctx context.Context, server string, port int, sourceID int, delay int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat) {
+func worker(id int, ctx context.Context, server string, port int, srcRange string, dstRange string, sourceID int, delay int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat) {
 	defer wg.Done()
 	wStats := models.WorkerStat{
 		WorkerID:  id,
@@ -87,7 +87,7 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 			//flowCount := utils.RandomNum(5, 10) // TODO: For some reason this causes random flow seq issues.
 			// using hardcoded number for now
 			flowCount := 100
-			flow := netflow.GenerateDataNetflow(flowCount, sourceID, &ft)
+			flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, &ft)
 			buf := flow.ToBytes()
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
@@ -103,7 +103,7 @@ func worker(id int, ctx context.Context, server string, port int, sourceID int, 
 // Run the Barrage
 // func Run(server string, port int, delay int, workers int) {
 func Run(config *models.Config) {
-	//waitgroup and context used to track and control workers
+	//wait group and context used to track and control workers
 	if &config.WaitGroup == nil {
 		config.WaitGroup = sync.WaitGroup{}
 	}
@@ -130,7 +130,7 @@ func Run(config *models.Config) {
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(100, 10000)
-		go worker(w, ctx, config.Server, config.DstPort, sourceID, config.Delay, wg, sc.StatsChan)
+		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, wg, sc.StatsChan)
 	}
 
 	// Start WebServer if needed

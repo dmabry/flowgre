@@ -13,6 +13,8 @@ import (
 type Config struct {
 	Server    string          `json:"server,omitempty"`
 	DstPort   int             `json:"dst_port,omitempty"`
+	SrcRange  string          `json:"src_range,omitempty"`
+	DstRange  string          `json:"dst_range,omitempty"`
 	Workers   int             `json:"workers,omitempty"`
 	Delay     int             `json:"delay,omitempty"`
 	WebIP     string          `json:"web_ip,omitempty"`
