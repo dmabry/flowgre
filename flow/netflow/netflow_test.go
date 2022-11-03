@@ -180,10 +180,10 @@ func TestToBytes(t *testing.T) {
 	// I know the field count from the template generated above.  Going to use that
 	dataItems := make([]DataAny, flowcount)
 	for i := 0; i < flowcount; i++ {
-		dataItem := HttpsFlow{}
+		dataItem := GenericFlow{}
 		err := binary.Read(dreader, binary.BigEndian, &dataItem)
 		if err != nil {
-			t.Errorf("Issue reading in HttpsFlow")
+			t.Errorf("Issue reading in GenericFlow")
 		}
 		dataItems[i] = dataItem
 	}
