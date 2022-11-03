@@ -16,7 +16,7 @@ import (
 
 // Run Creates the given number of Netflow packets, including the required Template, for a Single run.  Creates the packets
 // and puts the on the wire to the targeted host.
-func Run(collectorIP string, destPort int, srcPort int, count int, hexDump bool) {
+func Run(collectorIP string, destPort int, srcPort int, count int, srcRange string, dstRange string, hexDump bool) {
 	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
 	if srcPort == 0 {
 		//Pick random source port between 10000 and 15000
@@ -50,7 +50,7 @@ func Run(collectorIP string, destPort int, srcPort int, count int, hexDump bool)
 	// Generate and send Data Flow(s)
 	fmt.Printf("\nSending Data Flows\n\n")
 	for i := 1; i <= count; i++ {
-		flow := netflow.GenerateDataNetflow(10, sourceID, &ft)
+		flow := netflow.GenerateDataNetflow(10, sourceID, srcRange, dstRange, &ft)
 		buf := flow.ToBytes()
 		fmt.Println(netflow.GetNetFlowSizes(flow))
 		if hexDump {
