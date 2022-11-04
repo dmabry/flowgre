@@ -58,7 +58,7 @@ func TestGenerateDataNetflow(t *testing.T) {
 	flowcount := 10
 	sourceID := 618
 	ft := new(FlowTracker).Init()
-	flow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", &ft)
+	flow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", httpsPort, &ft)
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Errorf("Returned incorrect number of Data Flows! Got: %d Want >: %d", len(flow.DataFlowSets), 1)
@@ -83,7 +83,7 @@ func TestToBytes(t *testing.T) {
 	flowcount := 10
 	ft := new(FlowTracker).Init()
 	tflow := GenerateTemplateNetflow(sourceID, &ft)
-	dflow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", &ft)
+	dflow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", httpsPort, &ft)
 	// Convert to Bytes
 	tbuf := tflow.ToBytes()
 	dbuf := dflow.ToBytes()

@@ -190,7 +190,7 @@ func (gf *GenericFlow) GetTemplateFields() []Field {
 	return fields
 }
 
-// Generate returns a HTTPS Flow with randomly generated payload
+// Generate returns HTTPS Flow with randomly generated payload
 func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, flowTracker *FlowTracker) GenericFlow {
 	now := time.Now().UnixNano()
 	startTime := flowTracker.GetStartTime()
@@ -428,11 +428,11 @@ type DataFlowSet struct {
 // Per Netflow v9 spec, FlowSetID is *always* set to the TemplateID from a given TemplateFlowSet.
 // Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255
 // Currently hardcoded to generate random src/dst IPs from 10.0.0.0/8.
-// TODO: Modify src/dst IP handling to allow for passing of values
-// TODO: Currently hardcoded to be a HTTPS flow.
-func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowTracker *FlowTracker) DataFlowSet {
+func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, flowTracker *FlowTracker) DataFlowSet {
 	dataFlowSet := new(DataFlowSet)
 	dataFlowSet.FlowSetID = 256
+	protoPorts := [13]int{21, 22, 53, 80, 443, 123, 161, 993, 3306, 8080, 8443, 6681, 6682}
+	flowPort := 0
 	items := make([]DataAny, flowCount)
 	for i := 0; i < flowCount; i++ {
 		srcIP, err := utils.RandomIP(srcRange)
@@ -444,7 +444,11 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 			log.Printf("Issue generating IP... proceeding anyway: %v", err)
 		}
 		hf := new(GenericFlow)
-		items[i] = hf.Generate(srcIP, dstIP, httpsPort, flowTracker)
+		// if flowSrcPort is 0, random pick a port from a slice
+		if flowSrcPort == 0 {
+			flowPort = protoPorts[utils.RandomNum(0, 12)]
+		}
+		items[i] = hf.Generate(srcIP, dstIP, flowPort, flowTracker)
 	}
 	dataFlowSet.Items = items
 	dataFlowSet.Length = uint16(dataFlowSet.size())
@@ -568,7 +572,7 @@ func GetNetFlowSizes(netFlow Netflow) string {
 func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowTracker *FlowTracker) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowTracker)
+	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, httpsPort, flowTracker)
 	header := new(Header).Generate(flowCount+1, sourceID, flowTracker) // always +1 of dataflow count, because we are counting the template
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
@@ -577,9 +581,9 @@ func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange stri
 }
 
 // GenerateDataNetflow Generates a Netflow containing Data flows
-func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowTracker *FlowTracker) Netflow {
+func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, flowTracker *FlowTracker) Netflow {
 	netflow := new(Netflow)
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowTracker)
+	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowSrcPort, flowTracker)
 	header := new(Header).Generate(1, sourceID, flowTracker) // always 1 for but could be more in future
 	netflow.Header = header
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)
