@@ -35,15 +35,24 @@ const (
 	snmpPort     = 161
 	imapsPort    = 993
 	mysqlPort    = 3306
-	httpsAltPort = 8080
+	httpAltPort  = 8080
+	httpsAltPort = 8443
 	p2pPort      = 6681
 	btPort       = 6682
 )
 
 // Constants for protocols
 const (
-	tcpProto = 6
-	udpProto = 17
+	tcpProto   = 6
+	udpProto   = 17
+	icmpProto  = 1
+	sctpProto  = 132
+	igmpProto  = 2
+	egpProto   = 8
+	igpProto   = 9
+	greProto   = 47
+	espProto   = 50
+	eigrpProto = 88
 )
 
 // Constants for Field Types
@@ -143,8 +152,8 @@ const (
 	layer2packetSectionData      = 104
 )
 
-// HttpsFlow is ued to create and generate HTTPS Flows
-type HttpsFlow struct {
+// GenericFlow is ued to create and generate HTTPS Flows
+type GenericFlow struct {
 	InBytes       uint32
 	OutBytes      uint32
 	InPkts        uint32
@@ -162,7 +171,7 @@ type HttpsFlow struct {
 }
 
 // GetTemplateFields returns the Fields for the Template to be used.
-func (hf *HttpsFlow) GetTemplateFields() []Field {
+func (gf *GenericFlow) GetTemplateFields() []Field {
 	fields := make([]Field, 14)
 	fields[0] = Field{Type: IN_BYTES, Length: 4}
 	fields[1] = Field{Type: OUT_BYTES, Length: 4}
@@ -181,27 +190,70 @@ func (hf *HttpsFlow) GetTemplateFields() []Field {
 	return fields
 }
 
-// Generate returns a HTTPS Flow with randomly generated payload
-func (hf *HttpsFlow) Generate(srcIP net.IP, dstIP net.IP, flowTracker *FlowTracker) HttpsFlow {
+// Generate returns HTTPS Flow with randomly generated payload
+func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, flowTracker *FlowTracker) GenericFlow {
 	now := time.Now().UnixNano()
 	startTime := flowTracker.GetStartTime()
 	uptime := uint32((now-startTime)/int64(time.Millisecond)) + 1000
-	hf.InBytes = utils.GenerateRand32(10000)
-	hf.OutBytes = utils.GenerateRand32(10000)
-	hf.InPkts = utils.GenerateRand32(10000)
-	hf.OutPkts = utils.GenerateRand32(10000)
-	hf.Ipv4SrcAddr = utils.IPToNum(srcIP)
-	hf.Ipv4DstAddr = utils.IPToNum(dstIP)
-	hf.L4SrcPort = utils.GenerateRand16(10000)
-	hf.L4DstPort = uint16(httpsPort)
-	hf.Protocol = uint8(tcpProto)
-	hf.TcpFlags = uint8(utils.RandomNum(0, 32))
-	hf.FirstSwitched = uptime - 100
-	hf.LastSwitched = uptime - 10
-	hf.EngineType = 0
-	hf.EngineID = 0
+	gf.InBytes = utils.GenerateRand32(10000)
+	gf.OutBytes = utils.GenerateRand32(10000)
+	gf.InPkts = utils.GenerateRand32(10000)
+	gf.OutPkts = utils.GenerateRand32(10000)
+	gf.Ipv4SrcAddr = utils.IPToNum(srcIP)
+	gf.Ipv4DstAddr = utils.IPToNum(dstIP)
+	gf.L4SrcPort = utils.GenerateRand16(10000)
+	gf.TcpFlags = uint8(utils.RandomNum(0, 32))
+	gf.FirstSwitched = uptime - 100
+	gf.LastSwitched = uptime - 10
+	gf.EngineType = 0
+	gf.EngineID = 0
 
-	return *hf
+	switch flowSrcPort {
+	case sshPort:
+		gf.L4DstPort = uint16(sshPort)
+		gf.Protocol = uint8(tcpProto)
+	case ftpPort:
+		gf.L4DstPort = uint16(ftpPort)
+		gf.Protocol = uint8(tcpProto)
+	case dnsPort:
+		gf.L4DstPort = uint16(dnsPort)
+		gf.Protocol = uint8(udpProto)
+	case httpPort:
+		gf.L4DstPort = uint16(httpPort)
+		gf.Protocol = uint8(tcpProto)
+	case httpsPort:
+		gf.L4DstPort = uint16(httpsPort)
+		gf.Protocol = uint8(tcpProto)
+	case ntpPort:
+		gf.L4DstPort = uint16(ntpPort)
+		gf.Protocol = uint8(udpProto)
+	case snmpPort:
+		gf.L4DstPort = uint16(snmpPort)
+		gf.Protocol = uint8(udpProto)
+	case imapsPort:
+		gf.L4DstPort = uint16(imapsPort)
+		gf.Protocol = uint8(tcpProto)
+	case mysqlPort:
+		gf.L4DstPort = uint16(mysqlPort)
+		gf.Protocol = uint8(tcpProto)
+	case httpAltPort:
+		gf.L4DstPort = uint16(httpAltPort)
+		gf.Protocol = uint8(tcpProto)
+	case httpsAltPort:
+		gf.L4DstPort = uint16(httpsAltPort)
+		gf.Protocol = uint8(tcpProto)
+	case p2pPort:
+		gf.L4DstPort = uint16(p2pPort)
+		gf.Protocol = uint8(tcpProto)
+	case btPort:
+		gf.L4DstPort = uint16(btPort)
+		gf.Protocol = uint8(tcpProto)
+	default:
+		gf.L4DstPort = uint16(httpsPort)
+		gf.Protocol = uint8(tcpProto)
+	}
+
+	return *gf
 }
 
 // FlowTracker is used to track the start time and the flow sequence
@@ -332,7 +384,7 @@ func (t *TemplateFlowSet) Generate() TemplateFlowSet {
 	var templates []Template
 	// template
 	template := new(Template)
-	fields := new(HttpsFlow).GetTemplateFields()
+	fields := new(GenericFlow).GetTemplateFields()
 	template.TemplateID = 256
 	template.FieldCount = uint16(len(fields))
 	// add fields to the template
@@ -376,11 +428,11 @@ type DataFlowSet struct {
 // Per Netflow v9 spec, FlowSetID is *always* set to the TemplateID from a given TemplateFlowSet.
 // Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255
 // Currently hardcoded to generate random src/dst IPs from 10.0.0.0/8.
-// TODO: Modify src/dst IP handling to allow for passing of values
-// TODO: Currently hardcoded to be a HTTPS flow.
-func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowTracker *FlowTracker) DataFlowSet {
+func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, flowTracker *FlowTracker) DataFlowSet {
 	dataFlowSet := new(DataFlowSet)
 	dataFlowSet.FlowSetID = 256
+	protoPorts := [13]int{21, 22, 53, 80, 443, 123, 161, 993, 3306, 8080, 8443, 6681, 6682}
+	flowPort := 0
 	items := make([]DataAny, flowCount)
 	for i := 0; i < flowCount; i++ {
 		srcIP, err := utils.RandomIP(srcRange)
@@ -391,8 +443,12 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 		if err != nil {
 			log.Printf("Issue generating IP... proceeding anyway: %v", err)
 		}
-		hf := new(HttpsFlow)
-		items[i] = hf.Generate(srcIP, dstIP, flowTracker)
+		hf := new(GenericFlow)
+		// if flowSrcPort is 0, random pick a port from a slice
+		if flowSrcPort == 0 {
+			flowPort = protoPorts[utils.RandomNum(0, 12)]
+		}
+		items[i] = hf.Generate(srcIP, dstIP, flowPort, flowTracker)
 	}
 	dataFlowSet.Items = items
 	dataFlowSet.Length = uint16(dataFlowSet.size())
@@ -516,7 +572,7 @@ func GetNetFlowSizes(netFlow Netflow) string {
 func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowTracker *FlowTracker) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowTracker)
+	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, httpsPort, flowTracker)
 	header := new(Header).Generate(flowCount+1, sourceID, flowTracker) // always +1 of dataflow count, because we are counting the template
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
@@ -525,9 +581,9 @@ func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange stri
 }
 
 // GenerateDataNetflow Generates a Netflow containing Data flows
-func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowTracker *FlowTracker) Netflow {
+func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, flowTracker *FlowTracker) Netflow {
 	netflow := new(Netflow)
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowTracker)
+	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowSrcPort, flowTracker)
 	header := new(Header).Generate(1, sourceID, flowTracker) // always 1 for but could be more in future
 	netflow.Header = header
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)

@@ -87,7 +87,7 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 			//flowCount := utils.RandomNum(5, 10) // TODO: For some reason this causes random flow seq issues.
 			// using hardcoded number for now
 			flowCount := 100
-			flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, &ft)
+			flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, &ft)
 			buf := flow.ToBytes()
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
