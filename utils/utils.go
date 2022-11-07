@@ -106,13 +106,20 @@ func RandomIP(cidr string) (net.IP, error) {
 	if err != nil {
 		fmt.Println("[ERROR] Parsing CIDR", cidr, " failed. error: ", err)
 	}
+	var randIP net.IP
 	ipMin := ipNet.IP
 	ipMax, _ := GetLastIP(ipNet)
 	ipMinNum := IPToNum(ipMin)
 	ipMaxNum := IPToNum(ipMax)
-	rand.Seed(time.Now().UnixNano())
-	randIPNum := uint32(rand.Int31n(int32(ipMaxNum-ipMinNum)) + int32(ipMinNum)) //#nosec This just used for IP generation
-	randIP := NumToIP(randIPNum)
+	if ipMinNum == ipMaxNum {
+		// only 1 IP, so there is no range to randomly pull from.  set the ip accordingly
+		randIP = NumToIP(ipMinNum)
+	} else {
+		rand.Seed(time.Now().UnixNano())
+		randIPNum := uint32(rand.Int31n(int32(ipMaxNum-ipMinNum)) + int32(ipMinNum)) //#nosec This just used for IP generation
+		randIP = NumToIP(randIPNum)
+	}
+
 	//check if in range
 	if ipNet.Contains(randIP) {
 		return randIP, nil
