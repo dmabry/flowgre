@@ -32,6 +32,9 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 	}
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(collectorIP)
+	if destIP == nil {
+		log.Fatalf("Failed to parse destination IP %s", collectorIP)
+	}
 	// start new FlowTracker
 	ft := new(netflow.FlowTracker).Init()
 
