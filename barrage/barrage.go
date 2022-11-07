@@ -84,9 +84,7 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 		default:
 			// Basic limiter to throttle/delay packets
 			<-limiter
-			//flowCount := utils.RandomNum(5, 10) // TODO: For some reason this causes random flow seq issues.
-			// using hardcoded number for now
-			flowCount := 100
+			flowCount := utils.RandomNum(5, 25)
 			flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, &ft)
 			buf := flow.ToBytes()
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)

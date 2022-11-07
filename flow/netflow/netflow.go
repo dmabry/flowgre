@@ -463,9 +463,9 @@ func (d *DataFlowSet) size() int {
 	for _, item := range d.Items {
 		size += binary.Size(item)
 	}
-	remainder := size % 32
+	remainder := size % 4
 	if remainder > 0 {
-		padding = 32 - remainder
+		padding = 4 - remainder
 	}
 	size += padding     // number of uint8 to pad in order to reach 32 bit boundary
 	d.Padding = padding // save the padding as an int for later.
