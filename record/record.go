@@ -20,6 +20,8 @@ import (
 	"time"
 )
 
+const udpMaxBufferSize = 65507
+
 // netIngest is used to pull packets off the wire and put the byte payload on the data chan
 func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, data chan<- []byte, verbose bool) {
 	defer wg.Done()
@@ -43,7 +45,7 @@ func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, dat
 			log.Println("Packet ingest exiting due to signal")
 			return
 		default:
-			payload := make([]byte, 4096)
+			payload := make([]byte, udpMaxBufferSize)
 			timeout := time.Now().Add(5 * time.Second)
 			err := conn.SetReadDeadline(timeout)
 			if err != nil {
