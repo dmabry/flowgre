@@ -8,6 +8,7 @@ package netflow
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/dmabry/flowgre/utils"
 	"log"
 	"net"
@@ -598,4 +599,20 @@ func GenerateTemplateNetflow(sourceID int, flowTracker *FlowTracker) Netflow {
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
 	return *netflow
+}
+
+// IsValidNetFlow validates that the given payload has a netflow v9 header
+func IsValidNetFlow(payload []byte, nfVersion int) (bool, error) {
+	// yes = true, no = false
+	header := Header{}
+	reader := bytes.NewReader(payload)
+	// Parse Netflow Header
+	err := binary.Read(reader, binary.BigEndian, &header)
+	if err != nil {
+		return false, err
+	}
+	if header.Version != uint16(nfVersion) {
+		return false, fmt.Errorf("Header version doesn't match!  Got %d and expected %d", header.Version, nfVersion)
+	}
+	return true, nil
 }
