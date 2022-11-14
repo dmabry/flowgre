@@ -6,10 +6,10 @@
 package record
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dmabry/flowgre/flow/netflow"
 	"github.com/dmabry/flowgre/models"
 	"log"
 	"net"
@@ -19,6 +19,8 @@ import (
 	"syscall"
 	"time"
 )
+
+const udpMaxBufferSize = 65507
 
 // netIngest is used to pull packets off the wire and put the byte payload on the data chan
 func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, data chan<- []byte, verbose bool) {
@@ -43,7 +45,7 @@ func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, dat
 			log.Println("Packet ingest exiting due to signal")
 			return
 		default:
-			payload := make([]byte, 4096)
+			payload := make([]byte, udpMaxBufferSize)
 			timeout := time.Now().Add(5 * time.Second)
 			err := conn.SetReadDeadline(timeout)
 			if err != nil {
@@ -138,14 +140,12 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []by
 			return
 		case payload := <-parseChan:
 			// Decode first uint16 and see if it is a version 9
-			buf := bytes.NewReader(payload)
-			var nfVersion uint16
-			err := binary.Read(buf, binary.BigEndian, &nfVersion)
+			ok, err := netflow.IsValidNetFlow(payload, 9)
 			if err != nil {
 				log.Printf("Skipping packet due to issue parsing: %v", err)
 				continue
 			}
-			if nfVersion == 9 {
+			if ok {
 				// Netflow v9 Packet send it on
 				rStats.ValidCount++
 				dataChan <- payload

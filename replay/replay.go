@@ -85,7 +85,7 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Database Reader exiting due to signal")
+			log.Println("DB Reader exiting due to signal")
 			return
 		default:
 			err = db.View(func(txn *badger.Txn) error {
@@ -95,37 +95,33 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 					// Check to see if context is done and return, otherwise pull payloads and write
 					select {
 					case <-ctx.Done():
+						log.Println("DB Reader exiting due to signal, finishing read")
 						return nil
 					default:
-					}
-					item := it.Item()
-					key := item.Key()
-					err := item.Value(func(val []byte) error {
-						buf := bytes.NewReader(key)
-						var k uint32
-						err := binary.Read(buf, binary.BigEndian, &k)
+						item := it.Item()
+						//key := item.Key()
+						value, err := item.ValueCopy(nil)
 						if err != nil {
-							log.Printf("Issue reading key: %v\n", err)
+							log.Printf("DB Reader issue getting value from db: %v", err)
+							return err
 						}
-						v := val
-						dataChan <- v
-						return nil
-					})
-					if err != nil {
-						log.Printf("Issue getting value from db: %v", err)
+						dataChan <- value
+						count++
 					}
-					count++
 				}
-				log.Printf("Read %d payloads from the database\n", count)
 				return nil
 			})
+			if err != nil {
+				log.Printf("DB Reader had an issue: %v", err)
+			}
 		}
 		// only run once if not a loop
 		if !loop {
 			break
 		}
 	}
-	log.Printf("Reader done.")
+	log.Printf("DB Reader read %d payloads from the database\n", count)
+	log.Printf("DB Reader done.")
 	return
 }
 
@@ -168,7 +164,6 @@ func Run(server string, port int, delay int, dbdir string, loop bool, workers in
 						cleanupDone <- true
 					}
 				}
-				continue
 			}
 		}
 	}()

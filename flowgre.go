@@ -59,7 +59,6 @@ func main() {
 	singleCmd.Usage = func() {
 		printHelpHeader()
 		fmt.Println("Single is used to send a given number of flows in sequence to a collector for testing.")
-		fmt.Println("Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range.")
 		fmt.Println()
 		fmt.Fprintf(singleCmd.Output(), "Usage of %s:\n", os.Args[0])
 		fmt.Println()
@@ -67,9 +66,11 @@ func main() {
 	}
 	singleServer := singleCmd.String("server", "127.0.0.1", "servername or ip address of flow collector.")
 	singleDstPort := singleCmd.Int("port", 9995, "destination port used by the flow collector.")
-	singleSrcPort := singleCmd.Int("srcport", 0, "source port used by the client. If 0 a Random port between 10000-15000")
+	singleSrcPort := singleCmd.Int("src-port", 0, "source port used by the client. If 0 a Random port between 10000-15000")
 	singleCount := singleCmd.Int("count", 1, "count of flow to send in sequence.")
 	singleHexDump := singleCmd.Bool("hexdump", false, "If true, do a hexdump of the packet")
+	singleSrcRange := singleCmd.String("src-range", "10.0.0.0/8", "cidr range to use for generating source IPs for flows")
+	singleDstRange := singleCmd.String("dst-range", "10.0.0.0/8", "cidr range to use for generating destination IPs for flows")
 
 	// Barrage SubCommand setup
 	barrageCmd := flag.NewFlagSet("barrage", flag.ExitOnError)
@@ -83,6 +84,8 @@ func main() {
 	}
 	barrageServer := barrageCmd.String("server", "127.0.0.1", "servername or ip address of the flow collector")
 	barrageDstPort := barrageCmd.Int("port", 9995, "destination port used by the flow collector")
+	barrageSrcRange := barrageCmd.String("src-range", "10.0.0.0/8", "cidr range to use for generating source IPs for flows")
+	barrageDstRange := barrageCmd.String("dst-range", "10.0.0.0/8", "cidr range to use for generating destination IPs for flows")
 	barrageWorkers := barrageCmd.Int("workers", 4, "number of workers to create. Unique sources per worker")
 	barrageDelay := barrageCmd.Int("delay", 100, "number of milliseconds between packets sent")
 	barrageConfigFile := barrageCmd.String("config", "", "Config file to use.  Supersedes all given args")
@@ -157,7 +160,7 @@ func main() {
 			panic(fmt.Errorf("error parsing args: %v\n", err))
 		}
 
-		single.Run(*singleServer, *singleDstPort, *singleSrcPort, *singleCount, *singleHexDump)
+		single.Run(*singleServer, *singleDstPort, *singleSrcPort, *singleCount, *singleSrcRange, *singleDstRange, *singleHexDump)
 		os.Exit(0)
 
 	// Setup and run Barrage
@@ -226,13 +229,15 @@ func main() {
 		} else {
 			// Run with the args given from cmd line
 			bConfig := models.Config{
-				Server:  *barrageServer,
-				DstPort: *barrageDstPort,
-				Delay:   *barrageDelay,
-				Workers: *barrageWorkers,
-				Web:     *barrageWeb,
-				WebIP:   *barrageWebIP,
-				WebPort: *barrageWebPort,
+				Server:   *barrageServer,
+				DstPort:  *barrageDstPort,
+				SrcRange: *barrageSrcRange,
+				DstRange: *barrageDstRange,
+				Delay:    *barrageDelay,
+				Workers:  *barrageWorkers,
+				Web:      *barrageWeb,
+				WebIP:    *barrageWebIP,
+				WebPort:  *barrageWebPort,
 			}
 
 			barrage.Run(&bConfig)
