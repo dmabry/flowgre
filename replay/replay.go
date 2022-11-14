@@ -99,23 +99,13 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 						return nil
 					default:
 						item := it.Item()
-						key := item.Key()
-						err := item.Value(func(val []byte) error {
-							buf := bytes.NewReader(key)
-							var k uint32
-							err := binary.Read(buf, binary.BigEndian, &k)
-							if err != nil {
-								log.Printf("DB Reader issue reading key: %v\n", err)
-								return err
-							}
-							v := val
-							dataChan <- v
-							return nil
-						})
+						//key := item.Key()
+						value, err := item.ValueCopy(nil)
 						if err != nil {
 							log.Printf("DB Reader issue getting value from db: %v", err)
 							return err
 						}
+						dataChan <- value
 						count++
 					}
 				}
