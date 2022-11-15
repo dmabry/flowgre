@@ -616,3 +616,32 @@ func IsValidNetFlow(payload []byte, nfVersion int) (bool, error) {
 	}
 	return true, nil
 }
+
+// UpdateTimeStamp will change the time to current timestamp
+func UpdateTimeStamp(payload []byte) ([]byte, error) {
+	header := Header{}
+	reader := bytes.NewReader(payload)
+	err := binary.Read(reader, binary.BigEndian, &header)
+	if err != nil {
+		return nil, err
+	}
+	remainder := make([]byte, len(payload)-20) // header is always 20 bytes long
+	err = binary.Read(reader, binary.BigEndian, &remainder)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UnixNano()
+	secs := now / int64(time.Second)
+	header.UnixSec = uint32(secs)
+	var buf bytes.Buffer
+	err = binary.Write(&buf, binary.BigEndian, header)
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(&buf, binary.BigEndian, remainder)
+	if err != nil {
+		return nil, err
+	}
+	// Success!  Return the new []byte payload
+	return buf.Bytes(), nil
+}

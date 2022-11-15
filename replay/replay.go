@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/binary"
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dmabry/flowgre/flow/netflow"
 	"github.com/dmabry/flowgre/utils"
 	"log"
 	"net"
@@ -66,7 +67,7 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 }
 
 // dbReader pulls byte payload out of the database and puts it on the data chan
-func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan chan<- []byte, loop bool, verbose bool) {
+func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan chan<- []byte, loop bool, updateTS bool, verbose bool) {
 	defer wg.Done()
 	// Create/Open DB for writing
 	options := badger.DefaultOptions(dbdir)
@@ -105,6 +106,14 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 							log.Printf("DB Reader issue getting value from db: %v", err)
 							return err
 						}
+						if updateTS {
+							newValue, err := netflow.UpdateTimeStamp(value)
+							if err != nil {
+								log.Printf("DB Reader issue rewriting timestamp: %v", err)
+								return err
+							}
+							value = newValue
+						}
 						dataChan <- value
 						count++
 					}
@@ -126,14 +135,14 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 }
 
 // Run Replay. Kicks off the replay of netflow packets from a db.
-func Run(server string, port int, delay int, dbdir string, loop bool, workers int, verbose bool) {
+func Run(server string, port int, delay int, dbdir string, loop bool, workers int, updateTS bool, verbose bool) {
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	dataChan := make(chan []byte, 1024)
 
 	// Start dbReader
 	wg.Add(1)
-	go dbReader(ctx, wg, dbdir, dataChan, loop, verbose)
+	go dbReader(ctx, wg, dbdir, dataChan, loop, updateTS, verbose)
 
 	// Start up the workers
 	wg.Add(workers)

@@ -125,6 +125,7 @@ func main() {
 	replayLoop := replayCmd.Bool("loop", false, "Loops the replays forever")
 	replayWorkers := replayCmd.Int("workers", 1, "Number of workers to spawn for replay")
 	replayVerbose := replayCmd.Bool("verbose", false, "Whether to log every packet received. Warning can be a lot")
+	replayUpdateTS := replayCmd.Bool("updatets", false, "Whether to update to the current timestamp on replayed flows")
 
 	// Proxy SubCommand setup
 	proxyCmd := flag.NewFlagSet("proxy", flag.ExitOnError)
@@ -259,7 +260,7 @@ func main() {
 			panic(fmt.Errorf("error parsing args: %v\n", err))
 		}
 
-		replay.Run(*replayServer, *replayPort, *replayDelay, *replayDB, *replayLoop, *replayWorkers, *replayVerbose)
+		replay.Run(*replayServer, *replayPort, *replayDelay, *replayDB, *replayLoop, *replayWorkers, *replayUpdateTS, *replayVerbose)
 		os.Exit(0)
 	case "proxy":
 		printHelpHeader()
