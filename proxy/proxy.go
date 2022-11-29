@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"github.com/dmabry/flowgre/flow/netflow"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/utils"
 	"log"
@@ -20,6 +21,8 @@ import (
 	"syscall"
 	"time"
 )
+
+const udpMaxBufferSize = 65507
 
 // Worker is the goroutine used to create workers
 func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitGroup, workerChan <-chan []byte) {
@@ -99,7 +102,7 @@ func proxyListener(ctx context.Context, wg *sync.WaitGroup, ip string, port int,
 			log.Println("Proxy Listener exiting due to signal")
 			return
 		default:
-			payload := make([]byte, 4096)
+			payload := make([]byte, udpMaxBufferSize)
 			timeout := time.Now().Add(5 * time.Second)
 			err := conn.SetReadDeadline(timeout)
 			if err != nil {
@@ -152,14 +155,12 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 			return
 		case payload := <-proxyChan:
 			// Decode first uint16 and see if it is a version 9
-			buf := bytes.NewReader(payload)
-			var nfVersion uint16
-			err := binary.Read(buf, binary.BigEndian, &nfVersion)
+			ok, err := netflow.IsValidNetFlow(payload, 9)
 			if err != nil {
 				log.Printf("Skipping packet due to issue parsing: %v", err)
 				continue
 			}
-			if nfVersion == 9 {
+			if ok {
 				// Netflow v9 Packet send it on
 				rStats.ValidCount++
 				dataChan <- payload
