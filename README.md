@@ -111,6 +111,22 @@ Usage of flowgre replay:
         Number of workers to spawn for replay (default 1)
 ```
 
+## Proxy
+```shell
+Proxy is used to accept flows and relay them to multiple targets
+
+Usage of flowgre proxy:
+
+  -ip string
+    	ip address proxy should listen on (default "127.0.0.1")
+  -port int
+    	proxy listen udp port (default 9995)
+  -target value
+    	Can be passed multiple times in IP:PORT format
+  -verbose
+    	Whether to log every flow received. Warning can be a lot
+```
+
 ## Web Dashboard
 Flowgre provides a basic web dashboard that will display the number of workers, how much work they've done and the
 config used to start Flowgre.  The stats shown all come from the stats collector and should match the stdout worker
