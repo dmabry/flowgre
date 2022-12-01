@@ -18,20 +18,23 @@ For sending fabricated Netflow v9 traffic at a collector for testing
 ## Single
 ```shell
 Single is used to send a given number of flows in sequence to a collector for testing.
-Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range and hardcoded for HTTPS flows.
 
 Usage of flowgre single:
 
   -count int
     	count of flow to send in sequence. (default 1)
+  -dst-range string
+    	cidr range to use for generating destination IPs for flows (default "10.0.0.0/8")
   -hexdump
     	If true, do a hexdump of the packet
   -port int
     	destination port used by the flow collector. (default 9995)
   -server string
-    	servername or ip address of flow collector. (default "localhost")
-  -srcport int
+    	servername or ip address of flow collector. (default "127.0.0.1")
+  -src-port int
     	source port used by the client. If 0 a Random port between 10000-15000
+  -src-range string
+    	cidr range to use for generating source IPs for flows (default "10.0.0.0/8")
 ```
 
 ### Example Use
@@ -49,10 +52,14 @@ Usage of flowgre barrage:
     	Config file to use.  Supersedes all given args
   -delay int
     	number of milliseconds between packets sent (default 100)
+  -dst-range string
+    	cidr range to use for generating destination IPs for flows (default "10.0.0.0/8")
   -port int
     	destination port used by the flow collector (default 9995)
   -server string
     	servername or ip address of the flow collector (default "127.0.0.1")
+  -src-range string
+    	cidr range to use for generating source IPs for flows (default "10.0.0.0/8")
   -web
     	Whether to use the web server or not
   -web-ip string
