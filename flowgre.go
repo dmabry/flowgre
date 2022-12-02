@@ -285,7 +285,7 @@ func main() {
 
 // printHelpHeader Generates the help header
 func printHelpHeader() {
-	fmt.Printf("\n   ___ _                             \n  / __\\ | _____      ____ _ _ __ ___ \n / _\\ | |/ _" +
+	fmt.Printf("   ___ _                             \n  / __\\ | _____      ____ _ _ __ ___ \n / _\\ | |/ _" +
 		" \\ \\ /\\ / / _` | '__/ _ \\\n/ /   | | (_) \\ V  V / (_| | | |  __/\n\\/    |_|\\___/ \\_/\\_/ \\__, |_|  \\" +
 		"___|\n                      |___/          \n")
 	fmt.Println("Slinging packets since 2022!")
@@ -296,11 +296,10 @@ func printHelpHeader() {
 func printGenericHelp() {
 	printHelpHeader()
 	fmt.Printf("Version: %s\n", version)
-	fmt.Println("expected 'single', 'barrage', 'record', 'replay' or 'version' subcommands")
+	fmt.Println()
 	fmt.Println("to print more details pass '-help' after the subcommand")
 	fmt.Println()
 	fmt.Println("Single is used to send a given number of flows in sequence to a collector for testing.")
-	fmt.Println("Right now, Source and Destination IPs are randomly generated in the 10.0.0.0/8 range.")
 	fmt.Println()
 	fmt.Println("Barrage is used to send a continuous barrage of flows in different sequence to a collector for testing.")
 	fmt.Println()
