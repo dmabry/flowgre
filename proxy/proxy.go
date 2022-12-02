@@ -42,11 +42,11 @@ func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitG
 	for {
 		select {
 		case <-ctx.Done(): //Caught the signal to be done.... time to wrap it up
-			log.Printf("Worker [%2d] Exiting due to signal\n", id)
+			log.Printf("Worker [%2d] exiting due to signal\n", id)
 			return
 		case payload := <-workerChan:
-			length := len(payload)
-			log.Printf("Worker [%2d] sending packet to %s:%d with length: %d\n", id, server, port, length)
+			// length := len(payload)
+			//log.Printf("Worker [%2d] sending packet to %s:%d with length: %d\n", id, server, port, length)
 			// send packet here.
 			var buf bytes.Buffer
 			err := binary.Write(&buf, binary.BigEndian, &payload)
@@ -124,30 +124,26 @@ func proxyListener(ctx context.Context, wg *sync.WaitGroup, ip string, port int,
 	}
 }
 
-// Ingest pulls byte payload off the data chan and puts them in the badger db
-func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []byte, dataChan chan<- []byte, verbose bool) {
+// statsPrinter prints out the status every 10 seconds.
+func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *models.RecordStat) {
 	defer wg.Done()
-	// Prep the loop
-	rStats := models.RecordStat{
-		ValidCount:   0,
-		InvalidCount: 0,
+	for {
+		select {
+		case <-ctx.Done():
+			//log.Println("statsPrinter exiting due to signal")
+			return
+		case <-time.After(time.Second * 10):
+			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d ",
+				rStats.ValidCount, rStats.InvalidCount)
+		}
 	}
-	printStats := false
-	startTime := time.Now().UnixNano()
+}
+
+// Ingest pulls byte payload off the data chan and puts them in the badger db
+func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []byte, dataChan chan<- []byte, rStats *models.RecordStat, verbose bool) {
+	defer wg.Done()
 	// Start the loop
 	for {
-		now := time.Now().UnixNano()
-		statsCycle := (now - startTime) / int64(time.Second) % 10
-		// Print out basic statistics per worker every 10 seconds
-		if statsCycle == 0 {
-			if printStats {
-				log.Printf("Netflow v9 Packets: %d Ignored Packets: %d ",
-					rStats.ValidCount, rStats.InvalidCount)
-				printStats = false
-			}
-		} else {
-			printStats = true
-		}
 		// Check to see if context is done and return, otherwise pull payloads and write
 		select {
 		case <-ctx.Done():
@@ -158,7 +154,6 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 			ok, err := netflow.IsValidNetFlow(payload, 9)
 			if err != nil {
 				log.Printf("Skipping packet due to issue parsing: %v", err)
-				continue
 			}
 			if ok {
 				// Netflow v9 Packet send it on
@@ -168,8 +163,8 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 				// Not a Netflow v9 Packet... skip
 				rStats.InvalidCount++
 			}
-		default:
-			// Non-blocking
+		case <-time.After(time.Second * 30):
+			log.Printf("No flow packets received for 30s...waiting")
 		}
 	}
 }
@@ -184,6 +179,10 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	// Create channels
 	proxyChan := make(chan []byte, bufferSize)
 	dataChan := make(chan []byte, bufferSize)
+	rStats := models.RecordStat{
+		ValidCount:   0,
+		InvalidCount: 0,
+	}
 	// Create dedicated channel per target <= 10
 	workers := len(targets)
 	if workers > 10 {
@@ -211,7 +210,9 @@ func Run(ip string, port int, verbose bool, targets []string) {
 
 	// Start parseNetflow and replicator first
 	wg.Add(1)
-	go parseNetflow(ctx, wg, proxyChan, dataChan, verbose)
+	go statsPrinter(ctx, wg, &rStats)
+	wg.Add(1)
+	go parseNetflow(ctx, wg, proxyChan, dataChan, &rStats, verbose)
 	wg.Add(1)
 	go replicator(ctx, wg, dataChan, workerChans, verbose)
 

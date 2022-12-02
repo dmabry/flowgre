@@ -153,7 +153,7 @@ func NumToIP(num uint32) net.IP {
 func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer, verbose bool) (int, error) {
 	n, err := conn.WriteTo(data.Bytes(), addr)
 	if err != nil {
-		log.Fatal("Write:", err)
+		log.Println("Write:", err)
 		return 0, err
 	}
 	if verbose {
