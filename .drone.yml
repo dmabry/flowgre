@@ -8,7 +8,7 @@ steps:
   image: golang:1.19-alpine3.16
   commands:
   - apk add --no-cache build-base
-  - go test -v ./...
+  - go test -v ./... -count 1
   - go build
 trigger:
   event:
@@ -78,6 +78,6 @@ depends_on:
 
 ---
 kind: signature
-hmac: e4d2f80f3a63dfb0a7a36d70dad214c16c212866c92d2ceb0b5563333a590a93
+hmac: 470d6a6722224fddb45d1e32c329e00cbcd207fb8d6795168edffb363e4f7eb6
 
 ...
