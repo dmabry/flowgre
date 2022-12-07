@@ -117,7 +117,7 @@ func TestRun(t *testing.T) {
 	// Create known config
 	bConfig := models.Config{
 		Server:   "127.0.0.1",
-		DstPort:  9995,
+		DstPort:  9996,
 		SrcRange: "10.10.10.0/28",
 		DstRange: "10.11.11.0/28",
 		Delay:    1000,
