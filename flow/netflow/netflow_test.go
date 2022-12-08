@@ -11,6 +11,7 @@ import (
 )
 
 func TestHeader_Generate(t *testing.T) {
+	t.Parallel()
 	flowCount := 10
 	sourceID := 618
 	ft := new(FlowTracker).Init()
@@ -37,6 +38,7 @@ func TestHeader_Generate(t *testing.T) {
 }
 
 func TestGenerateTemplateNetflow(t *testing.T) {
+	t.Parallel()
 	sourceID := 618
 	ft := new(FlowTracker).Init()
 	flow := GenerateTemplateNetflow(sourceID, &ft)
@@ -55,6 +57,7 @@ func TestGenerateTemplateNetflow(t *testing.T) {
 }
 
 func TestGenerateDataNetflow(t *testing.T) {
+	t.Parallel()
 	flowcount := 10
 	sourceID := 618
 	ft := new(FlowTracker).Init()
@@ -78,6 +81,7 @@ func TestGenerateDataNetflow(t *testing.T) {
 }
 
 func TestToBytes(t *testing.T) {
+	t.Parallel()
 	// Generate Netflow Data
 	sourceID := 618
 	flowcount := 10

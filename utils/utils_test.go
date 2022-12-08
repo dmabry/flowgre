@@ -15,6 +15,7 @@ import (
 
 // TestRandStringBytes
 func TestRandStringBytes(t *testing.T) {
+	t.Parallel()
 	n := 16
 	result := RandStringBytes(n)
 	if len(result) != n {
@@ -27,6 +28,7 @@ func TestRandStringBytes(t *testing.T) {
 
 // TestGenerateRand16
 func TestGenerateRand16(t *testing.T) {
+	t.Parallel()
 	n := 16
 	result := GenerateRand16(n)
 	if result > uint16(n) {
@@ -35,6 +37,7 @@ func TestGenerateRand16(t *testing.T) {
 }
 
 func TestGenerateRand32(t *testing.T) {
+	t.Parallel()
 	n := 16
 	result := GenerateRand32(n)
 	if result > uint32(n) {
@@ -43,6 +46,7 @@ func TestGenerateRand32(t *testing.T) {
 }
 
 func TestBinaryDecoder(t *testing.T) {
+	t.Parallel()
 	s := "Flowgre Testing Text!"
 	var buf bytes.Buffer
 	// This is the byte version of s above.  Doing explicitly for testing sake.
@@ -60,6 +64,7 @@ func TestBinaryDecoder(t *testing.T) {
 }
 
 func TestIPto32(t *testing.T) {
+	t.Parallel()
 	// "10.10.10.10"
 	bip := uint32(168430090)
 	result := IPto32("10.10.10.10")
@@ -69,6 +74,7 @@ func TestIPto32(t *testing.T) {
 }
 
 func TestRandomNum(t *testing.T) {
+	t.Parallel()
 	count := 10000
 	for i := 0; i < count; i++ {
 		min := 10
@@ -88,10 +94,12 @@ func TestRandomNum(t *testing.T) {
 }
 
 func TestToBytes(t *testing.T) {
+	t.Parallel()
 	//Stub TODO: Make a test that is actually applicable.  The function isn't used currently
 }
 
 func TestRandomIP(t *testing.T) {
+	t.Parallel()
 	const (
 		cidr = "10.0.0.0/8"
 		itr  = 10000
@@ -111,6 +119,7 @@ func TestRandomIP(t *testing.T) {
 }
 
 func TestSendPacket(t *testing.T) {
+	t.Parallel()
 	payload1 := []byte("Flowgre Testing Text!")
 	payload2 := make([]byte, len(payload1))
 	var buf bytes.Buffer
