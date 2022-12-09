@@ -112,6 +112,7 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 
 // TestRun runs a test to verify functionality.
 func TestRun(t *testing.T) {
+	t.Parallel()
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	// Create known config
@@ -126,7 +127,7 @@ func TestRun(t *testing.T) {
 		WebIP:    "",
 		WebPort:  0,
 	}
-	testDuration := 60
+	testDuration := 30
 	sleep := time.Duration(testDuration+5) * time.Second
 	// Start receiver
 	wg.Add(1)
@@ -138,5 +139,4 @@ func TestRun(t *testing.T) {
 	time.Sleep(sleep)
 	cancel()
 	wg.Wait()
-	// verify payload received via listener
 }
