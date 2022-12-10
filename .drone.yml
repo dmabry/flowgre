@@ -5,7 +5,7 @@ name: test
 
 steps:
 - name: test
-  image: golang:1.19-alpine3.16
+  image: golang:1.19-alpine3.17
   commands:
   - apk add --no-cache build-base
   - go test -v ./... -count 1
@@ -22,14 +22,14 @@ name: security
 
 steps:
 - name: gosec
-  image: golang:1.19-alpine3.16
+  image: golang:1.19-alpine3.17
   commands:
-    - wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.13.1
+    - wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.14.0
     - ./bin/gosec ./...
 - name: trivy
-  image: golang:1.19-alpine3.16
+  image: golang:1.19-alpine3.17
   commands:
-    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.32.1
+    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.35.0
     - ./bin/trivy fs .
 trigger:
   event:
@@ -48,15 +48,15 @@ steps:
     - bash ./scripts/build-multiplatform.sh ${DRONE_TAG##v}
     - ls -l flowgre_*
 - name: build-musl
-  image: golang:1.19-alpine3.16
+  image: golang:1.19-alpine3.17
   commands:
     - apk add --no-cache build-base
     - go build -ldflags '-s -w' -a -o flowgre_linux_amd64_musl_${DRONE_TAG##v}
     - ls -l flowgre_*
 - name: generate_sbom
-  image: golang:1.19-alpine3.16
+  image: golang:1.19-alpine3.17
   commands:
-    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.32.1
+    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.35.0
     - ./bin/trivy fs --format cyclonedx --output sbom_${DRONE_TAG##v}.json .
 - name: release
   image: plugins/github-release
@@ -78,6 +78,6 @@ depends_on:
 
 ---
 kind: signature
-hmac: 470d6a6722224fddb45d1e32c329e00cbcd207fb8d6795168edffb363e4f7eb6
+hmac: c7c3eb9eb83c841ce8da0e5c614d7a02f233153980af21958130d9b3519c8d3f
 
 ...
