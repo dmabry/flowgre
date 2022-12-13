@@ -56,12 +56,12 @@ steps:
 - name: pkg-linux
   image: goreleaser/nfpm
   commands:
-    - nfpm package -p rpm -c ./.nfpm/nfpm-linux-amd64.yaml
-    - nfpm package -p deb -c ./.nfpm/nfpm-linux-amd64.yaml
+    - nfpm package -p rpm -f ./.nfpm/nfpm-linux-amd64.yaml
+    - nfpm package -p deb -f ./.nfpm/nfpm-linux-amd64.yaml
 - name: pkg-alpine
   image: goreleaser/nfpm
   commands:
-    - nfpm package -p rpm -c ./.nfpm/nfpm-alpine-amd64.yaml
+    - nfpm package -p apk -f ./.nfpm/nfpm-alpine-amd64.yaml
 - name: generate_sbom
   image: golang:1.19-alpine3.17
   commands:
@@ -88,6 +88,6 @@ depends_on:
 
 ---
 kind: signature
-hmac: 146f8493e8fe5135e7e77a05b5f9f001024a2eefaa59ae476821db7ceb4048d4
+hmac: 406abfdd165a0c3270a8ed05d95ca78aa000366f008e85aaf3da278c3b6a65a6
 
 ...
