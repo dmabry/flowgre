@@ -21,3 +21,5 @@ vendor/
 recorded_flows/
 # Ignore all prod
 prod_*
+
+dist/
