@@ -17,7 +17,7 @@ RUN git submodule -q update
 RUN go build
 
 # deploy
-FROM alpine:3.16
+FROM alpine:3.17
 
 # add some alpine deps
 RUN apk add --no-cache tzdata
@@ -32,4 +32,4 @@ ENTRYPOINT [ "/opt/app/flowgre" ]
 LABEL org.opencontainers.image.source=https://github.com/dmabry/flowgre
 LABEL org.opencontainers.image.description="Flowgre container image"
 LABEL org.opencontainers.image.licenses="Apache License 2.0"
-LABEL org.opencontainers.image.version="0.4.3"
+LABEL org.opencontainers.image.version="0.4.4"
