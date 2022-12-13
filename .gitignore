@@ -19,3 +19,7 @@
 vendor/
 # Ignore default recorded_flows dir
 recorded_flows/
+# Ignore all prod
+prod_*
+
+dist/

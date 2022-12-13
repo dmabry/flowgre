@@ -19,9 +19,6 @@ import (
 // StartTime Start time for this instance, used to compute sysUptime
 var StartTime = time.Now().UnixNano()
 
-// Current sysUptime in msec
-var sysUptime uint32 = 0
-
 // Counter of flow packets
 var flowSequence uint32 = 0
 
@@ -318,7 +315,7 @@ func (h *Header) Generate(flowSetCount int, sourceID int, flowTracker *FlowTrack
 	now := time.Now().UnixNano()
 	secs := now / int64(time.Second)
 	startTime := flowTracker.GetStartTime()
-	sysUptime = uint32((now-startTime)/int64(time.Millisecond)) + 1000
+	sysUptime := uint32((now-startTime)/int64(time.Millisecond)) + 1000
 
 	header := new(Header)
 	header.Version = 9
