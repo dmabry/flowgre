@@ -178,7 +178,7 @@ func (sc *StatCollector) Run(wg *sync.WaitGroup, ctx context.Context) {
 	// map for aggregated for web output
 	log.Println("Stats Collector started")
 	sizeLabel := "bytes"
-	var sizeOut uint64 = 0
+	var sizeOut uint64
 	for {
 		select {
 		case stat, ok := <-sc.StatsChan:
