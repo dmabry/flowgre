@@ -32,4 +32,4 @@ ENTRYPOINT [ "/opt/app/flowgre" ]
 LABEL org.opencontainers.image.source=https://github.com/dmabry/flowgre
 LABEL org.opencontainers.image.description="Flowgre container image"
 LABEL org.opencontainers.image.licenses="Apache License 2.0"
-LABEL org.opencontainers.image.version="0.4.5"
+LABEL org.opencontainers.image.version="0.4.6"
