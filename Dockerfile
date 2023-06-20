@@ -1,7 +1,7 @@
 # Use of this source code is governed by Apache License 2.0
 # that can be found in the LICENSE file.
 
-FROM golang:1.20-alpine3.17 AS build-stage
+FROM golang:alpine AS build-stage
 
 COPY . /opt/src
 WORKDIR /opt/src
@@ -17,7 +17,7 @@ RUN git submodule -q update
 RUN go build
 
 # deploy
-FROM alpine:3.17
+FROM alpine:latest
 
 # add some alpine deps
 RUN apk add --no-cache tzdata
