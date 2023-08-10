@@ -35,6 +35,10 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 	}
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(server)
+
+	// Reuse a single buffer for each worker
+	var buf bytes.Buffer
+
 	log.Printf("Worker [%2d] Slinging packets at %s:%d with delay of %dms \n",
 		id, server, port, delay)
 	//Infinite loop to keep slinging until we receive context done.
@@ -46,8 +50,9 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 		case payload := <-dataChan:
 			length := len(payload)
 			log.Printf("Worker [%2d] sending packet with length: %d\n", id, length)
+			// Reset the buffer and write the new payload into it
+			buf.Reset()
 			// send packet here.
-			var buf bytes.Buffer
 			err := binary.Write(&buf, binary.BigEndian, &payload)
 			if err != nil {
 				log.Printf("Worker [%2d] Issue reading data: %v\n", id, err)
