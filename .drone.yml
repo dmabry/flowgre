@@ -29,7 +29,7 @@ steps:
 - name: trivy
   image: golang:alpine
   commands:
-    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.42.1
+    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.44.1
     - ./bin/trivy fs .
 trigger:
   event:
@@ -65,7 +65,7 @@ steps:
 - name: generate_sbom
   image: golang:alpine
   commands:
-    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.35.0
+    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.44.1
     - ./bin/trivy fs --format cyclonedx --output sbom_${DRONE_TAG##v}.json .
 - name: release
   image: plugins/github-release
@@ -88,6 +88,6 @@ depends_on:
 
 ---
 kind: signature
-hmac: 5361c3bd2e65d3d760b589fbc568bf381f27c537553bb9e7e1a43dda688f3601
+hmac: a86a68931a532fd60ffcc5c77d7635be65577b6399eb014f634e1d8588366afa
 
 ...
