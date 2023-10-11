@@ -23,6 +23,7 @@ import (
 )
 
 const udpMaxBufferSize = 65507
+const bufferSize = 1024
 
 // Worker is the goroutine used to create workers
 func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitGroup, workerChan <-chan []byte) {
@@ -171,9 +172,6 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 
 // Run Replay. Kicks off the replay of netflow packets from a db.
 func Run(ip string, port int, verbose bool, targets []string) {
-	const (
-		bufferSize = 1024
-	)
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	// Create channels
@@ -241,5 +239,5 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	wg.Wait()
 	close(signalChan)
 	close(cleanupDone)
-	os.Exit(0)
+	return
 }
