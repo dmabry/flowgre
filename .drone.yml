@@ -24,12 +24,12 @@ steps:
 - name: gosec
   image: golang:alpine
   commands:
-    - wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.16.0
+    - wget -O - -q https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.19.0
     - ./bin/gosec ./...
 - name: trivy
   image: golang:alpine
   commands:
-    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.42.1
+    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.51.1
     - ./bin/trivy fs .
 trigger:
   event:
@@ -65,7 +65,7 @@ steps:
 - name: generate_sbom
   image: golang:alpine
   commands:
-    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.35.0
+    - wget -O - -q https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.51.1
     - ./bin/trivy fs --format cyclonedx --output sbom_${DRONE_TAG##v}.json .
 - name: release
   image: plugins/github-release
@@ -88,6 +88,6 @@ depends_on:
 
 ---
 kind: signature
-hmac: 5361c3bd2e65d3d760b589fbc568bf381f27c537553bb9e7e1a43dda688f3601
+hmac: 480604d67169a3b2d668e95198fdea46355a22fac9e6fbf4a64d06ff0de605e8
 
 ...
