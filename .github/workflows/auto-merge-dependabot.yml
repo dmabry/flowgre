@@ -1,0 +1,41 @@
+name: Auto-merge Dependabot PRs
+
+on:
+  pull_request:
+    branches:
+      - main
+  check_run:
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Run tests
+        run: |
+          go test -v ./... -count 1
+          go build
+
+      - name: Enable auto-merge
+        if: success()
+        run: |
+          echo "Enabling auto-merge for PR #${{ github.event.pull_request.number }}"
+          curl -X PUT \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/merge \
+            -d '{"merge_method":"rebase","commit_title":"Merged PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }}"}'
