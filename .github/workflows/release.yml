@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+
+    - name: Build multi-platform
+      run: |
+        bash ./scripts/build-multiplatform.sh \${GITHUB_REF#refs/tags/v}
+
+    - name: List built files
+      run: |
+        ls -l flowgre_*
+
+    - name: Build musl version
+      run: |
+        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags '-s -w' -o flowgre_linux_amd64_musl_\${GITHUB_REF#refs/tags/v}
+
+    - name: Install nfpm
+      run: |
+        sudo apt-get install -y nfpm
+
+    - name: Package RPM and DEB
+      run: |
+        nfpm package -p rpm -f ./.nfpm/nfpm-linux-amd64.yaml
+        nfpm package -p deb -f ./.nfpm/nfpm-linux-amd64.yaml
+
+    - name: Package APK
+      run: |
+        nfpm package -p apk -f ./.nfpm/nfpm-alpine-amd64.yaml
+
+    - name: Generate SBOM
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.51.1
+        ./bin/trivy fs --format cyclonedx --output sbom_\${GITHUB_REF#refs/tags/v}.json .
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        token: \${{ secrets.GITHUB_TOKEN }}
+        files: |
+          flowgre_*
+          flowgre-*
+          sbom_*
+        body: "Flowgre, version \${{ github.ref_name }}"
+        name: "\${{ github.ref_name }}"
+        prerelease: true

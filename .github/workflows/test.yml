@@ -1,0 +1,32 @@
+name: Test
+
+on:
+  pull_request: {}
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+
+    - name: Run tests
+      run: |
+        go test -v ./... -count 1
+
+    - name: Build application
+      run: |
+        go build
