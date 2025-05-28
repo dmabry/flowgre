@@ -28,6 +28,8 @@ jobs:
       with:
         go-version: 'stable'
 
+    - name: Ensure go.mod is tidy
+      run: go mod tidy
     - name: Run tests
       run: |
         go test -v ./... -count 1 || echo "No test files found"
