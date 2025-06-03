@@ -16,4 +16,4 @@ type Logger struct {
 
 // NewLogger creates a new logger instance
 func NewLogger(prefix string) *Logger {
-	return &Logger{log.New(os.Stdout, prefix+": ", log.Ldate|log.Ltime|log.Lshortfile)}
+	return &Logger{log.New(os.Stdout, prefix+": ", log.Ldate|log.Ltime|log.Lshortfile)}}

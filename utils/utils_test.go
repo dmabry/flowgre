@@ -57,7 +57,10 @@ func TestBinaryDecoder(t *testing.T) {
 	}
 	// var result []byte
 	result := make([]byte, len(b))
-	BinaryDecoder(&buf, result)
+	err = BinaryDecoder(&buf, result)
+    if err != nil {
+        t.Errorf("BinaryDecoder failed: %s", err)
+    }
 	if string(result) != s {
 		t.Errorf("Result was not the expected string! Got: %s Want: %s", result, s)
 	}

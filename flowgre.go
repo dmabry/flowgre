@@ -7,18 +7,18 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/dmabry/flowgre/barrage"
+	"github.com/dmabry/flowgre/cmd/barrage"
 	"github.com/dmabry/flowgre/models"
-	"github.com/dmabry/flowgre/proxy"
-	"github.com/dmabry/flowgre/record"
-	"github.com/dmabry/flowgre/replay"
-	"github.com/dmabry/flowgre/single"
+	"github.com/dmabry/flowgre/cmd/proxy"
+	"github.com/dmabry/flowgre/cmd/record"
+	"github.com/dmabry/flowgre/cmd/replay"
+	"github.com/dmabry/flowgre/cmd/single"
 	"github.com/spf13/viper"
 	"log"
 	"os"
-	"reflect"
-	"strconv"
-	"sync"
+	
+	
+	
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 	"github.com/dmabry/flowgre/models"
 	"github.com/spf13/cobra"
 	"log"
-	"strconv"
-	"sync"
+	
+	
 )
 
 // NewCmd creates the barrage command
