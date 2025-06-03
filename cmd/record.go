@@ -19,7 +19,8 @@ func init() {
 		Long: `Record is used to record flows to a file for later replay testing.
 Example: flowgre record -ip 127.0.0.1 -port 9995 -db recorded_flows`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return record.Run(recordIP, recordPort, recordDB, recordVerbose)
+			record.Run(recordIP, recordPort, recordDB, recordVerbose)
+	return nil
 		},
 	}
 
