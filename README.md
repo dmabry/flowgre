@@ -1,5 +1,5 @@
 # Flowgre
-Slinging packets since 2022!
+Slinging packets since 2022! (NetFlow v9 & IPFIX)
 
 
 ```
@@ -10,7 +10,7 @@ Slinging packets since 2022!
 \/    |_|\___/ \_/\_/ \__, |_|  \___|
                       |___/
 ```
-For sending fabricated Netflow v9 traffic at a collector for testing
+For sending fabricated Netflow v9/IPFIX traffic to collectors for testing, benchmarking, and network analysis
 
 [![Build Status](https://drone.dmabry.net/api/badges/dmabry/flowgre/status.svg?ref=refs/heads/main)](https://drone.dmabry.net/dmabry/flowgre)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dmabry/flowgre)](https://goreportcard.com/report/github.com/dmabry/flowgre)
