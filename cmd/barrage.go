@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/dmabry/flowgre/barrage"
+	"github.com/dmabry/flowgre/models"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"sync"
 )
 
 var (

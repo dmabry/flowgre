@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/proxy"
 	"github.com/spf13/cobra"
 )
@@ -20,7 +19,8 @@ func init() {
 		Long: `Proxy is used to accept flows and relay them to multiple targets.
 Example: flowgre proxy -ip 127.0.0.1 -port 9995 -target 192.168.1.1:9995 -target 192.168.1.2:9995`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return proxy.Run(proxyIP, proxyPort, proxyVerbose, proxyTargets)
+			proxy.Run(proxyIP, proxyPort, proxyVerbose, proxyTargets)
+	return nil
 		},
 	}
 

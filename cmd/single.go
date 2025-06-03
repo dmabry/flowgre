@@ -22,7 +22,8 @@ func init() {
 		Long: `Single is used to send a given number of flows in sequence to a collector for testing.
 Example: flowgre single -server 127.0.0.1 -port 9995 -count 1000`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return single.Run(singleServer, singleDstPort, singleSrcPort, singleCount, singleSrcRange, singleDstRange, singleHexDump)
+			single.Run(singleServer, singleDstPort, singleSrcPort, singleCount, singleSrcRange, singleDstRange, singleHexDump)
+	return nil
 		},
 	}
 

@@ -23,7 +23,8 @@ func init() {
 		Long: `Replay is used to send recorded flows to a target server.
 Example: flowgre replay -server 127.0.0.1 -port 9995 -delay 100 -db recorded_flows`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return replay.Run(replayServer, replayPort, replayDelay, replayDB, replayLoop, replayWorkers, replayUpdateTS, replayVerbose)
+			replay.Run(replayServer, replayPort, replayDelay, replayDB, replayLoop, replayWorkers, replayUpdateTS, replayVerbose)
+	return nil
 		},
 	}
 
