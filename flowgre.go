@@ -5,54 +5,12 @@
 package main
 
 import (
-	"flag"
-	"fmt"
-	"github.com/dmabry/flowgre/barrage"
-	"github.com/dmabry/flowgre/models"
-	"github.com/dmabry/flowgre/proxy"
-	"github.com/dmabry/flowgre/record"
-	"github.com/dmabry/flowgre/replay"
-	"github.com/dmabry/flowgre/single"
-	"github.com/spf13/viper"
-	"log"
-	"os"
-	"reflect"
-	"strconv"
-	"sync"
+	"github.com/dmabry/flowgre/cmd"
 )
-
-const (
-	version = "0.4.10" // semantic version
-	license = "Apache License, Version 2.0"
-)
-
-// targetFlags is used to allow for multiple targets to be passed for proxy
-type targetFlags []string
-
-// String is used to return a string form of targets passed to proxy
-func (i *targetFlags) String() string {
-	var output string
-	var target string
-	first := true
-
-	for _, target = range *i {
-		if first {
-			output = target
-			first = false
-		} else {
-			output = output + ", " + target
-		}
-	}
-	return output
-}
-
-// Set is used to put multiple targets into a slice
-func (i *targetFlags) Set(value string) error {
-	*i = append(*i, value)
-	return nil
-}
 
 func main() {
+	cmd.Execute()
+}
 
 	// Single SubCommand setup
 	singleCmd := flag.NewFlagSet("single", flag.ExitOnError)
