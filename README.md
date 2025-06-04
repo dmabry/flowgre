@@ -132,9 +132,42 @@ Usage of flowgre proxy:
     	Can be passed multiple times in IP:PORT format
   -verbose
     	Whether to log every flow received. Warning can be a lot
+  --ipfix.enabled
+    	Enable IPFIX support (default: false)
+  --ipfix.port
+    	IPFIX listening port (default: 4739)
+  --ipfix.template-timeout
+    	Template timeout in minutes (default: 30)
+  --ipfix.max-flows-per-packet
+    	Maximum number of flows per packet (default: 1000)
+  --ipfix.allowed-enterprises
+    	Comma-separated list of allowed enterprise IDs (default: "0" for IANA)
 ```
 
 ## Web Dashboard
+## IPFIX Support
+Flowgre now includes support for IPFIX (RFC 7011), the IETF standard for flow export. This implementation includes enterprise ID support and template-based flow definition.
+
+### Configuration Options
+IPFIX can be configured using the following command-line flags:
+- `--ipfix.enabled`: Enable IPFIX support (default: false)
+- `--ipfix.port`: IPFIX listening port (default: 4739)
+- `--ipfix.template-timeout`: Template timeout in minutes (default: 30)
+- `--ipfix.max-flows-per-packet`: Maximum number of flows per packet (default: 1000)
+- `--ipfix.allowed-enterprises`: Comma-separated list of allowed enterprise IDs (default: "0" for IANA)
+
+### Example Usage
+To start Flowgre with IPFIX support:
+```bash
+flowgre barrage --ipfix.enabled --ipfix.port 4739 --ipfix.allowed-enterprises 9,11
+```
+
+### Metrics
+The following Prometheus metrics are exposed for IPFIX:
+- `flowgre_ipfix_packets_received_total`: Total number of IPFIX packets received
+- `flowgre_ipfix_invalid_enterprise_id_total`: Number of packets with invalid enterprise IDs
+
+For more information about IPFIX, see RFC 7011: https://tools.ietf.org/html/rfc7011
 Flowgre provides a basic web dashboard that will display the number of workers, how much work they've done and the
 config used to start Flowgre.  The stats shown all come from the stats collector and should match the stdout worker
 stats.
