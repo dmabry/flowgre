@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"github.com/dmabry/flowgre/flow/netflow"
 	"net"
 	"os"
@@ -17,20 +18,20 @@ import (
 
 const udpMaxBufferSize = 65507
 
-func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *testing.T) {
+func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *testing.T, errs chan<- error) {
 	defer wg.Done()
 	parsedFlows := 0
 
 	listenIP := net.ParseIP(ip)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: listenIP, Port: port})
 	if err != nil {
-		t.Fatalf("Test Receiver listening on %s:%d failed! Got: %v", ip, port, err)
+		errs <- fmt.Errorf("test receiver listening on %s:%d failed: %w", ip, port, err)
 	}
 	t.Logf("Test Receiver listening on %s:%d", ip, port)
 	defer func(conn *net.UDPConn) {
 		err := conn.Close()
 		if err != nil {
-			t.Fatalf("Error closing listener: %v", err)
+			errs <- fmt.Errorf("error closing listener: %w", err)
 		}
 	}(conn)
 	// Start the loop and check context for done, otherwise listen for packets
@@ -45,7 +46,7 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 			timeout := time.Now().Add(5 * time.Second)
 			err := conn.SetReadDeadline(timeout)
 			if err != nil {
-				t.Errorf("Issue setting deadline: %v", err)
+				errs <- fmt.Errorf("issue setting deadline: %w", err)
 				return
 			}
 			length, _, err := conn.ReadFromUDP(payload)
@@ -56,7 +57,7 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 			payload = payload[:length]
 			ok, err := netflow.IsValidNetFlow(payload, 9)
 			if !ok {
-				t.Errorf("Invalid NetFlow Packet: %v", err)
+				errs <- fmt.Errorf("invalid NetFlow packet: %w", err)
 				return
 			}
 			header := netflow.Header{}
@@ -66,19 +67,19 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 			// read header
 			err = binary.Read(reader, binary.BigEndian, &header)
 			if err != nil {
-				t.Errorf("Failed to parse Netflow Header! Got: %v", err)
+				errs <- fmt.Errorf("failed to parse NetFlow header: %w", err)
 				return
 			}
 			// read flowSetID
 			err = binary.Read(reader, binary.BigEndian, &flowSetID)
 			if err != nil {
-				t.Errorf("Failed to parse Netflow flowSetID! Got: %v", err)
+				errs <- fmt.Errorf("failed to parse NetFlow flowSetID: %w", err)
 				return
 			}
 			// read flowLength
 			err = binary.Read(reader, binary.BigEndian, &flowLength)
 			if err != nil {
-				t.Errorf("Failed to parse Netflow flowLength! Got: %v", err)
+				errs <- fmt.Errorf("failed to parse NetFlow flowLength: %w", err)
 				return
 			}
 			// read all flows from the payload
@@ -87,7 +88,7 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 				flow := netflow.GenericFlow{}
 				err := binary.Read(reader, binary.BigEndian, &flow)
 				if err != nil {
-					t.Errorf("Issue reading in GenericFlow")
+					errs <- fmt.Errorf("issue reading GenericFlow: %w", err)
 					return
 				}
 				parsedFlows++
@@ -106,11 +107,16 @@ func TestRun(t *testing.T) {
 	sleep := 2 * time.Second
 	// Start receiver
 	wg.Add(1)
-	go receiver(ctx, wg, "127.0.0.1", 9997, t)
+	errs := make(chan error)
+go receiver(ctx, wg, "127.0.0.1", 9997, t, errs)
 	// Run single
 	Run("127.0.0.1", 9997, 9999, 10, "10.10.10.0/28", "10.11.11.0/28", false)
 	// Sleep for longer than expected duration
 	time.Sleep(sleep)
 	cancel()
 	wg.Wait()
+close(errs)
+for err := range errs {
+    t.Errorf("Received error: %v", err)
+}
 }
