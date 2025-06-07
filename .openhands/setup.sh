@@ -9,20 +9,21 @@ log() {
 
 # Install Go (if not already installed)
 log "Checking for Go installation..."
-if ! command -v go &>/dev/null; then
+if ! which go &>/dev/null; then
   log "Go is not installed. Downloading and installing the latest version..."
 
   # Get the latest Go version
-  GO_VERSION=$(curl -s https://go.dev/VERSION?m=text)
+  GO_VERSION=$(curl -s https://go.dev/VERSION?m=text | grep go)
 
   # Download and install Go
-  wget -q "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz" -O /tmp/golang.tar.gz
+  wget -q "https://golang.org/dl/${GO_VERSION}.linux-amd64.tar.gz" -O /tmp/golang.tar.gz
   sudo tar -C /usr/local -xzf /tmp/golang.tar.gz
 
   # Set up environment variables
   echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
   echo 'export PATH=$PATH:~/.go/bin' >> ~/.profile
   source ~/.profile
+  export PATH=${PATH}:/usr/local/go:/usr/local/go/bin
 
   log "Go ${GO_VERSION} installed successfully."
 else
