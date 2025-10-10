@@ -1,6 +1,6 @@
 module github.com/dmabry/flowgre
 
-go 1.24.4
+go 1.25.2
 
 require (
 	github.com/dgraph-io/badger/v3 v3.2103.5
