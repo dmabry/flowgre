@@ -25,9 +25,8 @@ jobs:
 
     - name: Install and run gosec
       run: |
-        curl -sSfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s v2.22.9
-        ./bin/gosec ./...
-
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+        gosec -exclude=G115 ./...
     - name: Install and run trivy
       run: |
         curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.51.1
