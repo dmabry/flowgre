@@ -180,29 +180,39 @@ Please see our [Code of Conduct](CODE_OF_CONDUCT.md) for information on maintain
 
 ```
 flowgre/
-├── barrage/             # Barrage mode implementation for continuous traffic generation
-├── examples/            # Example configurations and usage scenarios
-├── flow/                # Core flow generation logic
-├── models/              # Data models used across the application
-├── proxy/               # Proxy functionality to relay flows to multiple targets
-├── record/              # Record mode implementation for capturing Netflow traffic
-├── replay/              # Replay mode implementation for sending recorded traffic
-├── scripts/             # Utility scripts for development and testing
-├── single/              # Single mode implementation for sequential flow generation
-├── utils/               # Helper functions and utilities
-├── web/                 # Web dashboard for monitoring Flowgre activity
-├── .github/             # GitHub Actions workflows and configurations
-├── .nfpm/               # NFPM configuration for packaging
-├── .openhands/          # OpenHands-specific configurations
-├── CODE_OF_CONDUCT.md   # Code of Conduct guidelines
-├── CONTRIBUTING.md      # Contribution guidelines
-├── Dockerfile           # Docker container definition
-├── LICENSE              # License information (Apache 2.0)
-├── README.md            # Project overview and usage instructions
-├── flowgre.go           # Main entry point for the application
-├── go.mod               # Go module dependencies
-├── go.sum               # Go module dependency versions
+├── main.go                    # CLI entry point, subcommand dispatch
+├── cmd/                       # Per-mode command structs (single, barrage, record, replay, proxy)
+├── netflow/                   # NetFlow v9 packet generation library
+│   ├── session.go             # Session struct (replaces global state)
+│   ├── flow.go                # GenericFlow, port/proto constants
+│   ├── template.go            # Header, Field, Template, TemplateFlowSet
+│   ├── dataflowset.go         # DataFlowSet, DataItem
+│   └── packet.go              # Netflow struct + ToBytes serialization
+├── lifecycle/                 # Shared process management (context, signals, WaitGroup)
+├── config/                    # Viper-based YAML configuration loading
+├── stats/                     # Worker statistics collection
+├── models/                    # Pure data structures (no concurrency primitives)
+├── utils/                     # Focused utilities (rand, ip, packet)
+│   ├── rand.go                # Random number generation
+│   ├── ip.go                  # IP math and CIDR operations
+│   ├── packet.go              # Packet sending
+│   └── utils.go               # Binary encoding helpers
+├── web/                       # Web dashboard for barrage monitoring
+├── barrage/                   # Barrage mode implementation
+├── single/                    # Single mode implementation
+├── record/                    # Record mode implementation
+├── replay/                    # Replay mode implementation
+├── proxy/                     # Proxy mode implementation
+└── ...                        # Config files, docs, etc.
 ```
+
+## Architecture
+
+Flowgre uses a **command pattern** for CLI dispatch: each subcommand (`single`, `barrage`, `record`, `replay`, `proxy`) has its own struct in `cmd/` with `ParseFlags()` and `Execute()` methods. The main entry point (`main.go`) routes to the appropriate command.
+
+NetFlow v9 generation uses a **Session-based** design — each invocation creates a fresh `netflow.Session` instead of relying on package-level globals, making the library thread-safe and testable.
+
+All modes share a common **lifecycle manager** (`lifecycle/`) that handles context creation, signal handling (SIGINT/SIGTERM), and WaitGroup coordination, eliminating duplicated boilerplate across modes.
 
 ## Development Practices
 
