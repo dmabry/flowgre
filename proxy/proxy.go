@@ -9,17 +9,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/dmabry/flowgre/netflow"
-	"github.com/dmabry/flowgre/models"
-	"github.com/dmabry/flowgre/utils"
 	"log"
 	"net"
 	"os"
-	"os/signal"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
+
+	"github.com/dmabry/flowgre/lifecycle"
+	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/utils"
 )
 
 const udpMaxBufferSize = 65507
@@ -172,8 +172,10 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 
 // Run Replay. Kicks off the replay of netflow packets from a db.
 func Run(ip string, port int, verbose bool, targets []string) {
-	wg := &sync.WaitGroup{}
-	ctx, cancel := context.WithCancel(context.Background())
+	mgr := lifecycle.New()
+	ctx := mgr.Context()
+	wg := mgr.WaitGroup()
+
 	// Create channels
 	proxyChan := make(chan []byte, bufferSize)
 	dataChan := make(chan []byte, bufferSize)
@@ -217,27 +219,9 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	// Finally, start up proxyListener
 	go proxyListener(ctx, wg, ip, port, proxyChan, verbose)
 
-	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
-	// Run cleanup when signal is received
-	signalChan := make(chan os.Signal, 1)
-	cleanupDone := make(chan bool)
-	signal.Notify(signalChan, os.Interrupt, os.Kill, os.Signal(syscall.SIGTERM), os.Signal(syscall.SIGHUP))
-
-	go func() {
-		for {
-			select {
-			case <-signalChan:
-				log.Printf("\rReceived signal, shutting down...\n\n")
-				cancel()
-				cleanupDone <- true
-			case <-ctx.Done():
-				cleanupDone <- true
-			}
-		}
-	}()
+	// Setup signal handling via lifecycle manager
+	cleanupDone := mgr.SetupSignalHandler()
 	<-cleanupDone
-	wg.Wait()
-	close(signalChan)
-	close(cleanupDone)
+	mgr.Wait()
 	return
 }
