@@ -14,8 +14,8 @@ func TestHeader_Generate(t *testing.T) {
 	t.Parallel()
 	flowCount := 10
 	sourceID := 618
-	ft := new(FlowTracker).Init()
-	header := new(Header).Generate(flowCount, sourceID, &ft)
+	session := NewSession()
+	header := new(Header).Generate(flowCount, sourceID, session)
 
 	if header.Version != 9 {
 		t.Errorf("Header returned the wrong version! Got: %d Want: 9", header.Version)

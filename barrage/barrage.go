@@ -1,25 +1,26 @@
 // Use of this source code is governed by Apache License 2.0
 // that can be found in the LICENSE file.
 
-// Barrage is used to set up a continuous stream of netflow packets towards a single collector
-
+// Barrage is used to set up a continuous stream of netflow packets towards a single collector.
 package barrage
 
 import (
 	"context"
-	"github.com/dmabry/flowgre/flow/netflow"
-	"github.com/dmabry/flowgre/models"
-	"github.com/dmabry/flowgre/utils"
-	"github.com/dmabry/flowgre/web"
 	"log"
 	"net"
 	"os"
-	"os/signal"
 	"sync"
 	"time"
+
+	"github.com/dmabry/flowgre/lifecycle"
+	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/stats"
+	"github.com/dmabry/flowgre/utils"
+	"github.com/dmabry/flowgre/web"
 )
 
-// Worker is the goroutine used to create workers
+// worker is the goroutine used to create workers.
 func worker(id int, ctx context.Context, server string, port int, srcRange string, dstRange string, sourceID int, delay int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat) {
 	defer wg.Done()
 	wStats := models.WorkerStat{
@@ -33,7 +34,7 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 	startTime := time.Now().UnixNano()
 	limiter := time.Tick(time.Millisecond * time.Duration(delay))
 
-	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
+	// Configure connection to use. It looks like a listener, but it will be used to send packet. Allows setting the source port.
 	srcPort := utils.RandomNum(10000, 15000)
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
@@ -53,9 +54,9 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 		log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
 	}
 
-	log.Printf("Worker [%2d] Slinging packets at %s:%d with Source ID: %5d and delay of %dms \n",
+	log.Printf("Worker [%2d] Slinging packets at %s:%d with Source ID: %5d and delay of %dms\n",
 		id, server, port, sourceID, delay)
-	//Infinite loop to keep slinging until we receive context done.
+	// Infinite loop to keep slinging until we receive context done.
 	takeAction := false
 
 	for {
@@ -78,7 +79,7 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 			takeAction = true
 		}
 		select {
-		case <-ctx.Done(): //Caught the signal to be done.... time to wrap it up
+		case <-ctx.Done(): // Caught the signal to be done.... time to wrap it up
 			log.Printf("Worker [%2d] Exiting due to signal\n", id)
 			return
 		default:
@@ -98,21 +99,15 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 	}
 }
 
-// Run the Barrage
-// func Run(server string, port int, delay int, workers int) {
+// Run the Barrage.
 func Run(config *models.Config) {
-	//wait group and context used to track and control workers
-	if &config.WaitGroup == nil {
-		config.WaitGroup = sync.WaitGroup{}
-	}
-	wg := &config.WaitGroup
-	ctx, cancel := context.WithCancel(context.Background())
-	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	config.Context = ctx
+	mgr := lifecycle.New()
+	ctx := mgr.Context()
+	wg := mgr.WaitGroup()
 
 	buffer := 20
 	// Start the StatsCollector
-	sc := &utils.StatCollector{}
+	sc := &stats.Collector{}
 	sc.StatsChan = make(chan models.WorkerStat, config.Workers+buffer)
 	sc.StatsMap = make(map[int]models.WorkerStat)
 	sc.StatsTotals = models.StatTotals{
@@ -137,21 +132,10 @@ func Run(config *models.Config) {
 		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx, sc)
 	}
 
-	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
-	// Run cleanup when signal is received
-	signalChan := make(chan os.Signal, 1)
-	cleanupDone := make(chan bool)
-	signal.Notify(signalChan, os.Interrupt)
-	go func() {
-		for range signalChan {
-			log.Printf("\rReceived an interrupt, closing connections...\n\n")
-			// Cancel workers via context
-			cancel()
-			cleanupDone <- true
-		}
-	}()
+	// Setup signal handling via lifecycle manager
+	cleanupDone := mgr.SetupSignalHandler()
 	<-cleanupDone
-	wg.Wait()
+	mgr.Wait()
 	sc.Stop()
 	os.Exit(0)
 }

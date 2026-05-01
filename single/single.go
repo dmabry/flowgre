@@ -8,22 +8,22 @@ package single
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/dmabry/flowgre/flow/netflow"
+	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/utils"
 	"log"
 	"net"
 )
 
 // Run Creates the given number of Netflow packets, including the required
-// Template, for a Single run. Creates the packets and puts the on the wire to
+// Template, for a Single run. Creates the packets and puts them on the wire to
 // the targeted host.
 func Run(collectorIP string, destPort int, srcPort int, count int, srcRange string, dstRange string, hexDump bool) {
-	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
+	// Configure connection to use. It looks like a listener, but it will be used to send packet. Allows setting the source port.
 	if srcPort == 0 {
-		//Pick random source port between 10000 and 15000
+		// Pick random source port between 10000 and 15000
 		srcPort = utils.RandomNum(10000, 15000)
 	} // else use the given srcPort number
-	// Generate random sourceID for All Netflow headers.  This is essentially a virtual ID.
+	// Generate random sourceID for all Netflow headers. This is essentially a virtual ID.
 	sourceID := utils.RandomNum(100, 10000)
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
@@ -35,7 +35,7 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 	if destIP == nil {
 		log.Fatalf("Failed to parse destination IP %s", collectorIP)
 	}
-	// start new FlowTracker
+	// Create new session for flow generation
 	ft := new(netflow.FlowTracker).Init()
 
 	// Generate and send Template Flow(s)

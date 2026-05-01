@@ -8,18 +8,19 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"github.com/dmabry/flowgre/models"
-	"github.com/dmabry/flowgre/utils"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/stats"
+	"github.com/gorilla/mux"
 )
 
-// RunWebServer is used to start the web server goroutine
-func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, sc *utils.StatCollector) {
+// RunWebServer is used to start the web server goroutine.
+func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, sc *stats.Collector) {
 	defer wg.Done()
 	listenAddr := ip + ":" + strconv.Itoa(port)
 	log.Printf("Starting Web server %s\n", listenAddr)

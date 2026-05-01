@@ -8,16 +8,16 @@ package record
 import (
 	"context"
 	"encoding/binary"
-	badger "github.com/dgraph-io/badger/v3"
-	"github.com/dmabry/flowgre/flow/netflow"
-	"github.com/dmabry/flowgre/models"
 	"log"
 	"net"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
+
+	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dmabry/flowgre/lifecycle"
+	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/models"
 )
 
 const udpMaxBufferSize = 65507
@@ -161,8 +161,9 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []by
 
 // Run Record. Kicks off the recording process.
 func Run(ip string, port int, dbdir string, verbose bool) {
-	wg := &sync.WaitGroup{}
-	ctx, cancel := context.WithCancel(context.Background())
+	mgr := lifecycle.New()
+	ctx := mgr.Context()
+	wg := mgr.WaitGroup()
 	dataChan := make(chan []byte, 1024)
 	parseChan := make(chan []byte, 1024)
 
@@ -178,21 +179,9 @@ func Run(ip string, port int, dbdir string, verbose bool) {
 	wg.Add(1)
 	go dbIngest(ctx, wg, dbdir, dataChan, verbose)
 
-	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
-	// Run cleanup when signal is received
-	signalChan := make(chan os.Signal, 1)
-	cleanupDone := make(chan bool)
-	signal.Notify(signalChan, os.Interrupt, os.Kill, os.Signal(syscall.SIGTERM), os.Signal(syscall.SIGHUP))
-
-	go func() {
-		for range signalChan {
-			log.Printf("\rReceived signal, shutting down...\n\n")
-			cancel()
-			cleanupDone <- true
-		}
-	}()
+	// Setup signal handling via lifecycle manager
+	cleanupDone := mgr.SetupSignalHandler()
 	<-cleanupDone
-	wg.Wait()
-	close(signalChan)
+	mgr.Wait()
 	os.Exit(0)
 }

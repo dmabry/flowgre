@@ -9,17 +9,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	badger "github.com/dgraph-io/badger/v3"
-	"github.com/dmabry/flowgre/flow/netflow"
-	"github.com/dmabry/flowgre/utils"
 	"log"
 	"net"
 	"os"
-	"os/signal"
 	"runtime"
 	"sync"
-	"syscall"
 	"time"
+
+	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dmabry/flowgre/lifecycle"
+	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/utils"
 )
 
 // Worker is the goroutine used to create workers
@@ -141,8 +141,9 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 
 // Run Replay. Kicks off the replay of netflow packets from a db.
 func Run(server string, port int, delay int, dbdir string, loop bool, workers int, updateTS bool, verbose bool) {
-	wg := &sync.WaitGroup{}
-	ctx, cancel := context.WithCancel(context.Background())
+	mgr := lifecycle.New()
+	ctx := mgr.Context()
+	wg := mgr.WaitGroup()
 	dataChan := make(chan []byte, 1024)
 
 	// Start dbReader
@@ -155,35 +156,34 @@ func Run(server string, port int, delay int, dbdir string, loop bool, workers in
 		go worker(w, ctx, server, port, delay, wg, loop, dataChan)
 	}
 
-	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)
-	// Run cleanup when signal is received
-	signalChan := make(chan os.Signal, 1)
-	cleanupDone := make(chan bool)
-	signal.Notify(signalChan, os.Interrupt, os.Kill, os.Signal(syscall.SIGTERM), os.Signal(syscall.SIGHUP))
+	// Setup signal handling via lifecycle manager.
+	// For non-loop mode, also detect when replay is complete (dataChan empty).
+	cleanupDone := make(chan bool, 1)
+	sigCleanup := mgr.SetupSignalHandler()
 
 	go func() {
 		for {
 			select {
-			case <-signalChan:
+			case <-sigCleanup:
 				log.Printf("\rReceived signal, shutting down...\n\n")
-				cancel()
+				mgr.Cancel()
 				cleanupDone <- true
 			case <-ctx.Done():
+				if !loop && len(dataChan) == 0 {
+					log.Printf("Replay complete, shutting down...\n\n")
+				}
 				cleanupDone <- true
 			case <-time.After(time.Second * 1):
-				if !loop {
-					if len(dataChan) == 0 {
-						log.Printf("Replay complete, shutting down...\n\n")
-						cancel()
-						cleanupDone <- true
-					}
+				if !loop && len(dataChan) == 0 {
+					log.Printf("Replay complete, shutting down...\n\n")
+					mgr.Cancel()
+					cleanupDone <- true
 				}
 			}
 		}
 	}()
+
 	<-cleanupDone
-	wg.Wait()
-	close(signalChan)
-	close(cleanupDone)
+	mgr.Wait()
 	os.Exit(0)
 }
