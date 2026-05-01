@@ -99,16 +99,10 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 }
 
 // Run the Barrage
-// func Run(server string, port int, delay int, workers int) {
 func Run(config *models.Config) {
-	//wait group and context used to track and control workers
-	if &config.WaitGroup == nil {
-		config.WaitGroup = sync.WaitGroup{}
-	}
-	wg := &config.WaitGroup
+	// Local wait group and context for tracking and controlling workers
+	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
-	//ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	config.Context = ctx
 
 	buffer := 20
 	// Start the StatsCollector
@@ -122,19 +116,19 @@ func Run(config *models.Config) {
 	}
 	sc.Config = config
 	wg.Add(1)
-	go sc.Run(wg, ctx)
+	go sc.Run(&wg, ctx)
 
 	// Start up the workers
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(100, 10000)
-		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, wg, sc.StatsChan)
+		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, &wg, sc.StatsChan)
 	}
 
 	// Start WebServer if needed
 	if config.Web {
 		wg.Add(1)
-		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx, sc)
+		go web.RunWebServer(config.WebIP, config.WebPort, &wg, ctx, sc)
 	}
 
 	// Wait for a SIGINT (perhaps triggered by user with CTRL-C)

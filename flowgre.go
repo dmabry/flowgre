@@ -18,7 +18,6 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-	"sync"
 )
 
 const (
@@ -206,13 +205,12 @@ func main() {
 							targetPort := t["port"].(int)
 							targetWorkers := t["workers"].(int)
 							targetDelay := t["delay"].(int)
-							bConfig := models.Config{
-								Server:    targetIP,
-								DstPort:   targetPort,
-								Workers:   targetWorkers,
-								Delay:     targetDelay,
-								WaitGroup: sync.WaitGroup{},
-							}
+						bConfig := models.Config{
+							Server:  targetIP,
+							DstPort: targetPort,
+							Workers: targetWorkers,
+							Delay:   targetDelay,
+						}
 
 							fmt.Printf("target: %s ip: %s port: %s workers: %s delay: %s\n",
 								targetName, targetIP, strconv.Itoa(targetPort),
