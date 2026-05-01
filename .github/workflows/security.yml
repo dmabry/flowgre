@@ -27,7 +27,9 @@ jobs:
       run: |
         go install github.com/securego/gosec/v2/cmd/gosec@latest
         gosec -exclude=G115 ./...
-    - name: Install and run trivy
-      run: |
-        curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.51.1
-        ./bin/trivy fs .
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '1'
