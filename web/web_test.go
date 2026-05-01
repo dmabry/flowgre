@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/dmabry/flowgre/models"
-	"github.com/dmabry/flowgre/utils"
+	"github.com/dmabry/flowgre/stats"
 	"io"
 	"net/http"
 	"strconv"
@@ -33,7 +33,7 @@ func TestRun(t *testing.T) {
 	statusExpected := "OK"
 	buffer := 20
 	// Start the StatsCollector
-	sc := &utils.StatCollector{}
+	sc := &stats.Collector{}
 	sc.StatsChan = make(chan models.WorkerStat, buffer)
 	sc.StatsMap = make(map[int]models.WorkerStat)
 	sc.StatsTotals = models.StatTotals{

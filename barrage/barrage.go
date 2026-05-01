@@ -7,16 +7,18 @@ package barrage
 
 import (
 	"context"
-	"github.com/dmabry/flowgre/netflow"
-	"github.com/dmabry/flowgre/models"
-	"github.com/dmabry/flowgre/utils"
-	"github.com/dmabry/flowgre/web"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"time"
+
+	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/stats"
+	"github.com/dmabry/flowgre/utils"
+	"github.com/dmabry/flowgre/web"
 )
 
 // Worker is the goroutine used to create workers
@@ -106,7 +108,7 @@ func Run(config *models.Config) {
 
 	buffer := 20
 	// Start the StatsCollector
-	sc := &utils.StatCollector{}
+	sc := &stats.Collector{}
 	sc.StatsChan = make(chan models.WorkerStat, config.Workers+buffer)
 	sc.StatsMap = make(map[int]models.WorkerStat)
 	sc.StatsTotals = models.StatTotals{
