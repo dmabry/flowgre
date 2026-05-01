@@ -9,7 +9,7 @@ import (
 	"context"
 	"encoding/binary"
 	badger "github.com/dgraph-io/badger/v3"
-	"github.com/dmabry/flowgre/flow/netflow"
+	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/models"
 	"log"
 	"net"

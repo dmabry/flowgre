@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/dmabry/flowgre/flow/netflow"
+	"github.com/dmabry/flowgre/netflow"
 	"net"
 	"os"
 	"sync"

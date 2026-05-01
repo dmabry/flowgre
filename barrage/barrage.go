@@ -7,7 +7,7 @@ package barrage
 
 import (
 	"context"
-	"github.com/dmabry/flowgre/flow/netflow"
+	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/utils"
 	"github.com/dmabry/flowgre/web"
