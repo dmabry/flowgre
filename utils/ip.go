@@ -7,9 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
-	"time"
 )
 
 // IPto32 converts an IPv4 string to its uint32 representation.
@@ -35,8 +33,9 @@ func RandomIP(cidr string) (net.IP, error) {
 		// Only one IP in the range
 		randIP = NumToIP(ipMinNum)
 	} else {
-		rand.Seed(time.Now().UnixNano())
-		randIPNum := uint32(rand.Int31n(int32(ipMaxNum-ipMinNum)) + int32(ipMinNum))
+		rangeSize := int64(ipMaxNum - ipMinNum)
+		offset := CryptoRandomNumber(rangeSize)
+		randIPNum := uint32(offset + int64(ipMinNum))
 		randIP = NumToIP(randIPNum)
 	}
 
