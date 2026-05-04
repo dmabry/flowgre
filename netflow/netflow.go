@@ -33,9 +33,13 @@ func (ft *FlowTracker) NextSeq() uint32 {
 	return ft.session.NextSeq()
 }
 
+// GetSession returns the wrapped session for external use.
+func (ft *FlowTracker) GetSession() *Session {
+	return ft.session
+}
+
 // GenerateNetflow Generates a combined Template and Data flow Netflow struct.  Not required by spec, but can be done.
-func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowTracker *FlowTracker) Netflow {
-	session := NewSession()
+func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, session *Session) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
 	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, httpsPort, session)
@@ -47,8 +51,7 @@ func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange stri
 }
 
 // GenerateDataNetflow Generates a Netflow containing Data flows
-func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, flowTracker *FlowTracker) Netflow {
-	session := NewSession()
+func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, session *Session) Netflow {
 	netflow := new(Netflow)
 	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowSrcPort, session)
 	header := new(Header).Generate(1, sourceID, session) // always 1 for but could be more in future
@@ -58,8 +61,7 @@ func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange 
 }
 
 // GenerateTemplateNetflow Generates a Netflow containing Template flow
-func GenerateTemplateNetflow(sourceID int, flowTracker *FlowTracker) Netflow {
-	session := NewSession()
+func GenerateTemplateNetflow(sourceID int, session *Session) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate()
 	header := new(Header).Generate(1, sourceID, session) // always 1 counting the template only
