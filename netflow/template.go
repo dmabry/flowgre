@@ -108,7 +108,7 @@ type TemplateFlowSet struct {
 // Per Netflow v9 spec, FlowSetID is *always* 0 for a TemplateFlow.
 // Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255
 // TODO: Hardcoded FieldCount and Fields for HTTPS Flow.  Need to work on Generating different flows
-func (t *TemplateFlowSet) Generate() TemplateFlowSet {
+func (t *TemplateFlowSet) Generate(session *Session) TemplateFlowSet {
 	templateFlowSet := new(TemplateFlowSet)
 	templateFlowSet.FlowSetID = 0
 	var templates []Template

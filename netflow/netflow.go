@@ -37,7 +37,7 @@ func (ft *FlowTracker) NextSeq() uint32 {
 func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowTracker *FlowTracker) Netflow {
 	session := NewSession()
 	netflow := new(Netflow)
-	templateFlow := new(TemplateFlowSet).Generate()
+	templateFlow := new(TemplateFlowSet).Generate(session)
 	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, httpsPort, session)
 	header := new(Header).Generate(flowCount+1, sourceID, session) // always +1 of dataflow count, because we are counting the template
 	netflow.Header = header
@@ -61,7 +61,7 @@ func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange 
 func GenerateTemplateNetflow(sourceID int, flowTracker *FlowTracker) Netflow {
 	session := NewSession()
 	netflow := new(Netflow)
-	templateFlow := new(TemplateFlowSet).Generate()
+	templateFlow := new(TemplateFlowSet).Generate(session)
 	header := new(Header).Generate(1, sourceID, session) // always 1 counting the template only
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
