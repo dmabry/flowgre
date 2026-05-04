@@ -211,6 +211,9 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	}
 	// Create dedicated channel per target <= 10
 	workers := len(targets)
+	if workers == 0 {
+		log.Fatal("Error: at least one --target is required (format: IP:PORT)")
+	}
 	if workers > 10 {
 		log.Println("Can't have more than 10 Targets")
 		os.Exit(1)
@@ -230,6 +233,9 @@ func Run(ip string, port int, verbose bool, targets []string) {
 		targetPortInt, err := strconv.Atoi(targetPort)
 		if err != nil {
 			log.Fatalf("Issue parsing target port: %v\n", err)
+		}
+		if targetPortInt < 1 || targetPortInt > 65535 {
+			log.Fatalf("Error: target port %d out of valid range (1-65535)", targetPortInt)
 		}
 		go worker(id, ctx, targetIP, targetPortInt, wg, workerChan)
 	}
