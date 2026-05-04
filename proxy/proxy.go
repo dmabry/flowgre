@@ -134,7 +134,9 @@ func proxyListener(ctx context.Context, wg *sync.WaitGroup, ip string, port int,
 			case <-ctx.Done():
 				return
 			default:
+				if verbose {
 				log.Printf("proxyListener: dropped packet (proxyChan full)")
+			}
 			}
 		}
 	}
@@ -180,7 +182,9 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 					log.Println("Netflow parser context cancelled during send")
 					return
 				default:
-					log.Printf("Netflow parser: dropped packet (dataChan full)")
+				if verbose {
+				log.Printf("Netflow parser: dropped packet (dataChan full)")
+			}
 				}
 			} else {
 				rStats.InvalidCount++
