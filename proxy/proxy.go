@@ -65,16 +65,25 @@ func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitG
 // replicator is used to take payloads off the dataChan and pass it to each worker's channel for sending
 func replicator(ctx context.Context, wg *sync.WaitGroup, dataChan <-chan []byte, targets []chan []byte, verbose bool) {
 	defer wg.Done()
-	// Start the loop and check context for done, otherwise listen for packets
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Replicator exiting due to signal")
 			return
-		// Validated received and needs to be passed on to workers
 		case payload := <-dataChan:
 			for _, target := range targets {
-				target <- payload
+				select {
+				case target <- payload:
+					// sent successfully
+				case <-ctx.Done():
+					log.Println("Replicator context cancelled during send")
+					return
+				default:
+					// Channel full, drop packet to avoid deadlock
+					if verbose {
+						log.Printf("Replicator: dropped packet (target channel full)")
+					}
+				}
 			}
 		}
 	}
@@ -120,7 +129,13 @@ func proxyListener(ctx context.Context, wg *sync.WaitGroup, ip string, port int,
 				log.Printf("Packet Received from %s with size of %d", fromIP.String(), length)
 			}
 			// Send payload to the proxyChan channel
-			proxyChan <- payload
+			select {
+			case proxyChan <- payload:
+			case <-ctx.Done():
+				return
+			default:
+				log.Printf("proxyListener: dropped packet (proxyChan full)")
+			}
 		}
 	}
 }
@@ -143,29 +158,36 @@ func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *models.Record
 // Ingest pulls byte payload off the data chan and puts them in the badger db
 func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []byte, dataChan chan<- []byte, rStats *models.RecordStat, verbose bool) {
 	defer wg.Done()
-	// Start the loop
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
 	for {
-		// Check to see if context is done and return, otherwise pull payloads and write
 		select {
 		case <-ctx.Done():
 			log.Println("Netflow parser exiting due to signal")
 			return
 		case payload := <-proxyChan:
-			// Decode first uint16 and see if it is a version 9
 			ok, err := netflow.IsValidNetFlow(payload, 9)
 			if err != nil {
 				log.Printf("Skipping packet due to issue parsing: %v", err)
-			}
-			if ok {
-				// Netflow v9 Packet send it on
+				rStats.InvalidCount++
+			} else if ok {
 				rStats.ValidCount++
-				dataChan <- payload
+				select {
+				case dataChan <- payload:
+				case <-ctx.Done():
+					log.Println("Netflow parser context cancelled during send")
+					return
+				default:
+					log.Printf("Netflow parser: dropped packet (dataChan full)")
+				}
 			} else {
-				// Not a Netflow v9 Packet... skip
 				rStats.InvalidCount++
 			}
-		case <-time.After(time.Second * 30):
-			log.Printf("No flow packets received for 30s...waiting")
+		case <-ticker.C:
+			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d",
+				rStats.ValidCount, rStats.InvalidCount)
 		}
 	}
 }
