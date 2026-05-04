@@ -45,9 +45,10 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 	destIP := net.ParseIP(server)
 	// start new FlowTracker
 	ft := new(netflow.FlowTracker).Init()
+	session := ft.GetSession()
 
 	// Generate and send first Template Flow(s)
-	tFlow := netflow.GenerateTemplateNetflow(sourceID, &ft)
+	tFlow := netflow.GenerateTemplateNetflow(sourceID, session)
 	tBuf := tFlow.ToBytes()
 	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 	if err != nil {
@@ -86,7 +87,7 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 			// Basic limiter to throttle/delay packets
 			<-limiter
 			flowCount := utils.RandomNum(5, 25)
-			flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, &ft)
+			flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
 			buf := flow.ToBytes()
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {

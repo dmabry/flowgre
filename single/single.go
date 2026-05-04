@@ -36,10 +36,10 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 		log.Fatalf("Failed to parse destination IP %s", collectorIP)
 	}
 	// Create new session for flow generation
-	ft := new(netflow.FlowTracker).Init()
+	session := netflow.NewSession()
 
-	// Generate and send Template Flow(s)
-	tFlow := netflow.GenerateTemplateNetflow(sourceID, &ft)
+	// Generate and send first Template Flow(s)
+	tFlow := netflow.GenerateTemplateNetflow(sourceID, session)
 	tBuf := tFlow.ToBytes()
 	fmt.Printf("\nSending Template Flow\n\n")
 	fmt.Println(netflow.GetNetFlowSizes(tFlow))
@@ -54,7 +54,7 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 	// Generate and send Data Flow(s)
 	fmt.Printf("\nSending Data Flows\n\n")
 	for i := 1; i <= count; i++ {
-		flow := netflow.GenerateDataNetflow(10, sourceID, srcRange, dstRange, 0, &ft)
+		flow := netflow.GenerateDataNetflow(10, sourceID, srcRange, dstRange, 0, session)
 		buf := flow.ToBytes()
 		fmt.Println(netflow.GetNetFlowSizes(flow))
 		if hexDump {
