@@ -57,6 +57,14 @@ func (n *Netflow) ToBytes() bytes.Buffer {
 					}
 				}
 			}
+			// Padding to 32 bit boundary per Netflow v9 RFC
+			if tFlow.Padding > 0 {
+				padBytes := bytes.Repeat([]byte{0}, tFlow.Padding)
+				err = binary.Write(&buf, binary.BigEndian, padBytes)
+				if err != nil {
+					log.Println("[ERROR] Issue writing Template Padding: ", err)
+				}
+			}
 		}
 	}
 	// Write Data flow(s) if any exists

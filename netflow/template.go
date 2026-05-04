@@ -102,6 +102,7 @@ type TemplateFlowSet struct {
 	FlowSetID uint16 // seems to always be 0???
 	Length    uint16
 	Templates []Template
+	Padding   int
 }
 
 // Generate a TemplateFlowSet.
@@ -121,8 +122,29 @@ func (t *TemplateFlowSet) Generate(session *Session) TemplateFlowSet {
 	template.Fields = fields
 	templates = append(templates, *template)
 	templateFlowSet.Templates = templates
-	templateFlowSet.Length += uint16(templateFlowSet.size())
+	// Calculate raw size and add 32-bit padding per NetFlow v9 spec
+	rawSize := templateFlowSet.rawSize()
+	remainder := rawSize % 4
+	if remainder > 0 {
+		templateFlowSet.Padding = 4 - remainder
+	}
+	templateFlowSet.Length = uint16(rawSize + templateFlowSet.Padding)
 	return *templateFlowSet
+}
+
+// rawSize returns the size of the TemplateFlowSet in bytes before padding.
+func (t *TemplateFlowSet) rawSize() int {
+	size := binary.Size(t.FlowSetID)
+	size += binary.Size(t.Length)
+	for _, i := range t.Templates {
+		size += binary.Size(i.TemplateID)
+		size += binary.Size(i.FieldCount)
+		for _, f := range i.Fields {
+			size += binary.Size(f.Type)
+			size += binary.Size(f.Length)
+		}
+	}
+	return size
 }
 
 // Get the size of the TemplateFlowSet in bytes
