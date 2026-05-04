@@ -1,10 +1,14 @@
-# Binaries for programs and plugins
+# Compiled binaries
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 *.tgz
+
+# Compiled Go binaries
+flowgre
+flowgre.exe
 
 # Test binary, built with `go test -c`
 *.test
