@@ -74,7 +74,7 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 // dbReader pulls byte payload out of the database and puts it on the data chan
 func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan chan<- []byte, loop bool, updateTS bool, verbose bool) {
 	defer wg.Done()
-	// Create/Open DB for writing
+	// Create/Open DB for reading
 	options := badger.DefaultOptions(dbdir)
 	// Disable badger logging output
 	options.Logger = nil
