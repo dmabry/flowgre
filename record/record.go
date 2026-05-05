@@ -117,23 +117,10 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []by
 		ValidCount:   0,
 		InvalidCount: 0,
 	}
-	printStats := false
-	startTime := time.Now().UnixNano()
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 	// Start the loop
 	for {
-		now := time.Now().UnixNano()
-		statsCycle := (now - startTime) / int64(time.Second) % 10
-		// Print out basic statistics per worker every 10 seconds
-		if statsCycle == 0 {
-			if printStats {
-				log.Printf("Netflow v9 Packets: %d Ignored Packets: %d ",
-					rStats.ValidCount, rStats.InvalidCount)
-				printStats = false
-			}
-		} else {
-			printStats = true
-		}
-		// Check to see if context is done and return, otherwise pull payloads and write
 		select {
 		case <-ctx.Done():
 			log.Println("Netflow parser exiting due to signal")
@@ -153,8 +140,9 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []by
 				// Not a Netflow v9 Packet... skip
 				rStats.InvalidCount++
 			}
-		default:
-			// Non-blocking
+		case <-ticker.C:
+			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d ",
+				rStats.ValidCount, rStats.InvalidCount)
 		}
 	}
 }

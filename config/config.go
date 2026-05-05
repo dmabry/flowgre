@@ -39,20 +39,20 @@ func LoadBarrageConfig() (*models.Config, error) {
 				return nil, fmt.Errorf("unexpected nested type for target %s", targetName)
 			}
 
-			ip, _ := t["ip"].(string)
-			port, _ := t["port"].(int)
-			workers, _ := t["workers"].(int)
-			delay, _ := t["delay"].(int)
+		ip, _ := t["ip"].(string)
+		port, _ := t["port"].(float64)
+		workers, _ := t["workers"].(float64)
+		delay, _ := t["delay"].(float64)
 
-			log.Printf("target: %s ip: %s port: %d workers: %d delay: %d\n",
-				targetName, ip, port, workers, delay)
+		log.Printf("target: %s ip: %s port: %d workers: %d delay: %d\n",
+			targetName, ip, int(port), int(workers), int(delay))
 
-			return &models.Config{
-				Server:  ip,
-				DstPort: port,
-				Workers: workers,
-				Delay:   delay,
-			}, nil
+		return &models.Config{
+			Server:  ip,
+			DstPort: int(port),
+			Workers: int(workers),
+			Delay:   int(delay),
+		}, nil
 		}
 	}
 

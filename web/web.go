@@ -40,16 +40,12 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 			IdleTimeout:       time.Second * 5,
 		}
 		err := s.ListenAndServe()
-		if err != nil {
+		if err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Issue starting web server! %v\n", err)
 		}
 	}()
-	select {
-	case <-ctx.Done(): //Caught the signal to be done.... time to wrap it up
-		log.Printf("Web server Exiting due to signal\n")
-		return
-	default:
-	}
+	<-ctx.Done() // Wait for shutdown signal
+	log.Printf("Web server Exiting due to signal\n")
 }
 
 // HealthHandler is used to generate json payload for health.  static for now.

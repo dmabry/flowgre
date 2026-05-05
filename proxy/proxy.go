@@ -249,6 +249,7 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	go replicator(ctx, wg, dataChan, workerChans, verbose)
 
 	// Finally, start up proxyListener
+	wg.Add(1)
 	go proxyListener(ctx, wg, ip, port, proxyChan, verbose)
 
 	// Setup signal handling via lifecycle manager

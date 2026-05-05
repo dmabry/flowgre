@@ -79,10 +79,10 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 	// Disable badger logging output
 	options.Logger = nil
 	db, err := badger.Open(options)
-	defer db.Close()
 	if err != nil {
 		log.Fatalf("Failed to open DB: %v", err)
 	}
+	defer db.Close()
 	log.Printf("Reading from database %s\n", dbdir)
 	// Prep the loop
 	count := 0
