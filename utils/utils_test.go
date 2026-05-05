@@ -118,6 +118,30 @@ func TestRandomIP(t *testing.T) {
 	t.Logf("Generated %d random IPs inside %s", itr, cidr)
 }
 
+// TestParseIPv4ToNum tests the ParseIPv4ToNum function for correct IPv4 parsing,
+// pure IPv6 rejection, and invalid input handling.
+func TestParseIPv4ToNum(t *testing.T) {
+	t.Parallel()
+
+	num, err := ParseIPv4ToNum("10.0.0.1")
+	if err != nil {
+		t.Fatalf("unexpected error for valid IPv4: %v", err)
+	}
+	if num != 167772161 {
+		t.Errorf("unexpected value: got %d, want %d", num, 167772161)
+	}
+
+	_, err = ParseIPv4ToNum("::1")
+	if err == nil {
+		t.Error("expected error for pure IPv6")
+	}
+
+	_, err = ParseIPv4ToNum("not-an-ip")
+	if err == nil {
+		t.Error("expected error for invalid input")
+	}
+}
+
 func TestSendPacket(t *testing.T) {
 	t.Parallel()
 	payload1 := []byte("Flowgre Testing Text!")
