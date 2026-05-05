@@ -1,10 +1,10 @@
 module github.com/dmabry/flowgre
 
-go 1.23.0
+go 1.25.0
 
 require (
 	github.com/dgraph-io/badger/v3 v3.2103.5
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/gorilla/mux v1.8.1
 	github.com/spf13/viper v1.21.0
 )
@@ -33,7 +33,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.opencensus.io v0.22.5 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/text v0.28.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 )

@@ -37,15 +37,15 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 	listenIP := net.ParseIP(ip)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: listenIP, Port: port})
 	if err != nil {
-		t.Fatalf("Test Receiver listening on %s:%d failed! Got: %v", ip, port, err)
+		t.Errorf("Test Receiver listening on %s:%d failed! Got: %v", ip, port, err)
+		return
 	}
 	t.Logf("Test Receiver listening on %s:%d", ip, port)
-	defer func(conn *net.UDPConn) {
-		err := conn.Close()
-		if err != nil {
-			t.Fatalf("Error closing listener: %v", err)
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			t.Errorf("Error closing listener: %v", closeErr)
 		}
-	}(conn)
+	}()
 	// Start the loop and check context for done, otherwise listen for packets
 	for {
 		select {
@@ -107,7 +107,6 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 			}
 		}
 	}
-
 }
 
 // TestRun runs a test to verify functionality.

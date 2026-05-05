@@ -59,9 +59,13 @@ func (sc *Collector) Run(wg *sync.WaitGroup, ctx context.Context) {
 				log.Printf("Worker [%2d] SourceID: %4d Cycles: %d Flows Sent: %d Bytes Sent: %d %s\n",
 					stat.WorkerID, stat.SourceID, stat.Cycles, stat.FlowsSent, sizeOut, sizeLabel)
 				sc.StatsMap[stat.WorkerID] = stat
-				sc.StatsTotals.Cycles += stat.Cycles
-				sc.StatsTotals.FlowsSent += stat.FlowsSent
-				sc.StatsTotals.BytesSent += stat.BytesSent
+				// Recalculate totals from map to avoid double-counting cumulative stats
+				sc.StatsTotals = models.StatTotals{}
+				for _, s := range sc.StatsMap {
+					sc.StatsTotals.Cycles += s.Cycles
+					sc.StatsTotals.FlowsSent += s.FlowsSent
+					sc.StatsTotals.BytesSent += s.BytesSent
+				}
 			} else {
 				log.Println("Stats Channel Closed!")
 			}

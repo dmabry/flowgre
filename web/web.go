@@ -30,26 +30,23 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 	router.HandleFunc("/stats", sc.StatsHandler)
 	router.HandleFunc("/dashboard", sc.DashboardHandler)
 
+	srv := &http.Server{
+		Addr:              listenAddr,
+		Handler:           router,
+		ReadTimeout:       time.Second * 5,
+		ReadHeaderTimeout: time.Second * 5,
+		WriteTimeout:      time.Second * 5,
+		IdleTimeout:       time.Second * 5,
+	}
 	go func() {
-		s := &http.Server{
-			Addr:              listenAddr,
-			Handler:           router,
-			ReadTimeout:       time.Second * 5,
-			ReadHeaderTimeout: time.Second * 5,
-			WriteTimeout:      time.Second * 5,
-			IdleTimeout:       time.Second * 5,
-		}
-		err := s.ListenAndServe()
-		if err != nil {
+		err := srv.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Issue starting web server! %v\n", err)
 		}
 	}()
-	select {
-	case <-ctx.Done(): //Caught the signal to be done.... time to wrap it up
-		log.Printf("Web server Exiting due to signal\n")
-		return
-	default:
-	}
+	<-ctx.Done() // Block until context is cancelled
+	log.Printf("Web server Exiting due to signal\n")
+	_ = srv.Shutdown(context.Background())
 }
 
 // HealthHandler is used to generate json payload for health.  static for now.
