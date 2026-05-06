@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/dmabry/flowgre/models"
 	"github.com/spf13/viper"
@@ -100,8 +101,10 @@ func getInt(m map[string]interface{}, key string, def int) int {
 			return int(val)
 		case string:
 			// Try to parse as int
-			var result int
-			fmt.Sscanf(val, "%d", &result)
+			result, err := strconv.Atoi(val)
+			if err != nil {
+				return def
+			}
 			return result
 		}
 	}
