@@ -8,7 +8,6 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"log"
 	"net"
 	"os"
@@ -33,7 +32,8 @@ func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitG
 	srcPort := utils.RandomNum(10000, 15000)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
-		log.Fatal("Listen:", err)
+		log.Printf("Listen failed: %v\n", err)
+		return
 	}
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(server)
@@ -50,13 +50,14 @@ func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitG
 			//log.Printf("Worker [%2d] sending packet to %s:%d with length: %d\n", id, server, port, length)
 			// send packet here.
 			var buf bytes.Buffer
-			err := binary.Write(&buf, binary.BigEndian, &payload)
+			_, err := buf.Write(payload)
 			if err != nil {
-				log.Printf("Worker [%2d] Issue reading data: %v\n", id, err)
+				log.Printf("Worker [%2d] Issue writing data: %v\n", id, err)
 			}
 			_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
-				log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
+				log.Printf("Worker [%2d] Issue sending packet: %v\n", id, err)
+				return
 			}
 		}
 	}
@@ -96,13 +97,14 @@ func proxyListener(ctx context.Context, wg *sync.WaitGroup, ip string, port int,
 	listenIP := net.ParseIP(ip)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: listenIP, Port: port})
 	if err != nil {
-		log.Fatalf("Listening on %s:%d failed! Got: %v", ip, port, err)
+		log.Printf("Listening on %s:%d failed! Got: %v\n", ip, port, err)
+		return
 	}
 	log.Printf("Listening on %s:%d", ip, port)
 	defer func(conn *net.UDPConn) {
 		err := conn.Close()
 		if err != nil {
-			log.Fatalf("Error closing listener: %v", err)
+			log.Printf("Error closing listener: %v\n", err)
 		}
 	}(conn)
 	// Start the loop and check context for done, otherwise listen for packets
@@ -152,7 +154,7 @@ func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *models.Record
 			return
 		case <-time.After(time.Second * 10):
 			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d ",
-				rStats.ValidCount, rStats.InvalidCount)
+				rStats.LoadValid(), rStats.LoadInvalid())
 		}
 	}
 }
@@ -171,27 +173,27 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 			return
 		case payload := <-proxyChan:
 			ok, err := netflow.IsValidNetFlow(payload, 9)
-			if err != nil {
-				log.Printf("Skipping packet due to issue parsing: %v", err)
-				rStats.InvalidCount++
-			} else if ok {
-				rStats.ValidCount++
-				select {
-				case dataChan <- payload:
-				case <-ctx.Done():
-					log.Println("Netflow parser context cancelled during send")
-					return
-				default:
+		if err != nil {
+			log.Printf("Skipping packet due to issue parsing: %v", err)
+			rStats.IncrInvalid()
+		} else if ok {
+			rStats.IncrValid()
+			select {
+			case dataChan <- payload:
+			case <-ctx.Done():
+				log.Println("Netflow parser context cancelled during send")
+				return
+			default:
 				if verbose {
-				log.Printf("Netflow parser: dropped packet (dataChan full)")
-			}
+					log.Printf("Netflow parser: dropped packet (dataChan full)")
 				}
-			} else {
-				rStats.InvalidCount++
 			}
+		} else {
+			rStats.IncrInvalid()
+		}
 		case <-ticker.C:
 			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d",
-				rStats.ValidCount, rStats.InvalidCount)
+				rStats.LoadValid(), rStats.LoadInvalid())
 		}
 	}
 }
