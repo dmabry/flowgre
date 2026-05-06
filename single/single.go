@@ -14,6 +14,15 @@ import (
 	"net"
 )
 
+const (
+	// sourcePortMin/Max define the range for random source ports
+	sourcePortMin = 10000
+	sourcePortMax = 15000
+	// sourceIDMin/Max define the range for random source IDs
+	sourceIDMin = 100
+	sourceIDMax = 10000
+)
+
 // Run Creates the given number of Netflow packets, including the required
 // Template, for a Single run. Creates the packets and puts them on the wire to
 // the targeted host.
@@ -21,10 +30,10 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 	// Configure connection to use. It looks like a listener, but it will be used to send packet. Allows setting the source port.
 	if srcPort == 0 {
 		// Pick random source port between 10000 and 15000
-		srcPort = utils.RandomNum(10000, 15000)
+		srcPort = utils.RandomNum(sourcePortMin, sourcePortMax)
 	} // else use the given srcPort number
 	// Generate random sourceID for all Netflow headers. This is essentially a virtual ID.
-	sourceID := utils.RandomNum(100, 10000)
+	sourceID := utils.RandomNum(sourceIDMin, sourceIDMax)
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
