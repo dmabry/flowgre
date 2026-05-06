@@ -21,15 +21,22 @@ import (
 	"github.com/dmabry/flowgre/utils"
 )
 
-const udpMaxBufferSize = 65507
-const bufferSize = 1024
+const (
+	udpMaxBufferSize = 65507
+	bufferSize       = 1024
+	// sourcePortMin/Max define the range for random source ports
+	sourcePortMin = 10000
+	sourcePortMax = 15000
+	// maxTargets is the hard limit on number of proxy targets
+	maxTargets = 10
+)
 
 // Worker is the goroutine used to create workers
 func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitGroup, workerChan <-chan []byte) {
 	defer wg.Done()
 	// Sent limiter to given delay
 	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
-	srcPort := utils.RandomNum(10000, 15000)
+	srcPort := utils.RandomNum(sourcePortMin, sourcePortMax)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
 		log.Printf("Listen failed: %v\n", err)
@@ -211,13 +218,13 @@ func Run(ip string, port int, verbose bool, targets []string) {
 		ValidCount:   0,
 		InvalidCount: 0,
 	}
-	// Create dedicated channel per target <= 10
+	// Create dedicated channel per target <= maxTargets
 	workers := len(targets)
 	if workers == 0 {
 		log.Fatal("Error: at least one --target is required (format: IP:PORT)")
 	}
-	if workers > 10 {
-		log.Println("Can't have more than 10 Targets")
+	if workers > maxTargets {
+		log.Printf("Can't have more than %d Targets", maxTargets)
 		os.Exit(1)
 	}
 	workerChans := make([]chan []byte, workers)

@@ -19,6 +19,15 @@ import (
 	"github.com/dmabry/flowgre/web"
 )
 
+const (
+	// sourcePortMin/Max define the range for random source ports
+	sourcePortMin = 10000
+	sourcePortMax = 15000
+	// sourceIDMin/Max define the range for random source IDs
+	sourceIDMin = 100
+	sourceIDMax = 10000
+)
+
 // worker is the goroutine used to create workers.
 func worker(id int, ctx context.Context, server string, port int, srcRange string, dstRange string, sourceID int, delay int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat) {
 	defer wg.Done()
@@ -34,7 +43,7 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 	limiter := time.Tick(time.Millisecond * time.Duration(delay))
 
 	// Configure connection to use. It looks like a listener, but it will be used to send packet. Allows setting the source port.
-	srcPort := utils.RandomNum(10000, 15000)
+	srcPort := utils.RandomNum(sourcePortMin, sourcePortMax)
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
@@ -125,7 +134,7 @@ func Run(config *models.Config) {
 	// Start up the workers
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
-		sourceID := utils.RandomNum(100, 10000)
+		sourceID := utils.RandomNum(sourceIDMin, sourceIDMax)
 		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, wg, sc.StatsChan)
 	}
 
