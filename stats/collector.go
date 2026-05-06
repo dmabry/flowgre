@@ -82,7 +82,8 @@ func (sc *Collector) Run(wg *sync.WaitGroup, ctx context.Context) {
 func (sc *Collector) StatsHandler(w http.ResponseWriter, r *http.Request) {
 	err := json.NewEncoder(w).Encode(sc.StatsMap)
 	if err != nil {
-		log.Fatalf("Web server had an issue: %v\n", err)
+		log.Printf("Web server had an issue: %v\n", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
 

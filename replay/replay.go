@@ -8,10 +8,8 @@ package replay
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"log"
 	"net"
-	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -31,7 +29,8 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 	srcPort := utils.RandomNum(10000, 15000)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
-		log.Fatal("Listen:", err)
+		log.Printf("Listen: %v\n", err)
+		return
 	}
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(server)
@@ -53,13 +52,14 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 			// Reset the buffer and write the new payload into it
 			buf.Reset()
 			// send packet here.
-			err := binary.Write(&buf, binary.BigEndian, &payload)
-			if err != nil {
-				log.Printf("Worker [%2d] Issue reading data: %v\n", id, err)
-			}
+		_, err := buf.Write(payload)
+		if err != nil {
+			log.Printf("Worker [%2d] Issue writing data: %v\n", id, err)
+		}
 			_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
-				log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
+				log.Printf("Worker [%2d] Issue sending packet: %v\n", id, err)
+				return
 			}
 			<-limiter
 		case <-time.After(time.Second * 1):
@@ -80,7 +80,8 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 	options.Logger = nil
 	db, err := badger.Open(options)
 	if err != nil {
-		log.Fatalf("Failed to open DB: %v", err)
+		log.Printf("Failed to open DB: %v\n", err)
+		return
 	}
 	defer db.Close()
 	log.Printf("Reading from database %s\n", dbdir)
@@ -185,5 +186,4 @@ func Run(server string, port int, delay int, dbdir string, loop bool, workers in
 
 	<-cleanupDone
 	mgr.Wait()
-	os.Exit(0)
 }

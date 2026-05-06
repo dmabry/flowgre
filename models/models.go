@@ -5,6 +5,8 @@
 
 package models
 
+import "sync/atomic"
+
 type Config struct {
 	Server   string `json:"server,omitempty"`
 	DstPort  int    `json:"dst_port,omitempty"`
@@ -28,6 +30,26 @@ type WorkerStat struct {
 type RecordStat struct {
 	ValidCount   uint64
 	InvalidCount uint64
+}
+
+// IncrValid atomically increments ValidCount and returns the new value.
+func (rs *RecordStat) IncrValid() uint64 {
+	return atomic.AddUint64(&rs.ValidCount, 1)
+}
+
+// IncrInvalid atomically increments InvalidCount and returns the new value.
+func (rs *RecordStat) IncrInvalid() uint64 {
+	return atomic.AddUint64(&rs.InvalidCount, 1)
+}
+
+// LoadValid atomically loads ValidCount.
+func (rs *RecordStat) LoadValid() uint64 {
+	return atomic.LoadUint64(&rs.ValidCount)
+}
+
+// LoadInvalid atomically loads InvalidCount.
+func (rs *RecordStat) LoadInvalid() uint64 {
+	return atomic.LoadUint64(&rs.InvalidCount)
 }
 
 type StatTotals struct {

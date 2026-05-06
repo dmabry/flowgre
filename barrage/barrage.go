@@ -8,7 +8,6 @@ import (
 	"context"
 	"log"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -39,20 +38,21 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
-		log.Fatal("Listen:", err)
+		log.Printf("Worker [%2d] Listen failed: %v", id, err)
+		return
 	}
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(server)
-	// start new FlowTracker
-	ft := new(netflow.FlowTracker).Init()
-	session := ft.GetSession()
+	// start new Session for this worker
+	session := netflow.NewSession()
 
 	// Generate and send first Template Flow(s)
 	tFlow := netflow.GenerateTemplateNetflow(sourceID, session)
 	tBuf := tFlow.ToBytes()
 	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 	if err != nil {
-		log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
+		log.Printf("Worker [%2d] Issue sending initial packet: %v", id, err)
+		return
 	}
 
 	log.Printf("Worker [%2d] Slinging packets at %s:%d with Source ID: %5d and delay of %dms\n",
@@ -70,7 +70,8 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 				// Send Template per worker every 30 seconds
 				bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 				if err != nil {
-					log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
+					log.Printf("Worker [%2d] Issue sending template packet: %v", id, err)
+					return
 				}
 				wStats.FlowsSent++
 				wStats.BytesSent += uint64(bytes)
@@ -91,7 +92,8 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 			buf := flow.ToBytes()
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
-				log.Fatalf("Worker [%2d] Issue sending packet %v\n", id, err)
+				log.Printf("Worker [%2d] Issue sending data packet: %v", id, err)
+				return
 			}
 			wStats.FlowsSent += uint64(flowCount)
 			wStats.Cycles++
@@ -138,5 +140,4 @@ func Run(config *models.Config) {
 	<-cleanupDone
 	mgr.Wait()
 	sc.Stop()
-	os.Exit(0)
 }

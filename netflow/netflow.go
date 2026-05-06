@@ -12,33 +12,6 @@ import (
 	"time"
 )
 
-// FlowTracker is deprecated — use *Session instead.
-// Kept for API compatibility during refactor.
-type FlowTracker struct {
-	session *Session
-}
-
-// Init creates a new FlowTracker wrapping a fresh Session.
-func (ft *FlowTracker) Init() FlowTracker {
-	return FlowTracker{session: NewSession()}
-}
-
-// GetStartTime returns the wrapped session's start time.
-func (ft *FlowTracker) GetStartTime() int64 {
-	return ft.session.StartTime()
-}
-
-// NextSeq delegates to the wrapped session.
-func (ft *FlowTracker) NextSeq() uint32 {
-	return ft.session.NextSeq()
-}
-
-// GetSession returns the wrapped session for external use.
-func (ft *FlowTracker) GetSession() *Session {
-	return ft.session
-}
-
-// GenerateNetflow Generates a combined Template and Data flow Netflow struct.  Not required by spec, but can be done.
 func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, session *Session) Netflow {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate(session)

@@ -41,7 +41,8 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 	go func() {
 		err := srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Issue starting web server! %v\n", err)
+			log.Printf("Issue starting web server! %v\n", err)
+			return
 		}
 	}()
 	<-ctx.Done() // Block until context is cancelled
@@ -57,7 +58,8 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err := json.NewEncoder(w).Encode(health)
 	if err != nil {
-		log.Fatalf("Web server had an issue: %v\n", err)
+		log.Printf("Web server had an issue: %v\n", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
 
@@ -69,6 +71,7 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err := json.NewEncoder(w).Encode(health)
 	if err != nil {
-		log.Fatalf("Web server had an issue: %v\n", err)
+		log.Printf("Web server had an issue: %v\n", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }

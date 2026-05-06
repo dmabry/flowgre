@@ -10,7 +10,6 @@ import (
 	"encoding/binary"
 	"log"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -29,13 +28,14 @@ func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, dat
 	listenIP := net.ParseIP(ip)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: listenIP, Port: port})
 	if err != nil {
-		log.Fatalf("Listening on %s:%d failed! Got: %v", ip, port, err)
+		log.Printf("Listening on %s:%d failed! Got: %v\n", ip, port, err)
+		return
 	}
 	log.Printf("Listening on %s:%d", ip, port)
 	defer func(conn *net.UDPConn) {
 		err := conn.Close()
 		if err != nil {
-			log.Fatalf("Error closing listener: %v", err)
+			log.Printf("Error closing listener: %v", err)
 		}
 	}(conn)
 	// Start the loop and check context for done, otherwise listen for packets
@@ -76,7 +76,8 @@ func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan
 	options.Logger = nil
 	db, err := badger.Open(options)
 	if err != nil {
-		log.Fatalf("Failed to open DB: %v", err)
+		log.Printf("Failed to open DB: %v\n", err)
+		return
 	}
 	log.Printf("Writing to database %s\n", dbdir)
 	// Prep the loop
@@ -102,9 +103,9 @@ func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan
 				terr := txn.SetEntry(entry)
 				return terr
 			})
-			if err != nil {
-				log.Fatalf("Error writing to db: %v", err)
-			}
+		if err != nil {
+			log.Printf("Error writing to db: %v\n", err)
+		}
 		}
 	}
 }
@@ -132,17 +133,17 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []by
 				log.Printf("Skipping packet due to issue parsing: %v", err)
 				continue
 			}
-			if ok {
-				// Netflow v9 Packet send it on
-				rStats.ValidCount++
-				dataChan <- payload
-			} else {
-				// Not a Netflow v9 Packet... skip
-				rStats.InvalidCount++
-			}
+		if ok {
+			// Netflow v9 Packet send it on
+			rStats.IncrValid()
+			dataChan <- payload
+		} else {
+			// Not a Netflow v9 Packet... skip
+			rStats.IncrInvalid()
+		}
 		case <-ticker.C:
 			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d ",
-				rStats.ValidCount, rStats.InvalidCount)
+				rStats.LoadValid(), rStats.LoadInvalid())
 		}
 	}
 }
@@ -171,5 +172,4 @@ func Run(ip string, port int, dbdir string, verbose bool) {
 	cleanupDone := mgr.SetupSignalHandler()
 	<-cleanupDone
 	mgr.Wait()
-	os.Exit(0)
 }
