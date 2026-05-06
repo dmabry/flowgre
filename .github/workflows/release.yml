@@ -37,7 +37,9 @@ jobs:
 
     - name: Install nfpm
       run: |
-        sudo apt-get install -y nfpm
+        curl -sSfL https://github.com/goreleaser/nfpm/releases/download/v2.30.0/nfpm_2.30.0_${{ runner.os }}_amd64.deb -o nfpm.deb
+        sudo apt-get install -y ./nfpm.deb
+        rm nfpm.deb
 
     - name: Package RPM and DEB
       run: |
