@@ -115,6 +115,7 @@ func TestWorker(t *testing.T) {
 
 	// Start a receiver on the target port
 	receiverDone := make(chan struct{})
+	receiverReady := make(chan struct{})
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -126,6 +127,8 @@ func TestWorker(t *testing.T) {
 			return
 		}
 		defer conn.Close()
+
+		close(receiverReady) // signal that the receiver is listening
 
 		payload := make([]byte, udpMaxBufferSize)
 		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
@@ -139,6 +142,9 @@ func TestWorker(t *testing.T) {
 			t.Errorf("Received wrong payload: got %v, want %v", payload[:n], "worker test")
 		}
 	}()
+
+	// Wait until the receiver is actually bound and ready to receive
+	<-receiverReady
 
 	// Start worker
 	wg.Add(1)
