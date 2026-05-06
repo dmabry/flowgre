@@ -18,45 +18,108 @@ import (
 //	    port: 9995
 //	    workers: 4
 //	    delay: 100
+//	    src-range: 10.0.0.0/8
+//	    dst-range: 10.0.0.0/8
+//	    web: false
+//	    web-ip: 0.0.0.0
+//	    web-port: 8080
 func LoadBarrageConfig() (*models.Config, error) {
-	if !viper.InConfig("targets") {
+	if !viper.IsSet("targets") {
 		return nil, fmt.Errorf("couldn't find targets section in config file")
 	}
 
-	targets := viper.AllSettings()
-	if len(targets) > 1 {
+	targets := viper.Get("targets")
+	targetMap, ok := targets.(map[string]interface{})
+	if !ok || len(targetMap) == 0 {
+		return nil, fmt.Errorf("no targets found in config")
+	}
+
+	if len(targetMap) > 1 {
 		return nil, fmt.Errorf("found more than 1 target in config file, only 1 is allowed")
 	}
 
-	for _, value := range targets {
-		v, ok := value.(map[string]interface{})
+	// Get the single target
+	var targetName string
+	var targetValues map[string]interface{}
+	for name, vals := range targetMap {
+		targetName = name
+		tv, ok := vals.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("unexpected type returned by viper: %T", value)
+			return nil, fmt.Errorf("unexpected type for target %s: %T", name, vals)
 		}
-		for targetName, targetValues := range v {
-			t, ok := targetValues.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("unexpected nested type for target %s", targetName)
-			}
-
-		ip, _ := t["ip"].(string)
-		port, _ := t["port"].(float64)
-		workers, _ := t["workers"].(float64)
-		delay, _ := t["delay"].(float64)
-
-		log.Printf("target: %s ip: %s port: %d workers: %d delay: %d\n",
-			targetName, ip, int(port), int(workers), int(delay))
-
-		return &models.Config{
-			Server:  ip,
-			DstPort: int(port),
-			Workers: int(workers),
-			Delay:   int(delay),
-		}, nil
-		}
+		targetValues = tv
 	}
 
-	return nil, fmt.Errorf("no targets found in config")
+	// Extract values with defaults
+	ip := getString(targetValues, "ip", "127.0.0.1")
+	port := getInt(targetValues, "port", 9995)
+	workers := getInt(targetValues, "workers", 4)
+	delay := getInt(targetValues, "delay", 100)
+	srcRange := getString(targetValues, "src-range", "10.0.0.0/8")
+	dstRange := getString(targetValues, "dst-range", "10.0.0.0/8")
+	webIP := getString(targetValues, "web-ip", "0.0.0.0")
+	webPort := getInt(targetValues, "web-port", 8080)
+	web := getBool(targetValues, "web", false)
+
+	log.Printf("target: %s ip: %s port: %d workers: %d delay: %d src-range: %s dst-range: %s web: %v web-ip: %s web-port: %d\n",
+		targetName, ip, port, workers, delay, srcRange, dstRange, web, webIP, webPort)
+
+	return &models.Config{
+		Server:   ip,
+		DstPort:  port,
+		Workers:  workers,
+		Delay:    delay,
+		SrcRange: srcRange,
+		DstRange: dstRange,
+		WebIP:    webIP,
+		WebPort:  webPort,
+		Web:      web,
+	}, nil
+}
+
+// getString safely gets a string value from a map with a default.
+func getString(m map[string]interface{}, key, def string) string {
+	if v, ok := m[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return def
+}
+
+// getInt safely gets an int value from a map with a default.
+// Viper returns float64 for numbers, so we handle that.
+func getInt(m map[string]interface{}, key string, def int) int {
+	if v, ok := m[key]; ok {
+		switch val := v.(type) {
+		case int:
+			return val
+		case int64:
+			return int(val)
+		case float64:
+			return int(val)
+		case string:
+			// Try to parse as int
+			var result int
+			fmt.Sscanf(val, "%d", &result)
+			return result
+		}
+	}
+	return def
+}
+
+// getBool safely gets a bool value from a map with a default.
+func getBool(m map[string]interface{}, key string, def bool) bool {
+	if v, ok := m[key]; ok {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+		// Handle string "true"/"false"
+		if s, ok := v.(string); ok {
+			return s == "true" || s == "1" || s == "yes"
+		}
+	}
+	return def
 }
 
 // InitViper sets up Viper to read from the given config file path.
