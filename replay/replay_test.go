@@ -25,6 +25,7 @@ func TestWorker(t *testing.T) {
 	defer cancel()
 
 	dataChan := make(chan []byte, 1024)
+	receiverReady := make(chan struct{})
 	var wg sync.WaitGroup
 
 	// Start a receiver on the target port
@@ -39,6 +40,8 @@ func TestWorker(t *testing.T) {
 		}
 		defer conn.Close()
 
+		close(receiverReady) // signal that the receiver is listening
+
 		payload := make([]byte, 65507)
 		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		n, _, err := conn.ReadFromUDP(payload)
@@ -52,6 +55,9 @@ func TestWorker(t *testing.T) {
 		}
 		received <- struct{}{}
 	}()
+
+	// Wait until the receiver is actually bound and ready to receive
+	<-receiverReady
 
 	// Start worker
 	wg.Add(1)
