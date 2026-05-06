@@ -245,6 +245,7 @@ func TestSendPacket(t *testing.T) {
 
 	// Start a receiver
 	received := make(chan []byte, 1)
+	receiverReady := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -256,6 +257,8 @@ func TestSendPacket(t *testing.T) {
 		}
 		defer conn.Close()
 
+		close(receiverReady) // signal that the receiver is listening
+
 		payload := make([]byte, 65507)
 		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		n, _, err := conn.ReadFromUDP(payload)
@@ -265,6 +268,9 @@ func TestSendPacket(t *testing.T) {
 		}
 		received <- payload[:n]
 	}()
+
+	// Wait until the receiver is actually bound and ready to receive
+	<-receiverReady
 
 	// Send a packet
 	srcPort := utils.RandomNum(10000, 15000)
