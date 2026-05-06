@@ -25,7 +25,7 @@ jobs:
 
     - name: Build multi-platform
       run: |
-        bash ./scripts/build-multiplatform.sh \${GITHUB_REF#refs/tags/v}
+        bash ./scripts/build-multiplatform.sh ${GITHUB_REF#refs/tags/v}
 
     - name: List built files
       run: |
@@ -33,7 +33,7 @@ jobs:
 
     - name: Build musl version
       run: |
-        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags '-s -w' -o flowgre_linux_amd64_musl_\${GITHUB_REF#refs/tags/v}
+        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags '-s -w' -o flowgre_linux_amd64_musl_${GITHUB_REF#refs/tags/v}
 
     - name: Install nfpm
       run: |
@@ -51,16 +51,16 @@ jobs:
     - name: Generate SBOM
       run: |
         curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.51.1
-        ./bin/trivy fs --format cyclonedx --output sbom_\${GITHUB_REF#refs/tags/v}.json .
+        ./bin/trivy fs --format cyclonedx --output sbom_${GITHUB_REF#refs/tags/v}.json .
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        token: \${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         files: |
           flowgre_*
           flowgre-*
           sbom_*
-        body: "Flowgre, version \${{ github.ref_name }}"
-        name: "\${{ github.ref_name }}"
+        body: "Flowgre, version ${{ github.ref_name }}"
+        name: "${{ github.ref_name }}"
         prerelease: true
