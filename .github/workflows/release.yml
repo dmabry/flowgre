@@ -63,7 +63,11 @@ jobs:
 
     - name: Generate SBOM
       run: |
-        curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.51.1
+        mkdir -p ./bin
+        curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s v0.60.0 || \
+        wget -q https://github.com/aquasecurity/trivy/releases/download/v0.60.0/trivy_0.60.0_Linux-64bit.tar.gz -O trivy.tar.gz && \
+          tar xzf trivy.tar.gz && mv trivy ./bin/ && rm trivy.tar.gz || \
+        curl -sSfL https://github.com/aquasecurity/trivy/releases/download/v0.60.0/trivy_0.60.0_Linux-64bit.tar.gz | tar xz && mv trivy ./bin/
         ./bin/trivy fs --format cyclonedx --output sbom_${GITHUB_REF#refs/tags/v}.json .
 
     - name: Create GitHub Release
