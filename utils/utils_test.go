@@ -76,7 +76,7 @@ func TestIPto32(t *testing.T) {
 func TestRandomNum(t *testing.T) {
 	t.Parallel()
 	count := 10000
-	for i := 0; i < count; i++ {
+	for range count {
 		min := 10
 		max := 250
 		result := RandomNum(min, max)
@@ -104,7 +104,7 @@ func TestRandomIP(t *testing.T) {
 		cidr = "10.0.0.0/8"
 		itr  = 10000
 	)
-	for i := 0; i < itr; i++ {
+	for range itr {
 		_, ipNet, _ := net.ParseCIDR(cidr)
 		result, _ := RandomIP(cidr)
 

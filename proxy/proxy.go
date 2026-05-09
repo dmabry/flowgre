@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/dmabry/flowgre/lifecycle"
-	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/utils"
 )
 
@@ -144,8 +144,8 @@ func proxyListener(ctx context.Context, wg *sync.WaitGroup, ip string, port int,
 				return
 			default:
 				if verbose {
-				log.Printf("proxyListener: dropped packet (proxyChan full)")
-			}
+					log.Printf("proxyListener: dropped packet (proxyChan full)")
+				}
 			}
 		}
 	}
@@ -180,24 +180,24 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 			return
 		case payload := <-proxyChan:
 			ok, err := netflow.IsValidNetFlow(payload, 9)
-		if err != nil {
-			log.Printf("Skipping packet due to issue parsing: %v", err)
-			rStats.IncrInvalid()
-		} else if ok {
-			rStats.IncrValid()
-			select {
-			case dataChan <- payload:
-			case <-ctx.Done():
-				log.Println("Netflow parser context cancelled during send")
-				return
-			default:
-				if verbose {
-					log.Printf("Netflow parser: dropped packet (dataChan full)")
+			if err != nil {
+				log.Printf("Skipping packet due to issue parsing: %v", err)
+				rStats.IncrInvalid()
+			} else if ok {
+				rStats.IncrValid()
+				select {
+				case dataChan <- payload:
+				case <-ctx.Done():
+					log.Println("Netflow parser context cancelled during send")
+					return
+				default:
+					if verbose {
+						log.Printf("Netflow parser: dropped packet (dataChan full)")
+					}
 				}
+			} else {
+				rStats.IncrInvalid()
 			}
-		} else {
-			rStats.IncrInvalid()
-		}
 		case <-ticker.C:
 			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d",
 				rStats.LoadValid(), rStats.LoadInvalid())
@@ -230,7 +230,7 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	workerChans := make([]chan []byte, workers)
 	// start workers
 	wg.Add(workers)
-	for w := 0; w < workers; w++ {
+	for w := range workers {
 		id := w + 1
 		workerChan := make(chan []byte, bufferSize)
 		workerChans[w] = workerChan

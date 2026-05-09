@@ -83,7 +83,7 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 			}
 			// read all flows from the payload
 			count := int(header.FlowCount)
-			for i := 0; i < count; i++ {
+			for range count {
 				flow := netflow.GenericFlow{}
 				err := binary.Read(reader, binary.BigEndian, &flow)
 				if err != nil {

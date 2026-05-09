@@ -30,7 +30,7 @@ func LoadBarrageConfig() (*models.Config, error) {
 	}
 
 	targets := viper.Get("targets")
-	targetMap, ok := targets.(map[string]interface{})
+	targetMap, ok := targets.(map[string]any)
 	if !ok || len(targetMap) == 0 {
 		return nil, fmt.Errorf("no targets found in config")
 	}
@@ -41,10 +41,10 @@ func LoadBarrageConfig() (*models.Config, error) {
 
 	// Get the single target
 	var targetName string
-	var targetValues map[string]interface{}
+	var targetValues map[string]any
 	for name, vals := range targetMap {
 		targetName = name
-		tv, ok := vals.(map[string]interface{})
+		tv, ok := vals.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("unexpected type for target %s: %T", name, vals)
 		}
@@ -79,7 +79,7 @@ func LoadBarrageConfig() (*models.Config, error) {
 }
 
 // getString safely gets a string value from a map with a default.
-func getString(m map[string]interface{}, key, def string) string {
+func getString(m map[string]any, key, def string) string {
 	if v, ok := m[key]; ok {
 		if s, ok := v.(string); ok {
 			return s
@@ -90,7 +90,7 @@ func getString(m map[string]interface{}, key, def string) string {
 
 // getInt safely gets an int value from a map with a default.
 // Viper returns float64 for numbers, so we handle that.
-func getInt(m map[string]interface{}, key string, def int) int {
+func getInt(m map[string]any, key string, def int) int {
 	if v, ok := m[key]; ok {
 		switch val := v.(type) {
 		case int:
@@ -112,7 +112,7 @@ func getInt(m map[string]interface{}, key string, def int) int {
 }
 
 // getBool safely gets a bool value from a map with a default.
-func getBool(m map[string]interface{}, key string, def bool) bool {
+func getBool(m map[string]any, key string, def bool) bool {
 	if v, ok := m[key]; ok {
 		if b, ok := v.(bool); ok {
 			return b
