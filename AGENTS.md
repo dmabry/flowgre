@@ -4,6 +4,7 @@
 - `go build` – compile the binary.
 - `go test -v ./... -count 1` – run all tests once, verbose output.
 - `go test -race ./...` – run tests with race detector.
+- `GOEXPERIMENT=goroutineleakprofile go test ./...` – verify no goroutine leaks (Go 1.26+).
 - `golangci-lint run` – linting (requires golangci‑lint installed).
 - `gosec ./...` – security scan.
 - `trivy fs .` – container image scanning.
@@ -38,6 +39,11 @@ Command‑line arguments, YAML config files, and environment variables are suppo
 If you need to supply environment variables, create a `.env` file in the repository root (e.g., `export FLOWGRE_DEBUG=1`) or set them directly when running commands.
 
 Dependencies that read environment variables include `github.com/subosito/gotenv`. Use `gotenv.Load()` in your code as needed.
+
+## Go Version Requirement
+- **Required:** Go 1.26 or later (latest stable).
+- Install from https://go.dev/dl/ or use `go env -w GOTOOLCHAIN=auto`.
+- Experimental features available: `goroutineleakprofile`, `simd`, `runtimesecret`.
 
 ## Dependency Management
 - Keep dependencies minimal and use standard library packages where possible.
