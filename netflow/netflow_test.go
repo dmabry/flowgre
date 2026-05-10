@@ -126,7 +126,7 @@ func TestToBytes(t *testing.T) {
 	}
 	// Parse TemplateFlow
 	tFlowCount := int(tparsed.Header.FlowCount)
-	for i := 0; i < tFlowCount; i++ {
+	for range tFlowCount {
 		tFlowSet := new(TemplateFlowSet)
 		template := new(Template)
 		err := binary.Read(treader, binary.BigEndian, &tFlowSet.FlowSetID)
@@ -146,7 +146,7 @@ func TestToBytes(t *testing.T) {
 			t.Errorf("Failed to parse Netflow FlowSet FieldCount! Got: %v", err)
 		}
 		fc := int(template.FieldCount)
-		for f := 0; f < fc; f++ {
+		for range fc {
 			tField := new(Field)
 			err := binary.Read(treader, binary.BigEndian, &tField.Type)
 			if err != nil {
@@ -183,7 +183,7 @@ func TestToBytes(t *testing.T) {
 	}
 	// I know the field count from the template generated above.  Going to use that
 	dataItems := make([]DataAny, flowcount)
-	for i := 0; i < flowcount; i++ {
+	for i := range flowcount {
 		dataItem := GenericFlow{}
 		err := binary.Read(dreader, binary.BigEndian, &dataItem)
 		if err != nil {

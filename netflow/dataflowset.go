@@ -14,7 +14,7 @@ type DataItem struct {
 	Fields []uint32
 }
 
-type DataAny interface{}
+type DataAny any
 
 // DataFlowSet for Netflow
 type DataFlowSet struct {
@@ -33,7 +33,7 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 	dataFlowSet.FlowSetID = 256
 	protoPorts := [13]int{21, 22, 53, 80, 443, 123, 161, 993, 3306, 8080, 8443, 6681, 6682}
 	items := make([]DataAny, flowCount)
-	for i := 0; i < flowCount; i++ {
+	for i := range flowCount {
 		srcIP, err := utils.RandomIP(srcRange)
 		if err != nil {
 			log.Printf("Issue generating IP... proceeding anyway: %v", err)
@@ -68,7 +68,7 @@ func (d *DataFlowSet) size() int {
 	if remainder > 0 {
 		padding = 4 - remainder
 	}
-	size += padding      // number of uint8 to pad in order to reach 32 bit boundary
+	size += padding     // number of uint8 to pad in order to reach 32 bit boundary
 	d.Padding = padding // save the padding as an int for later.
 	return size
 }
