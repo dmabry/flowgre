@@ -66,7 +66,7 @@ func (c *IPFIXCommand) Execute() {
 	// Generate and send Template Flow
 	tFlow := ipfix.GenerateTemplateIPFIX(sourceID, session)
 	tBuf := tFlow.ToBytes()
-	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: *c.port}, tBuf, *c.hexDump)
+	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: *c.port}, tBuf.Bytes(), *c.hexDump)
 	if err != nil {
 		log.Fatalf("Issue sending IPFIX template: %v", err)
 	}
@@ -75,7 +75,7 @@ func (c *IPFIXCommand) Execute() {
 	for i := 1; i <= *c.count; i++ {
 		flow := ipfix.GenerateDataIPFIX(10, sourceID, *c.srcRange, *c.dstRange, 0, session)
 		buf := flow.ToBytes()
-		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: *c.port}, buf, *c.hexDump)
+		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: *c.port}, buf.Bytes(), *c.hexDump)
 		if err != nil {
 			log.Fatalf("Issue sending IPFIX data: %v", err)
 		}

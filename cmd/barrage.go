@@ -55,9 +55,9 @@ func (c *BarrageCommand) Execute() error {
 			return fmt.Errorf("error loading barrage config: %v", err)
 		}
 		if *c.protocol == "ipfix" {
-			barrage.RunIPFIX(cfg)
+			barrage.Run(cfg, barrage.IPFIX())
 		} else {
-			barrage.Run(cfg)
+			barrage.Run(cfg, barrage.NetFlow())
 		}
 		return nil
 	}
@@ -75,9 +75,9 @@ func (c *BarrageCommand) Execute() error {
 		Web:      *c.web,
 	}
 	if *c.protocol == "ipfix" {
-		barrage.RunIPFIX(cfg)
+		barrage.Run(cfg, barrage.IPFIX())
 	} else {
-		barrage.Run(cfg)
+		barrage.Run(cfg, barrage.NetFlow())
 	}
 	return nil
 }

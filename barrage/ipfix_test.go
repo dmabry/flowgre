@@ -62,7 +62,7 @@ func ipfixReceiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int,
 
 func ipfixRunWrapper(ctx context.Context, wg *sync.WaitGroup, duration int, bconfig *models.Config) {
 	defer wg.Done()
-	go RunIPFIX(bconfig)
+	go Run(bconfig, IPFIX())
 	for {
 		select {
 		case <-ctx.Done():

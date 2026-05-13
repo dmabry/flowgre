@@ -1,7 +1,7 @@
 // Use of this source code is governed by Apache License 2.0
 // that can be found in the LICENSE file.
 
-// Barrage is used to set up a continuous stream of netflow packets towards a single collector.
+// Barrage is used to set up a continuous stream of flow packets towards a single collector.
 package barrage
 
 import (
@@ -28,9 +28,10 @@ const (
 	sourceIDMax = 10000
 )
 
-// worker is the goroutine used to create workers.
-func worker(id int, ctx context.Context, server string, port int, srcRange string, dstRange string, sourceID int, delay int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat) {
+// worker is the generic goroutine used to create workers for any FlowGenerator.
+func worker(id int, ctx context.Context, server string, port int, srcRange string, dstRange string, sourceID int, delay int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat, gen FlowGenerator) {
 	defer wg.Done()
+	label := gen.Label()
 	wStats := models.WorkerStat{
 		WorkerID:  id,
 		SourceID:  sourceID,
@@ -47,25 +48,26 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
-		log.Printf("Worker [%2d] Listen failed: %v", id, err)
+		log.Printf("%s [%2d] Listen failed: %v", label, id, err)
 		return
 	}
+	defer conn.Close()
+
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(server)
 	// start new Session for this worker
 	session := netflow.NewSession()
 
 	// Generate and send first Template Flow(s)
-	tFlow := netflow.GenerateTemplateNetflow(sourceID, session)
-	tBuf := tFlow.ToBytes()
+	tBuf := gen.GenerateTemplate(sourceID, session)
 	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 	if err != nil {
-		log.Printf("Worker [%2d] Issue sending initial packet: %v", id, err)
+		log.Printf("%s [%2d] Issue sending initial packet: %v", label, id, err)
 		return
 	}
 
-	log.Printf("Worker [%2d] Slinging packets at %s:%d with Source ID: %5d and delay of %dms\n",
-		id, server, port, sourceID, delay)
+	log.Printf("%s [%2d] Slinging packets at %s:%d with Source ID: %5d and delay of %dms\n",
+		label, id, server, port, sourceID, delay)
 	// Infinite loop to keep slinging until we receive context done.
 	takeAction := false
 
@@ -79,7 +81,7 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 				// Send Template per worker every 30 seconds
 				bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 				if err != nil {
-					log.Printf("Worker [%2d] Issue sending template packet: %v", id, err)
+					log.Printf("%s [%2d] Issue sending template packet: %v", label, id, err)
 					return
 				}
 				wStats.FlowsSent++
@@ -91,17 +93,16 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 		}
 		select {
 		case <-ctx.Done(): // Caught the signal to be done.... time to wrap it up
-			log.Printf("Worker [%2d] Exiting due to signal\n", id)
+			log.Printf("%s [%2d] Exiting due to signal\n", label, id)
 			return
 		default:
 			// Basic limiter to throttle/delay packets
 			<-limiter
 			flowCount := utils.RandomNum(5, 25)
-			flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
-			buf := flow.ToBytes()
+			buf := gen.GenerateData(flowCount, sourceID, srcRange, dstRange, session)
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
-				log.Printf("Worker [%2d] Issue sending data packet: %v", id, err)
+				log.Printf("%s [%2d] Issue sending data packet: %v", label, id, err)
 				return
 			}
 			wStats.FlowsSent += uint64(flowCount)
@@ -111,8 +112,8 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 	}
 }
 
-// Run the Barrage.
-func Run(config *models.Config) {
+// Run starts the barrage with the given config and FlowGenerator.
+func Run(config *models.Config, gen FlowGenerator) {
 	mgr := lifecycle.New()
 	ctx := mgr.Context()
 	wg := mgr.WaitGroup()
@@ -135,7 +136,7 @@ func Run(config *models.Config) {
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(sourceIDMin, sourceIDMax)
-		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, wg, sc.StatsChan)
+		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, wg, sc.StatsChan, gen)
 	}
 
 	// Start WebServer if needed

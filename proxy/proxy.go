@@ -6,7 +6,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"log"
 	"net"
@@ -57,12 +56,7 @@ func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitG
 			// length := len(payload)
 			//log.Printf("Worker [%2d] sending packet to %s:%d with length: %d\n", id, server, port, length)
 			// send packet here.
-			var buf bytes.Buffer
-			_, err := buf.Write(payload)
-			if err != nil {
-				log.Printf("Worker [%2d] Issue writing data: %v\n", id, err)
-			}
-			_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
+			_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, payload, false)
 			if err != nil {
 				log.Printf("Worker [%2d] Issue sending packet: %v\n", id, err)
 				return
