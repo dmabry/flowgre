@@ -62,6 +62,7 @@ const (
 	TCPFlags                 = 6
 	FlowStartMilliseconds    = 152
 	FlowEndMilliseconds      = 153
+	FlowEndReason            = 157
 )
 
 // Header is the IPFIX export set header, structurally identical to NetFlow v9
@@ -157,6 +158,7 @@ type GenericFlow struct {
 	FlowEndMillis      uint32
 	FlowDirection      uint8
 	IPClassOfService   uint8
+	FlowEndReason      uint8
 }
 
 // GetTemplateFields returns the IPFIX field definitions for the template.
@@ -176,6 +178,7 @@ func (gf *GenericFlow) GetTemplateFields() []Field {
 		{Type: FlowEndMilliseconds, Length: 4},
 		{Type: FlowDirection, Length: 1},
 		{Type: IPClassOfService, Length: 1},
+		{Type: FlowEndReason, Length: 1},
 	}
 }
 
@@ -197,6 +200,7 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 	gf.FlowEndMillis = uptimeMillis - 10
 	gf.FlowDirection = 0
 	gf.IPClassOfService = 0
+	gf.FlowEndReason = uint8(utils.RandomNum(0, 4)) // 0=active, 1=idle, 2=other, 3=exporterReset, 4=exporterShutdown
 
 	switch flowSrcPort {
 	case sshPort:

@@ -54,16 +54,16 @@ func TestGenerateTemplateIPFIX(t *testing.T) {
 		if tFlow.FlowSetID != 0 {
 			t.Errorf("FlowSetID wrong! Got: %d Want: 0", tFlow.FlowSetID)
 		}
-		// Template: FlowSetID(2)+Length(2)+TemplateID(2)+FieldCount(2)+14*(Type(2)+Length(2))=64, no padding
-		if tFlow.Length != 64 {
-			t.Errorf("Template Length wrong! Got: %d Want: 64", tFlow.Length)
+		// Template: FlowSetID(2)+Length(2)+TemplateID(2)+FieldCount(2)+15*(Type(2)+Length(2))=68, no padding
+		if tFlow.Length != 68 {
+			t.Errorf("Template Length wrong! Got: %d Want: 68", tFlow.Length)
 		}
 		for _, template := range tFlow.Templates {
 			if template.TemplateID != 256 {
 				t.Errorf("TemplateID wrong! Got: %d Want: 256", template.TemplateID)
 			}
-			if template.FieldCount != 14 {
-				t.Errorf("FieldCount wrong! Got: %d Want: 14", template.FieldCount)
+			if template.FieldCount != 15 {
+				t.Errorf("FieldCount wrong! Got: %d Want: 15", template.FieldCount)
 			}
 		}
 	}
@@ -387,8 +387,8 @@ func TestGetTemplateFields_IPFIXFieldTypes(t *testing.T) {
 	gf := new(GenericFlow)
 	fields := gf.GetTemplateFields()
 
-	if len(fields) != 14 {
-		t.Fatalf("Field count wrong! Got: %d Want: 14", len(fields))
+	if len(fields) != 15 {
+		t.Fatalf("Field count wrong! Got: %d Want: 15", len(fields))
 	}
 
 	// Expected IPFIX field types (IANA IPFIX Information Model RFC 7011)
@@ -407,6 +407,7 @@ func TestGetTemplateFields_IPFIXFieldTypes(t *testing.T) {
 		153,  // flowEndMilliseconds
 		1024, // flowDirection
 		3,    // ipClassOfService
+		157,  // flowEndReason
 	}
 
 	for i, expected := range expectedTypes {
@@ -416,7 +417,7 @@ func TestGetTemplateFields_IPFIXFieldTypes(t *testing.T) {
 	}
 
 	// Verify field lengths match expected sizes
-	expectedLengths := []uint16{4, 4, 4, 4, 4, 4, 2, 2, 1, 1, 4, 4, 1, 1}
+	expectedLengths := []uint16{4, 4, 4, 4, 4, 4, 2, 2, 1, 1, 4, 4, 1, 1, 1}
 	for i, expected := range expectedLengths {
 		if fields[i].Length != expected {
 			t.Errorf("Field[%d] length wrong! Got: %d Want: %d", i, fields[i].Length, expected)

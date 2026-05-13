@@ -6,8 +6,8 @@ package netflow
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"log"
-	"strconv"
 )
 
 // Netflow complete record
@@ -100,16 +100,16 @@ func (n *Netflow) ToBytes() bytes.Buffer {
 
 // GetNetFlowSizes Gets the size of a given Netflow and returns it as a String
 func GetNetFlowSizes(netFlow Netflow) string {
-	output := "Header Size: " + strconv.Itoa(netFlow.Header.size()) + " bytes\n"
+	output := fmt.Sprintf("Header Size: %d bytes\n", netFlow.Header.size())
 	tSize := 0
-	dSize := 0
 	for _, tFlow := range netFlow.TemplateFlowSets {
 		tSize += tFlow.size()
 	}
-	output += "Template Size: " + strconv.Itoa(tSize) + " bytes\n"
+	output += fmt.Sprintf("Template Size: %d bytes\n", tSize)
+	dSize := 0
 	for _, dFlow := range netFlow.DataFlowSets {
 		dSize += dFlow.size()
 	}
-	output += "Data Size: " + strconv.Itoa(dSize) + " bytes\n"
+	output += fmt.Sprintf("Data Size: %d bytes\n", dSize)
 	return output
 }
