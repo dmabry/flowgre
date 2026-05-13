@@ -281,10 +281,8 @@ func TestSendPacket(t *testing.T) {
 	defer conn.Close()
 
 	testPayload := []byte("test send packet")
-	var buf bytes.Buffer
-	buf.Write(testPayload)
 
-	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 39998}, buf, false)
+	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 39998}, testPayload, false)
 	if err != nil {
 		t.Fatalf("Failed to send: %v", err)
 	}

@@ -4,15 +4,14 @@
 package utils
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"net"
 )
 
-// SendPacket sends a byte buffer over UDP to the given address.
-func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, data bytes.Buffer, verbose bool) (int, error) {
-	n, err := conn.WriteTo(data.Bytes(), addr)
+// SendPacket sends a byte slice over UDP to the given address.
+func SendPacket(conn *net.UDPConn, addr *net.UDPAddr, data []byte, verbose bool) (int, error) {
+	n, err := conn.WriteTo(data, addr)
 	if err != nil {
 		log.Println("Write:", err)
 		return 0, err

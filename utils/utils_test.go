@@ -163,7 +163,7 @@ func TestSendPacket(t *testing.T) {
 		t.Errorf("Listening on UDP port 9995 failed! Got: %s", err)
 	}
 
-	SendPacket(conn1, &net.UDPAddr{IP: destIP, Port: destPort}, buf, false)
+	SendPacket(conn1, &net.UDPAddr{IP: destIP, Port: destPort}, buf.Bytes(), false)
 
 	_, _, err = conn2.ReadFromUDP(payload2)
 	if err != nil {

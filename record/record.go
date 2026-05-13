@@ -14,9 +14,10 @@ import (
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/lifecycle"
-	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/netflow"
 )
 
 const udpMaxBufferSize = 65507
@@ -103,15 +104,15 @@ func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan
 				terr := txn.SetEntry(entry)
 				return terr
 			})
-		if err != nil {
-			log.Printf("Error writing to db: %v\n", err)
-		}
+			if err != nil {
+				log.Printf("Error writing to db: %v\n", err)
+			}
 		}
 	}
 }
 
-// parseNetflow validates that the payload received is valid netflow v9
-func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []byte, dataChan chan<- []byte, verbose bool) {
+// parseFlow validates that the payload received is valid NetFlow v9 or IPFIX v10
+func parseFlow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []byte, dataChan chan<- []byte, verbose bool) {
 	defer wg.Done()
 	// Prep the loop
 	rStats := models.RecordStat{
@@ -124,25 +125,29 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []by
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Netflow parser exiting due to signal")
+			log.Println("Flow parser exiting due to signal")
 			return
 		case payload := <-parseChan:
-			// Decode first uint16 and see if it is a version 9
+			// Decode first uint16 and see if it is a version 9 (NetFlow) or 10 (IPFIX)
 			ok, err := netflow.IsValidNetFlow(payload, 9)
 			if err != nil {
-				log.Printf("Skipping packet due to issue parsing: %v", err)
-				continue
+				// Try IPFIX
+				ok, err = ipfix.IsValidIPFIX(payload)
+				if err != nil {
+					log.Printf("Skipping packet due to issue parsing: %v", err)
+					continue
+				}
 			}
-		if ok {
-			// Netflow v9 Packet send it on
-			rStats.IncrValid()
-			dataChan <- payload
-		} else {
-			// Not a Netflow v9 Packet... skip
-			rStats.IncrInvalid()
-		}
+			if ok {
+				// Valid NetFlow v9 or IPFIX v10 Packet send it on
+				rStats.IncrValid()
+				dataChan <- payload
+			} else {
+				// Not a valid flow Packet... skip
+				rStats.IncrInvalid()
+			}
 		case <-ticker.C:
-			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d ",
+			log.Printf("Flow Packets: %d Ignored Packets: %d ",
 				rStats.LoadValid(), rStats.LoadInvalid())
 		}
 	}
@@ -160,9 +165,9 @@ func Run(ip string, port int, dbdir string, verbose bool) {
 	wg.Add(1)
 	go netIngest(ctx, wg, ip, port, parseChan, verbose)
 
-	// Start parseNetflow
+	// Start parseFlow
 	wg.Add(1)
-	go parseNetflow(ctx, wg, parseChan, dataChan, verbose)
+	go parseFlow(ctx, wg, parseChan, dataChan, verbose)
 
 	// Start dbIngest
 	wg.Add(1)

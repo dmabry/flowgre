@@ -5,7 +5,7 @@ package netflow
 
 import (
 	"encoding/binary"
-	"strconv"
+	"fmt"
 	"time"
 )
 
@@ -32,13 +32,8 @@ func (h *Header) size() int {
 
 // Get the Header in String
 func (h *Header) String() string {
-	return "Version: " + strconv.Itoa(int(h.Version)) +
-		" Count: " + strconv.Itoa(int(h.FlowCount)) +
-		" SysUptime: " + strconv.Itoa(int(h.SysUptime)) +
-		" UnixSec: " + strconv.Itoa(int(h.UnixSec)) +
-		" FlowSequence: " + strconv.Itoa(int(h.FlowSequence)) +
-		" SourceID: " + strconv.Itoa(int(h.SourceID)) +
-		" || "
+	return fmt.Sprintf("Version: %d Count: %d SysUptime: %d UnixSec: %d FlowSequence: %d SourceID: %d || ",
+		h.Version, h.FlowCount, h.SysUptime, h.UnixSec, h.FlowSequence, h.SourceID)
 }
 
 // Generate a Header accounting for the given flowCount.  Flowcount should match the expected number of flows in the
@@ -68,7 +63,7 @@ type Field struct {
 
 // Get the Field in String
 func (f *Field) String() string {
-	return "Type: " + strconv.Itoa(int(f.Type)) + "Length: " + strconv.Itoa(int(f.Length))
+	return fmt.Sprintf("Type: %d Length: %d", f.Type, f.Length)
 }
 
 // Template for TemplateFlowSet

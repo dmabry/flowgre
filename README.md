@@ -12,7 +12,7 @@ Slinging packets since 2022!
                       |___/
 ```
 
-For sending fabricated Netflow v9 traffic to a collector for testing
+For sending fabricated NetFlow v9 and IPFIX (RFC 7011) traffic to a collector for testing
 
 [![Go Tests](https://github.com/dmabry/flowgre/actions/workflows/go-test.yml/badge.svg)](https://github.com/dmabry/flowgre/actions/workflows/go-test.yml)
 [![Security Scan](https://github.com/dmabry/flowgre/actions/workflows/security.yml/badge.svg)](https://github.com/dmabry/flowgre/actions/workflows/security.yml)
@@ -22,6 +22,7 @@ For sending fabricated Netflow v9 traffic to a collector for testing
 ## Table of Contents
 - [Single Mode](#single-mode)
 - [Barrage Mode](#barrage-mode)
+- [IPFIX Mode](#ipfix-mode)
 - [Record Mode](#record-mode)
 - [Replay Mode](#replay-mode)
 - [Proxy Mode](#proxy-mode)
@@ -249,6 +250,8 @@ Usage of flowgre barrage:
         servername or IP address of the flow collector (default "127.0.0.1")
   -src-range string
         CIDR range to use for generating source IPs for flows (default "10.0.0.0/8")
+  -protocol string
+        protocol to use: netflow or ipfix (default "netflow")
   -web
         Whether to use the web server or not
   -web-ip string
@@ -270,6 +273,67 @@ targets:
     delay: 100
 ```
 
+## IPFIX Mode
+
+IPFIX (IP Flow Information Export, RFC 7011) is the IETF standard successor to NetFlow v9. Flowgre generates IPFIX export packets using IANA-defined field type numbers for compatibility with standard IPFIX collectors.
+
+### Single IPFIX Mode
+
+Send a given number of IPFIX flows in sequence to a collector for testing.
+
+```shell
+IPFIX is used to send a given number of IPFIX flows in sequence to a collector for testing.
+
+Usage of flowgre ipfix:
+
+  -count int
+        count of flows to send in sequence. (default 1)
+  -dst-range string
+        CIDR range to use for generating destination IPs for flows (default "10.0.0.0/8")
+  -hexdump
+        If true, do a hexdump of the packet
+  -port int
+        destination port used by the flow collector. (default 9995)
+  -server string
+        servername or IP address of flow collector. (default "127.0.0.1")
+  -src-port int
+        source port used by the client. If 0, a random port between 10000-15000 is used
+  -src-range string
+        CIDR range to use for generating source IPs for flows (default "10.0.0.0/8")
+```
+
+### Example Use
+```shell
+flowgre ipfix -server 10.10.10.10 -count 10
+```
+
+### IPFIX Barrage Mode
+
+Send a continuous barrage of IPFIX flows to a collector by using `--protocol ipfix` with the barrage subcommand:
+
+```shell
+flowgre barrage -server 10.10.10.10 -protocol ipfix -workers 4 -delay 100
+```
+
+The IPFIX field types used follow the [IANA IPFIX Information Model](https://www.iana.org/assignments/ipfix/ipfix.xhtml):
+
+| IPFIX Field Type | Value | Description |
+|---|---|---|
+| inOctets | 1026 | Input bytes |
+| outOctets | 1028 | Output bytes |
+| inPackets | 1025 | Input packets |
+| outPackets | 1027 | Output packets |
+| sourceIPv4Address | 8 | Source IPv4 address |
+| destinationIPv4Address | 12 | Destination IPv4 address |
+| sourceTransportPort | 7 | Source port |
+| destinationTransportPort | 11 | Destination port |
+| protocolIdentifier | 4 | IP protocol number |
+| tcpFlags | 6 | TCP flags |
+| flowStartMilliseconds | 152 | Flow start time |
+| flowEndMilliseconds | 153 | Flow end time |
+| flowDirection | 1024 | Flow direction |
+| ipClassOfService | 3 | IP ToS/CoS value |
+
 ## Record Mode
 
 ```shell
@@ -286,6 +350,8 @@ Usage of flowgre record:
   -verbose
         Whether to log every packet received. Warning: can be a lot of output
 ```
+
+Record accepts both NetFlow v9 and IPFIX v10 packets and stores them in the database.
 
 ## Replay Mode
 
@@ -363,6 +429,9 @@ flowgre/
 │   ├── template.go            # Header, Field, Template, TemplateFlowSet
 │   ├── dataflowset.go         # DataFlowSet, DataItem
 │   └── packet.go              # Netflow struct + ToBytes serialization
+├── ipfix/                     # IPFIX (RFC 7011) packet generation library
+│   ├── ipfix.go               # Header, Field, Template, GenericFlow, DataFlowSet, IPFIX struct
+│   └── single.go              # IPFIX single-mode placeholder
 ├── lifecycle/                 # Shared process management (context, signals, WaitGroup)
 ├── config/                    # Viper-based YAML configuration loading
 ├── stats/                     # Worker statistics collection
@@ -373,7 +442,7 @@ flowgre/
 │   ├── packet.go              # Packet sending
 │   └── utils.go               # Binary encoding helpers
 ├── web/                       # Web dashboard for barrage monitoring
-├── barrage/                   # Barrage mode implementation
+├── barrage/                   # Barrage mode implementation (NetFlow + IPFIX)
 ├── single/                    # Single mode implementation
 ├── record/                    # Record mode implementation
 ├── replay/                    # Replay mode implementation

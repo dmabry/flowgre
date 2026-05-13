@@ -8,15 +8,16 @@ package models
 import "sync/atomic"
 
 type Config struct {
-	Server   string `json:"server,omitempty"`
-	DstPort  int    `json:"dst_port,omitempty"`
-	SrcRange string `json:"src_range,omitempty"`
-	DstRange string `json:"dst_range,omitempty"`
-	Workers  int    `json:"workers,omitempty"`
-	Delay    int    `json:"delay,omitempty"`
-	WebIP    string `json:"web_ip,omitempty"`
-	WebPort  int    `json:"web_port,omitempty"`
-	Web      bool   `json:"web,omitempty"`
+	Server           string `json:"server,omitempty"`
+	DstPort          int    `json:"dst_port,omitempty"`
+	SrcRange         string `json:"src_range,omitempty"`
+	DstRange         string `json:"dst_range,omitempty"`
+	Workers          int    `json:"workers,omitempty"`
+	Delay            int    `json:"delay,omitempty"`
+	TemplateInterval int    `json:"template_interval,omitempty"`
+	WebIP            string `json:"web_ip,omitempty"`
+	WebPort          int    `json:"web_port,omitempty"`
+	Web              bool   `json:"web,omitempty"`
 }
 
 type WorkerStat struct {

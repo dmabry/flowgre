@@ -19,7 +19,7 @@ const udpMaxBufferSize = 65507
 
 func runWrapper(ctx context.Context, wg *sync.WaitGroup, duration int, bconfig *models.Config) {
 	defer wg.Done()
-	go Run(bconfig)
+	go Run(bconfig, NetFlow())
 	for {
 		select {
 		case <-ctx.Done():

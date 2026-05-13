@@ -6,7 +6,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"log"
 	"net"
@@ -15,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/netflow"
@@ -56,12 +56,7 @@ func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitG
 			// length := len(payload)
 			//log.Printf("Worker [%2d] sending packet to %s:%d with length: %d\n", id, server, port, length)
 			// send packet here.
-			var buf bytes.Buffer
-			_, err := buf.Write(payload)
-			if err != nil {
-				log.Printf("Worker [%2d] Issue writing data: %v\n", id, err)
-			}
-			_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
+			_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, payload, false)
 			if err != nil {
 				log.Printf("Worker [%2d] Issue sending packet: %v\n", id, err)
 				return
@@ -166,7 +161,7 @@ func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *models.Record
 	}
 }
 
-// Ingest pulls byte payload off the data chan and puts them in the badger db
+// parseNetflow validates that the payload is valid NetFlow v9 or IPFIX v10 and forwards it.
 func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []byte, dataChan chan<- []byte, rStats *models.RecordStat, verbose bool) {
 	defer wg.Done()
 
@@ -176,30 +171,34 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Netflow parser exiting due to signal")
+			log.Println("Flow parser exiting due to signal")
 			return
 		case payload := <-proxyChan:
 			ok, err := netflow.IsValidNetFlow(payload, 9)
 			if err != nil {
-				log.Printf("Skipping packet due to issue parsing: %v", err)
-				rStats.IncrInvalid()
-			} else if ok {
+				// Try IPFIX
+				ok, err = ipfix.IsValidIPFIX(payload)
+				if err != nil {
+					log.Printf("Skipping packet due to issue parsing: %v", err)
+				}
+			}
+			if ok {
 				rStats.IncrValid()
 				select {
 				case dataChan <- payload:
 				case <-ctx.Done():
-					log.Println("Netflow parser context cancelled during send")
+					log.Println("Flow parser context cancelled during send")
 					return
 				default:
 					if verbose {
-						log.Printf("Netflow parser: dropped packet (dataChan full)")
+						log.Printf("Flow parser: dropped packet (dataChan full)")
 					}
 				}
 			} else {
 				rStats.IncrInvalid()
 			}
 		case <-ticker.C:
-			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d",
+			log.Printf("Flow Packets: %d Ignored Packets: %d",
 				rStats.LoadValid(), rStats.LoadInvalid())
 		}
 	}

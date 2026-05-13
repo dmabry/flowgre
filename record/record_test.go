@@ -92,8 +92,8 @@ func TestDbIngest(t *testing.T) {
 	close(dataChan)
 }
 
-// TestParseNetflow tests that valid NetFlow packets are accepted and invalid ones rejected.
-func TestParseNetflow(t *testing.T) {
+// TestParseFlow tests that valid NetFlow and IPFIX packets are accepted and invalid ones rejected.
+func TestParseFlow(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -104,7 +104,7 @@ func TestParseNetflow(t *testing.T) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go parseNetflow(ctx, &wg, parseChan, dataChan, false)
+	go parseFlow(ctx, &wg, parseChan, dataChan, false)
 
 	// Send invalid payload (not NetFlow)
 	parseChan <- []byte("invalid")
@@ -153,9 +153,9 @@ func TestRunIntegration(t *testing.T) {
 	wg.Add(1)
 	go netIngest(ctx, &wg, "127.0.0.1", 29996, parseChan, false)
 
-	// Start parseNetflow
+	// Start parseFlow
 	wg.Add(1)
-	go parseNetflow(ctx, &wg, parseChan, dataChan, false)
+	go parseFlow(ctx, &wg, parseChan, dataChan, false)
 
 	// Start dbIngest
 	wg.Add(1)
