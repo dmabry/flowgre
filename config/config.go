@@ -19,6 +19,7 @@ import (
 //	    port: 9995
 //	    workers: 4
 //	    delay: 100
+//	    template-interval: 30
 //	    src-range: 10.0.0.0/8
 //	    dst-range: 10.0.0.0/8
 //	    web: false
@@ -58,23 +59,25 @@ func LoadBarrageConfig() (*models.Config, error) {
 	delay := getInt(targetValues, "delay", 100)
 	srcRange := getString(targetValues, "src-range", "10.0.0.0/8")
 	dstRange := getString(targetValues, "dst-range", "10.0.0.0/8")
+	templateInterval := getInt(targetValues, "template-interval", 30)
 	webIP := getString(targetValues, "web-ip", "0.0.0.0")
 	webPort := getInt(targetValues, "web-port", 8080)
 	web := getBool(targetValues, "web", false)
 
-	log.Printf("target: %s ip: %s port: %d workers: %d delay: %d src-range: %s dst-range: %s web: %v web-ip: %s web-port: %d\n",
-		targetName, ip, port, workers, delay, srcRange, dstRange, web, webIP, webPort)
+	log.Printf("target: %s ip: %s port: %d workers: %d delay: %d template-interval: %d src-range: %s dst-range: %s web: %v web-ip: %s web-port: %d\n",
+		targetName, ip, port, workers, delay, templateInterval, srcRange, dstRange, web, webIP, webPort)
 
 	return &models.Config{
-		Server:   ip,
-		DstPort:  port,
-		Workers:  workers,
-		Delay:    delay,
-		SrcRange: srcRange,
-		DstRange: dstRange,
-		WebIP:    webIP,
-		WebPort:  webPort,
-		Web:      web,
+		Server:           ip,
+		DstPort:          port,
+		Workers:          workers,
+		Delay:            delay,
+		TemplateInterval: templateInterval,
+		SrcRange:         srcRange,
+		DstRange:         dstRange,
+		WebIP:            webIP,
+		WebPort:          webPort,
+		Web:              web,
 	}, nil
 }
 

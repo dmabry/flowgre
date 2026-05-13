@@ -29,7 +29,7 @@ const (
 )
 
 // worker is the generic goroutine used to create workers for any FlowGenerator.
-func worker(id int, ctx context.Context, server string, port int, srcRange string, dstRange string, sourceID int, delay int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat, gen FlowGenerator) {
+func worker(id int, ctx context.Context, server string, port int, srcRange string, dstRange string, sourceID int, delay int, templateInterval int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat, gen FlowGenerator) {
 	defer wg.Done()
 	label := gen.Label()
 	wStats := models.WorkerStat{
@@ -73,12 +73,11 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 
 	for {
 		now := time.Now().UnixNano()
-		cycle := (now - startTime) / int64(time.Second) % 30
-		// Print out basic statistics per worker every 30 seconds
+		cycle := (now - startTime) / int64(time.Second) % int64(templateInterval)
 		if cycle == 0 {
 			if takeAction {
 				takeAction = false
-				// Send Template per worker every 30 seconds
+				// Retransmit template every templateInterval seconds
 				bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
 				if err != nil {
 					log.Printf("%s [%2d] Issue sending template packet: %v", label, id, err)
@@ -132,11 +131,17 @@ func Run(config *models.Config, gen FlowGenerator) {
 	wg.Add(1)
 	go sc.Run(wg, ctx)
 
+	// Default template retransmission interval is 30 seconds if not set
+	templateInterval := config.TemplateInterval
+	if templateInterval <= 0 {
+		templateInterval = 30
+	}
+
 	// Start up the workers
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(sourceIDMin, sourceIDMax)
-		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, wg, sc.StatsChan, gen)
+		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, templateInterval, wg, sc.StatsChan, gen)
 	}
 
 	// Start WebServer if needed

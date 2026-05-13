@@ -12,17 +12,18 @@ import (
 
 // BarrageCommand holds flags and state for the barrage subcommand.
 type BarrageCommand struct {
-	server     *string
-	port       *int
-	srcRange   *string
-	dstRange   *string
-	workers    *int
-	delay      *int
-	configFile *string
-	webPort    *int
-	webIP      *string
-	web        *bool
-	protocol   *string
+	server           *string
+	port             *int
+	srcRange         *string
+	dstRange         *string
+	workers          *int
+	delay            *int
+	templateInterval *int
+	configFile       *string
+	webPort          *int
+	webIP            *string
+	web              *bool
+	protocol         *string
 }
 
 // ParseFlags parses command-line flags for the barrage mode.
@@ -34,6 +35,7 @@ func (c *BarrageCommand) ParseFlags(args []string) error {
 	c.dstRange = fs.String("dst-range", "10.0.0.0/8", "cidr range to use for generating destination IPs for flows")
 	c.workers = fs.Int("workers", 4, "number of workers to create. Unique sources per worker")
 	c.delay = fs.Int("delay", 100, "number of milliseconds between packets sent")
+	c.templateInterval = fs.Int("template-interval", 30, "seconds between template retransmissions (0 to disable)")
 	c.configFile = fs.String("config", "", "Config file to use. Supersedes all given args")
 	c.webPort = fs.Int("web-port", 8080, "Port to bind the web server on")
 	c.webIP = fs.String("web-ip", "0.0.0.0", "IP address the web server will listen on")
@@ -64,15 +66,16 @@ func (c *BarrageCommand) Execute() error {
 
 	// Run with command-line args
 	cfg := &models.Config{
-		Server:   *c.server,
-		DstPort:  *c.port,
-		SrcRange: *c.srcRange,
-		DstRange: *c.dstRange,
-		Delay:    *c.delay,
-		Workers:  *c.workers,
-		WebIP:    *c.webIP,
-		WebPort:  *c.webPort,
-		Web:      *c.web,
+		Server:           *c.server,
+		DstPort:          *c.port,
+		SrcRange:         *c.srcRange,
+		DstRange:         *c.dstRange,
+		Delay:            *c.delay,
+		TemplateInterval: *c.templateInterval,
+		Workers:          *c.workers,
+		WebIP:            *c.webIP,
+		WebPort:          *c.webPort,
+		Web:              *c.web,
 	}
 	if *c.protocol == "ipfix" {
 		barrage.Run(cfg, barrage.IPFIX())
