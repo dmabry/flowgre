@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"time"
 
@@ -21,28 +22,28 @@ import (
 // IPFIX version number per RFC 7011.
 const Version = 10
 
-// Port constants
+// Port constants (aliases for backwards compatibility within this package)
 const (
-	httpsPort    = 443
-	sshPort      = 22
-	ftpPort      = 21
-	dnsPort      = 53
-	httpPort     = 80
-	ntpPort      = 123
-	snmpPort     = 161
-	imapsPort    = 993
-	mysqlPort    = 3306
-	httpAltPort  = 8080
-	httpsAltPort = 8443
-	p2pPort      = 6681
-	btPort       = 6682
+	httpsPort    = utils.HTTPSPort
+	sshPort      = utils.SSHPort
+	ftpPort      = utils.FTPPort
+	dnsPort      = utils.DNSPort
+	httpPort     = utils.HTTPPort
+	ntpPort      = utils.NTPPort
+	snmpPort     = utils.SNMPPort
+	imapsPort    = utils.IMAPSPort
+	mysqlPort    = utils.MySQLPort
+	httpAltPort  = utils.HTTPAltPort
+	httpsAltPort = utils.HTTPSAltPort
+	p2pPort      = utils.P2PPort
+	btPort       = utils.BTPort
 )
 
-// Protocol constants
+// Protocol constants (aliases for backwards compatibility within this package)
 const (
-	tcpProto  = 6
-	udpProto  = 17
-	icmpProto = 1
+	tcpProto  = utils.TCPProto
+	udpProto  = utils.UDPProto
+	icmpProto = utils.ICMPProto
 )
 
 // IANA IPFIX field type constants (RFC 7011 / Information Model)
@@ -306,36 +307,60 @@ type IPFIX struct {
 // ToBytes serializes the IPFIX structure to a byte buffer for wire transmission.
 func (f *IPFIX) ToBytes() bytes.Buffer {
 	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, f.Header)
+	if err := binary.Write(&buf, binary.BigEndian, f.Header); err != nil {
+		log.Printf("[ERROR] Issue writing IPFIX header: %v", err)
+	}
 
 	for _, tFlow := range f.TemplateFlowSets {
-		binary.Write(&buf, binary.BigEndian, tFlow.FlowSetID)
-		binary.Write(&buf, binary.BigEndian, tFlow.Length)
+		if err := binary.Write(&buf, binary.BigEndian, tFlow.FlowSetID); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Template FlowSetID: %v", err)
+		}
+		if err := binary.Write(&buf, binary.BigEndian, tFlow.Length); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Template Length: %v", err)
+		}
 		for _, template := range tFlow.Templates {
-			binary.Write(&buf, binary.BigEndian, template.TemplateID)
-			binary.Write(&buf, binary.BigEndian, template.FieldCount)
+			if err := binary.Write(&buf, binary.BigEndian, template.TemplateID); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Template ID: %v", err)
+			}
+			if err := binary.Write(&buf, binary.BigEndian, template.FieldCount); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Template FieldCount: %v", err)
+			}
 			for _, field := range template.Fields {
-				binary.Write(&buf, binary.BigEndian, field.Type)
-				binary.Write(&buf, binary.BigEndian, field.Length)
+				if err := binary.Write(&buf, binary.BigEndian, field.Type); err != nil {
+					log.Printf("[ERROR] Issue writing IPFIX Field Type: %v", err)
+				}
+				if err := binary.Write(&buf, binary.BigEndian, field.Length); err != nil {
+					log.Printf("[ERROR] Issue writing IPFIX Field Length: %v", err)
+				}
 			}
 		}
 		// Padding to 32-bit boundary per IPFIX RFC 7011
 		if tFlow.Padding > 0 {
 			padBytes := bytes.Repeat([]byte{0}, tFlow.Padding)
-			binary.Write(&buf, binary.BigEndian, padBytes)
+			if err := binary.Write(&buf, binary.BigEndian, padBytes); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Template Padding: %v", err)
+			}
 		}
 	}
 
 	for _, dFlow := range f.DataFlowSets {
-		binary.Write(&buf, binary.BigEndian, dFlow.FlowSetID)
-		binary.Write(&buf, binary.BigEndian, dFlow.Length)
+		if err := binary.Write(&buf, binary.BigEndian, dFlow.FlowSetID); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Data FlowSetID: %v", err)
+		}
+		if err := binary.Write(&buf, binary.BigEndian, dFlow.Length); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Data FlowSet Length: %v", err)
+		}
 		for _, item := range dFlow.Items {
-			binary.Write(&buf, binary.BigEndian, item)
+			if err := binary.Write(&buf, binary.BigEndian, item); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Data FlowSet Field: %v", err)
+			}
 		}
 		// Padding to 32-bit boundary per IPFIX RFC 7011
 		if dFlow.Padding > 0 {
 			padBytes := bytes.Repeat([]byte{0}, dFlow.Padding)
-			binary.Write(&buf, binary.BigEndian, padBytes)
+			if err := binary.Write(&buf, binary.BigEndian, padBytes); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Data Padding: %v", err)
+			}
 		}
 	}
 
@@ -407,4 +432,63 @@ func GenerateIPFIX(flowCount int, sourceID int, srcRange string, dstRange string
 		TemplateFlowSets: []TemplateFlowSet{templateFlow},
 		DataFlowSets:     []DataFlowSet{dataFlow},
 	}
+}
+
+// size returns the size of the Header in bytes.
+func (h *Header) size() int {
+	return binary.Size(h.Version) +
+		binary.Size(h.FlowCount) +
+		binary.Size(h.SysUptime) +
+		binary.Size(h.UnixSec) +
+		binary.Size(h.FlowSequence) +
+		binary.Size(h.SourceID)
+}
+
+// String returns a human-readable representation of the Header.
+func (h *Header) String() string {
+	return fmt.Sprintf("Version: %d Count: %d SysUptime: %d UnixSec: %d FlowSequence: %d SourceID: %d",
+		h.Version, h.FlowCount, h.SysUptime, h.UnixSec, h.FlowSequence, h.SourceID)
+}
+
+// size returns the size of the TemplateFlowSet in bytes.
+func (t *TemplateFlowSet) size() int {
+	size := binary.Size(t.FlowSetID)
+	size += binary.Size(t.Length)
+	for _, i := range t.Templates {
+		size += binary.Size(i.TemplateID)
+		size += binary.Size(i.FieldCount)
+		for _, f := range i.Fields {
+			size += binary.Size(f.Type)
+			size += binary.Size(f.Length)
+		}
+	}
+	size += t.Padding
+	return size
+}
+
+// size returns the size of the DataFlowSet in bytes.
+func (d *DataFlowSet) size() int {
+	size := binary.Size(d.FlowSetID)
+	size += binary.Size(d.Length)
+	for _, item := range d.Items {
+		size += binary.Size(item)
+	}
+	size += d.Padding
+	return size
+}
+
+// GetIPFIXSizes returns a human-readable string with the size breakdown of an IPFIX packet.
+func GetIPFIXSizes(ipfix IPFIX) string {
+	output := "Header Size: " + fmt.Sprintf("%d", ipfix.Header.size()) + " bytes\n"
+	tSize := 0
+	for _, tFlow := range ipfix.TemplateFlowSets {
+		tSize += tFlow.size()
+	}
+	output += "Template Size: " + fmt.Sprintf("%d", tSize) + " bytes\n"
+	dSize := 0
+	for _, dFlow := range ipfix.DataFlowSets {
+		dSize += dFlow.size()
+	}
+	output += "Data Size: " + fmt.Sprintf("%d", dSize) + " bytes\n"
+	return output
 }

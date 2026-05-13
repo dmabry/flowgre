@@ -10,35 +10,35 @@ import (
 	"github.com/dmabry/flowgre/utils"
 )
 
-// Port constants
+// Port constants (aliases for backwards compatibility within this package)
 const (
-	ftpPort      = 21
-	sshPort      = 22
-	dnsPort      = 53
-	httpPort     = 80
-	httpsPort    = 443
-	ntpPort      = 123
-	snmpPort     = 161
-	imapsPort    = 993
-	mysqlPort    = 3306
-	httpAltPort  = 8080
-	httpsAltPort = 8443
-	p2pPort      = 6681
-	btPort       = 6682
+	ftpPort      = utils.FTPPort
+	sshPort      = utils.SSHPort
+	dnsPort      = utils.DNSPort
+	httpPort     = utils.HTTPPort
+	httpsPort    = utils.HTTPSPort
+	ntpPort      = utils.NTPPort
+	snmpPort     = utils.SNMPPort
+	imapsPort    = utils.IMAPSPort
+	mysqlPort    = utils.MySQLPort
+	httpAltPort  = utils.HTTPAltPort
+	httpsAltPort = utils.HTTPSAltPort
+	p2pPort      = utils.P2PPort
+	btPort       = utils.BTPort
 )
 
-// Protocol constants
+// Protocol constants (aliases for backwards compatibility within this package)
 const (
-	tcpProto   = 6
-	udpProto   = 17
-	icmpProto  = 1
-	sctpProto  = 132
-	igmpProto  = 2
-	egpProto   = 8
-	igpProto   = 9
-	greProto   = 47
-	espProto   = 50
-	eigrpProto = 88
+	tcpProto   = utils.TCPProto
+	udpProto   = utils.UDPProto
+	icmpProto  = utils.ICMPProto
+	sctpProto  = utils.SCTPProto
+	igmpProto  = utils.IGMPProto
+	egpProto   = utils.EGPProto
+	igpProto   = utils.IGPProto
+	greProto   = utils.GREProto
+	espProto   = utils.ESPProto
+	eigrpProto = utils.EIGRPProto
 )
 
 // Constants for Field Types
