@@ -111,7 +111,53 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 	}
 }
 
+// RunCtx starts the barrage with the given config, FlowGenerator, and external
+// context. Cancelling ctx stops all workers cleanly. Use Run() for CLI usage
+// where OS signal handling is desired.
+func RunCtx(ctx context.Context, config *models.Config, gen FlowGenerator) {
+	wg := &sync.WaitGroup{}
+
+	buffer := 20
+	// Start the StatsCollector
+	sc := &stats.Collector{}
+	sc.StatsChan = make(chan models.WorkerStat, config.Workers+buffer)
+	sc.StatsMap = make(map[int]models.WorkerStat)
+	sc.StatsTotals = models.StatTotals{
+		FlowsSent: 0,
+		Cycles:    0,
+		BytesSent: 0,
+	}
+	sc.Config = config
+	wg.Add(1)
+	go sc.Run(wg, ctx)
+
+	// Default template retransmission interval is 30 seconds if not set
+	templateInterval := config.TemplateInterval
+	if templateInterval <= 0 {
+		templateInterval = 30
+	}
+
+	// Start up the workers
+	wg.Add(config.Workers)
+	for w := 1; w <= config.Workers; w++ {
+		sourceID := utils.RandomNum(sourceIDMin, sourceIDMax)
+		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, templateInterval, wg, sc.StatsChan, gen)
+	}
+
+	// Start WebServer if needed
+	if config.Web {
+		wg.Add(1)
+		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx, sc)
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	sc.Stop()
+}
+
 // Run starts the barrage with the given config and FlowGenerator.
+// It sets up OS signal handling (SIGINT/SIGTERM) for clean shutdown.
+// Use RunCtx() when you need to control the lifecycle via context.
 func Run(config *models.Config, gen FlowGenerator) {
 	mgr := lifecycle.New()
 	ctx := mgr.Context()

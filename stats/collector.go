@@ -73,7 +73,12 @@ func (sc *Collector) Run(wg *sync.WaitGroup, ctx context.Context) {
 			log.Printf("Stats Collector Exiting due to signal\n")
 			return
 		default:
-			<-limiter
+			select {
+			case <-limiter:
+			case <-ctx.Done():
+				log.Printf("Stats Collector Exiting due to signal\n")
+				return
+			}
 		}
 	}
 }
