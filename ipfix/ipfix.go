@@ -406,11 +406,11 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 
 // IPFIX is the complete IPFIX export packet structure.
 type IPFIX struct {
-	Header                 Header
-	TemplateFlowSets       []TemplateFlowSet
+	Header                  Header
+	TemplateFlowSets        []TemplateFlowSet
 	OptionsTemplateFlowSets []OptionsTemplateFlowSet
-	DataFlowSets           []DataFlowSet
-	OptionsDataFlowSets    []OptionsDataFlowSet
+	DataFlowSets            []DataFlowSet
+	OptionsDataFlowSets     []OptionsDataFlowSet
 }
 
 // ToBytes serializes the IPFIX structure to a byte buffer for wire transmission.
@@ -614,8 +614,8 @@ func GenerateOptionsDataIPFIX(sourceID int, session *netflow.Session) IPFIX {
 	optionsData := new(OptionsDataFlowSet).Generate(sourceID, processName, pid)
 	header := new(Header).Generate(1, sourceID, session)
 	return IPFIX{
-		Header:                header,
-		OptionsDataFlowSets:   []OptionsDataFlowSet{optionsData},
+		Header:              header,
+		OptionsDataFlowSets: []OptionsDataFlowSet{optionsData},
 	}
 }
 
