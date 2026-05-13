@@ -66,6 +66,16 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 		return
 	}
 
+	// Generate and send Options Data (IPFIX only; returns nil for NetFlow)
+	oBuf := gen.GenerateOptionsData(sourceID, session)
+	if oBuf != nil {
+		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, oBuf, false)
+		if err != nil {
+			log.Printf("%s [%2d] Issue sending options data packet: %v", label, id, err)
+			return
+		}
+	}
+
 	log.Printf("%s [%2d] Slinging packets at %s:%d with Source ID: %5d and delay of %dms\n",
 		label, id, server, port, sourceID, delay)
 	// Infinite loop to keep slinging until we receive context done.

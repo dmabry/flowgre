@@ -15,6 +15,9 @@ type FlowGenerator interface {
 	Label() string
 	// GenerateTemplate creates the initial template packet for a source ID.
 	GenerateTemplate(sourceID int, session *netflow.Session) []byte
+	// GenerateOptionsData creates an options data packet (IPFIX only).
+	// Returns nil if the protocol does not support options templates.
+	GenerateOptionsData(sourceID int, session *netflow.Session) []byte
 	// GenerateData creates a data packet with the given number of flows.
 	GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) []byte
 }
@@ -28,6 +31,11 @@ func (g netflowGenerator) GenerateTemplate(sourceID int, session *netflow.Sessio
 	tFlow := netflow.GenerateTemplateNetflow(sourceID, session)
 	buf := tFlow.ToBytes()
 	return buf.Bytes()
+}
+
+func (g netflowGenerator) GenerateOptionsData(sourceID int, session *netflow.Session) []byte {
+	// NetFlow v9 does not support options templates
+	return nil
 }
 
 func (g netflowGenerator) GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) []byte {
@@ -44,6 +52,12 @@ func (g ipfixGenerator) Label() string { return "IPFIX Worker" }
 func (g ipfixGenerator) GenerateTemplate(sourceID int, session *netflow.Session) []byte {
 	tFlow := ipfix.GenerateTemplateIPFIX(sourceID, session)
 	buf := tFlow.ToBytes()
+	return buf.Bytes()
+}
+
+func (g ipfixGenerator) GenerateOptionsData(sourceID int, session *netflow.Session) []byte {
+	oFlow := ipfix.GenerateOptionsDataIPFIX(sourceID, session)
+	buf := oFlow.ToBytes()
 	return buf.Bytes()
 }
 

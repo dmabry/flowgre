@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"github.com/dmabry/flowgre/netflow"
@@ -63,6 +64,10 @@ const (
 	FlowStartMilliseconds    = 152
 	FlowEndMilliseconds      = 153
 	FlowEndReason            = 157
+	// Options Template fields
+	ObservationDomainId = 31
+	ProcessName         = 279
+	ProcessId           = 278
 )
 
 // Header is the IPFIX export set header, structurally identical to NetFlow v9
@@ -138,6 +143,104 @@ func (t *TemplateFlowSet) Generate(session *netflow.Session) TemplateFlowSet {
 		FlowSetID: 0,
 		Length:    uint16(rawSize),
 		Templates: []Template{template},
+		Padding:   padding,
+	}
+}
+
+// OptionsTemplate describes an IPFIX Options Template record.
+// Per RFC 7011, Options Templates have two field lists: Scope Fields and Data Fields.
+type OptionsTemplate struct {
+	TemplateID      uint16
+	ScopeFieldCount uint16
+	ScopeFields     []Field
+	DataFieldCount  uint16
+	DataFields      []Field
+}
+
+// OptionsTemplateFlowSet wraps an Options Template record.
+// Per IPFIX spec, FlowSetID is always 0 for template FlowSets (including options).
+type OptionsTemplateFlowSet struct {
+	FlowSetID uint16
+	Length    uint16
+	Template  OptionsTemplate
+	Padding   int
+}
+
+// Generate creates an OptionsTemplateFlowSet with process metadata fields.
+func (o *OptionsTemplateFlowSet) Generate(session *netflow.Session) OptionsTemplateFlowSet {
+	scopeFields := []Field{
+		{Type: ObservationDomainId, Length: 4},
+	}
+	dataFields := []Field{
+		{Type: ProcessName, Length: 0}, // variable-length, set at serialization
+		{Type: ProcessId, Length: 4},
+	}
+
+	// Calculate raw size: FlowSetID(2) + Length(2) + TemplateID(2) + ScopeFieldCount(2)
+	// + ScopeFields[Scope(2)+Len(2)] + DataFieldCount(2) + DataFields[(2+2)*N]
+	rawSize := 4 + 4 + len(scopeFields)*4 + 2 + len(dataFields)*4
+	padding := 0
+	remainder := rawSize % 4
+	if remainder > 0 {
+		padding = 4 - remainder
+		rawSize += padding
+	}
+
+	return OptionsTemplateFlowSet{
+		FlowSetID: 0,
+		Length:    uint16(rawSize),
+		Template: OptionsTemplate{
+			TemplateID:      257,
+			ScopeFieldCount: uint16(len(scopeFields)),
+			ScopeFields:     scopeFields,
+			DataFieldCount:  uint16(len(dataFields)),
+			DataFields:      dataFields,
+		},
+		Padding: padding,
+	}
+}
+
+// OptionsDataRecord holds a single Options Data record.
+type OptionsDataRecord struct {
+	ObservationDomainId uint32
+	ProcessName         string
+	ProcessId           uint32
+}
+
+// OptionsDataFlowSet holds Options Data records.
+type OptionsDataFlowSet struct {
+	FlowSetID uint16
+	Length    uint16
+	Records   []OptionsDataRecord
+	Padding   int
+}
+
+// Generate creates an OptionsDataFlowSet with process metadata.
+func (o *OptionsDataFlowSet) Generate(sourceID int, processName string, pid uint32) OptionsDataFlowSet {
+	records := []OptionsDataRecord{
+		{
+			ObservationDomainId: uint32(sourceID),
+			ProcessName:         processName,
+			ProcessId:           pid,
+		},
+	}
+
+	// Calculate length: FlowSetID(2) + Length(2) + ScopeValues + DataValues + padding
+	// Scope: ObservationDomainId(4)
+	// Data: ProcessNameLen(2) + ProcessName(N) + ProcessId(4)
+	recordSize := 4 + 2 + len(processName) + 4
+	length := 4 + recordSize
+	padding := 0
+	remainder := length % 4
+	if remainder > 0 {
+		padding = 4 - remainder
+		length += padding
+	}
+
+	return OptionsDataFlowSet{
+		FlowSetID: 257, // Must match Options TemplateID
+		Length:    uint16(length),
+		Records:   records,
 		Padding:   padding,
 	}
 }
@@ -303,9 +406,11 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 
 // IPFIX is the complete IPFIX export packet structure.
 type IPFIX struct {
-	Header           Header
-	TemplateFlowSets []TemplateFlowSet
-	DataFlowSets     []DataFlowSet
+	Header                 Header
+	TemplateFlowSets       []TemplateFlowSet
+	OptionsTemplateFlowSets []OptionsTemplateFlowSet
+	DataFlowSets           []DataFlowSet
+	OptionsDataFlowSets    []OptionsDataFlowSet
 }
 
 // ToBytes serializes the IPFIX structure to a byte buffer for wire transmission.
@@ -347,6 +452,49 @@ func (f *IPFIX) ToBytes() bytes.Buffer {
 		}
 	}
 
+	// Serialize Options Template FlowSets
+	for _, oFlow := range f.OptionsTemplateFlowSets {
+		if err := binary.Write(&buf, binary.BigEndian, oFlow.FlowSetID); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Options Template FlowSetID: %v", err)
+		}
+		if err := binary.Write(&buf, binary.BigEndian, oFlow.Length); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Options Template Length: %v", err)
+		}
+		t := oFlow.Template
+		if err := binary.Write(&buf, binary.BigEndian, t.TemplateID); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Options Template ID: %v", err)
+		}
+		if err := binary.Write(&buf, binary.BigEndian, t.ScopeFieldCount); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Options ScopeFieldCount: %v", err)
+		}
+		for _, field := range t.ScopeFields {
+			if err := binary.Write(&buf, binary.BigEndian, field.Type); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options Scope Field: %v", err)
+			}
+			if err := binary.Write(&buf, binary.BigEndian, field.Length); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options Scope Field Length: %v", err)
+			}
+		}
+		if err := binary.Write(&buf, binary.BigEndian, t.DataFieldCount); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Options DataFieldCount: %v", err)
+		}
+		for _, field := range t.DataFields {
+			if err := binary.Write(&buf, binary.BigEndian, field.Type); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options Data Field: %v", err)
+			}
+			if err := binary.Write(&buf, binary.BigEndian, field.Length); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options Data Field Length: %v", err)
+			}
+		}
+		// Padding to 32-bit boundary per IPFIX RFC 7011
+		if oFlow.Padding > 0 {
+			padBytes := bytes.Repeat([]byte{0}, oFlow.Padding)
+			if err := binary.Write(&buf, binary.BigEndian, padBytes); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options Template Padding: %v", err)
+			}
+		}
+	}
+
 	for _, dFlow := range f.DataFlowSets {
 		if err := binary.Write(&buf, binary.BigEndian, dFlow.FlowSetID); err != nil {
 			log.Printf("[ERROR] Issue writing IPFIX Data FlowSetID: %v", err)
@@ -364,6 +512,39 @@ func (f *IPFIX) ToBytes() bytes.Buffer {
 			padBytes := bytes.Repeat([]byte{0}, dFlow.Padding)
 			if err := binary.Write(&buf, binary.BigEndian, padBytes); err != nil {
 				log.Printf("[ERROR] Issue writing IPFIX Data Padding: %v", err)
+			}
+		}
+	}
+
+	// Serialize Options Data FlowSets
+	for _, oData := range f.OptionsDataFlowSets {
+		if err := binary.Write(&buf, binary.BigEndian, oData.FlowSetID); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Options Data FlowSetID: %v", err)
+		}
+		if err := binary.Write(&buf, binary.BigEndian, oData.Length); err != nil {
+			log.Printf("[ERROR] Issue writing IPFIX Options Data Length: %v", err)
+		}
+		for _, rec := range oData.Records {
+			// Scope values: ObservationDomainId
+			if err := binary.Write(&buf, binary.BigEndian, rec.ObservationDomainId); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options Scope Value: %v", err)
+			}
+			// Data values: ProcessName (variable-length with 2-byte length prefix) + ProcessId
+			if err := binary.Write(&buf, binary.BigEndian, uint16(len(rec.ProcessName))); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options ProcessName length: %v", err)
+			}
+			if err := binary.Write(&buf, binary.BigEndian, []byte(rec.ProcessName)); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options ProcessName: %v", err)
+			}
+			if err := binary.Write(&buf, binary.BigEndian, rec.ProcessId); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options ProcessId: %v", err)
+			}
+		}
+		// Padding to 32-bit boundary per IPFIX RFC 7011
+		if oData.Padding > 0 {
+			padBytes := bytes.Repeat([]byte{0}, oData.Padding)
+			if err := binary.Write(&buf, binary.BigEndian, padBytes); err != nil {
+				log.Printf("[ERROR] Issue writing IPFIX Options Data Padding: %v", err)
 			}
 		}
 	}
@@ -405,14 +586,32 @@ func UpdateTimeStamp(payload []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// GenerateTemplateIPFIX creates an IPFIX packet containing only a template FlowSet.
+// GenerateTemplateIPFIX creates an IPFIX packet containing both data and options templates.
 func GenerateTemplateIPFIX(sourceID int, session *netflow.Session) IPFIX {
 	templateFlow := new(TemplateFlowSet).Generate(session)
+	optionsTemplate := new(OptionsTemplateFlowSet).Generate(session)
 	header := new(Header).Generate(1, sourceID, session)
 	return IPFIX{
-		Header:           header,
-		TemplateFlowSets: []TemplateFlowSet{templateFlow},
-		DataFlowSets:     nil,
+		Header:                  header,
+		TemplateFlowSets:        []TemplateFlowSet{templateFlow},
+		OptionsTemplateFlowSets: []OptionsTemplateFlowSet{optionsTemplate},
+		DataFlowSets:            nil,
+		OptionsDataFlowSets:     nil,
+	}
+}
+
+// GenerateOptionsDataIPFIX creates an IPFIX packet containing Options Data records.
+// This exports process metadata (process name and PID) to the collector.
+func GenerateOptionsDataIPFIX(sourceID int, session *netflow.Session) IPFIX {
+	// Use the actual process name and PID
+	processName := "flowgre-generator"
+	pid := uint32(os.Getpid())
+
+	optionsData := new(OptionsDataFlowSet).Generate(sourceID, processName, pid)
+	header := new(Header).Generate(1, sourceID, session)
+	return IPFIX{
+		Header:                header,
+		OptionsDataFlowSets:   []OptionsDataFlowSet{optionsData},
 	}
 }
 

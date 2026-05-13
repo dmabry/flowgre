@@ -161,41 +161,101 @@ func TestToBytes_RoundTrip(t *testing.T) {
 		t.Errorf("Failed to parse IPFIX Header Version! Got: %d Want: 10", tparsed.Header.Version)
 	}
 
-	tFlowCount := int(tparsed.Header.FlowCount)
-	for range tFlowCount {
-		tFlowSet := new(TemplateFlowSet)
-		template := new(Template)
-		err := binary.Read(treader, binary.BigEndian, &tFlowSet.FlowSetID)
-		if err != nil {
-			t.Errorf("Failed to parse IPFIX FlowSetID! Got: %v", err)
+	// Parse all FlowSets in the template packet
+	for treader.Len() > 0 {
+		var flowSetID uint16
+		if err := binary.Read(treader, binary.BigEndian, &flowSetID); err != nil {
+			break
 		}
-		err = binary.Read(treader, binary.BigEndian, &tFlowSet.Length)
-		if err != nil {
-			t.Errorf("Failed to parse IPFIX FlowSet Length! Got: %v", err)
+		if flowSetID != 0 {
+			// Not a template FlowSet, skip
+			break
 		}
-		err = binary.Read(treader, binary.BigEndian, &template.TemplateID)
-		if err != nil {
-			t.Errorf("Failed to parse IPFIX FlowSet TemplateID! Got: %v", err)
+		var fsLength uint16
+		if err := binary.Read(treader, binary.BigEndian, &fsLength); err != nil {
+			break
 		}
-		err = binary.Read(treader, binary.BigEndian, &template.FieldCount)
-		if err != nil {
-			t.Errorf("Failed to parse IPFIX FlowSet FieldCount! Got: %v", err)
+		remaining := int(fsLength) - 4 // subtract FlowSetID + Length
+
+		// Check if this is an Options Template (TemplateID >= 256 with ScopeFieldCount)
+		var templateID uint16
+		if err := binary.Read(treader, binary.BigEndian, &templateID); err != nil {
+			break
 		}
-		fc := int(template.FieldCount)
-		for range fc {
-			tField := new(Field)
-			err := binary.Read(treader, binary.BigEndian, &tField.Type)
-			if err != nil {
-				t.Errorf("Failed to parse IPFIX FlowSet Field Type! Got: %v", err)
+		remaining -= 2
+
+		if templateID == 257 {
+			// Options Template - parse it
+			var scopeFieldCount uint16
+			if err := binary.Read(treader, binary.BigEndian, &scopeFieldCount); err != nil {
+				break
 			}
-			err = binary.Read(treader, binary.BigEndian, &tField.Length)
-			if err != nil {
-				t.Errorf("Failed to parse IPFIX FlowSet Field Length! Got: %v", err)
+			remaining -= 2
+			scopeFields := make([]Field, scopeFieldCount)
+			for i := range scopeFieldCount {
+				if err := binary.Read(treader, binary.BigEndian, &scopeFields[i]); err != nil {
+					break
+				}
+				remaining -= 4
 			}
-			template.Fields = append(template.Fields, *tField)
+			var dataFieldCount uint16
+			if err := binary.Read(treader, binary.BigEndian, &dataFieldCount); err != nil {
+				break
+			}
+			remaining -= 2
+			dataFields := make([]Field, dataFieldCount)
+			for i := range dataFieldCount {
+				if err := binary.Read(treader, binary.BigEndian, &dataFields[i]); err != nil {
+					break
+				}
+				remaining -= 4
+			}
+			tparsed.OptionsTemplateFlowSets = append(tparsed.OptionsTemplateFlowSets, OptionsTemplateFlowSet{
+				FlowSetID: flowSetID,
+				Length:    fsLength,
+				Template: OptionsTemplate{
+					TemplateID:      templateID,
+					ScopeFieldCount: scopeFieldCount,
+					ScopeFields:     scopeFields,
+					DataFieldCount:  dataFieldCount,
+					DataFields:      dataFields,
+				},
+				Padding: remaining,
+			})
+			// Skip padding
+			if remaining > 0 {
+				treader.Seek(int64(remaining), 1)
+			}
+		} else {
+			// Regular Data Template
+			var fieldCount uint16
+			if err := binary.Read(treader, binary.BigEndian, &fieldCount); err != nil {
+				break
+			}
+			remaining -= 2
+			fields := make([]Field, fieldCount)
+			for i := range fieldCount {
+				if err := binary.Read(treader, binary.BigEndian, &fields[i]); err != nil {
+					break
+				}
+				remaining -= 4
+			}
+			tFlowSet := TemplateFlowSet{
+				FlowSetID: flowSetID,
+				Length:    fsLength,
+				Templates: []Template{{
+					TemplateID: templateID,
+					FieldCount: fieldCount,
+					Fields:     fields,
+				}},
+				Padding: remaining,
+			}
+			tparsed.TemplateFlowSets = append(tparsed.TemplateFlowSets, tFlowSet)
+			// Skip padding
+			if remaining > 0 {
+				treader.Seek(int64(remaining), 1)
+			}
 		}
-		tFlowSet.Templates = append(tFlowSet.Templates, *template)
-		tparsed.TemplateFlowSets = append(tparsed.TemplateFlowSets, *tFlowSet)
 	}
 
 	if !cmp.Equal(tFlow, tparsed) {
@@ -345,6 +405,9 @@ func TestToBytes_BufferLengthMatchesFlowSetLengths(t *testing.T) {
 	tBuf := tFlow.ToBytes()
 	expectedTLen := binary.Size(tFlow.Header)
 	for _, fs := range tFlow.TemplateFlowSets {
+		expectedTLen += int(fs.Length)
+	}
+	for _, fs := range tFlow.OptionsTemplateFlowSets {
 		expectedTLen += int(fs.Length)
 	}
 	if tBuf.Len() != expectedTLen {
