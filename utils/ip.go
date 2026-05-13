@@ -4,6 +4,7 @@
 package utils
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -99,4 +100,104 @@ func ParseIPv4ToNum(s string) (uint32, error) {
 		return binary.BigEndian.Uint32(ip), nil
 	}
 	return 0, fmt.Errorf("unrecognized IP format: %s", s)
+}
+
+// IsIPv6CIDR detects whether a CIDR string represents an IPv6 network.
+func IsIPv6CIDR(cidr string) bool {
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return false
+	}
+	return ipNet.IP.To4() == nil
+}
+
+// RandomIPv6 generates a random IPv6 address within the given CIDR range.
+func RandomIPv6(cidr string) (net.IP, error) {
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return nil, fmt.Errorf("parsing CIDR %s: %w", cidr, err)
+	}
+	if ipNet.IP.To4() != nil {
+		return nil, fmt.Errorf("CIDR %s is IPv4, use RandomIP instead", cidr)
+	}
+
+	ip := make(net.IP, 16)
+	copy(ip, ipNet.IP)
+
+	ones, bits := ipNet.Mask.Size()
+	hostBits := bits - ones
+
+	if hostBits == 0 {
+		// /128 — single address
+		return ip, nil
+	}
+
+	// Generate random bytes for host portion
+	hostBytes := make([]byte, 16)
+	_, err = rand.Read(hostBytes)
+	if err != nil {
+		return nil, fmt.Errorf("generating random bytes: %w", err)
+	}
+
+	// Clear network bits, keep only host bits
+	for i := 0; i < 16; i++ {
+		byteBit := i * 8
+		if byteBit+8 <= ones {
+			// Entire byte is network bits — keep as-is
+			continue
+		} else if byteBit >= ones {
+			// Entire byte is host bits
+			ip[i] = hostBytes[i]
+		} else {
+			// Partial byte — boundary between network and host
+			hostBitInByte := 8 - (ones - byteBit)
+			mask := byte(0)
+			for b := 0; b < hostBitInByte; b++ {
+				mask |= byte(1) << b
+			}
+			ip[i] = ipNet.IP[i] | (hostBytes[i] & mask)
+		}
+	}
+
+	if ipNet.Contains(ip) {
+		return ip, nil
+	}
+	return nil, errors.New("random IPv6 out of range")
+}
+
+// GetLastIPv6 returns the last (broadcast-equivalent) IPv6 address in the network.
+func GetLastIPv6(ipNet *net.IPNet) net.IP {
+	ip := make(net.IP, 16)
+	copy(ip, ipNet.IP)
+
+	ones, _ := ipNet.Mask.Size()
+
+	for i := 0; i < 16; i++ {
+		byteBit := i * 8
+		if byteBit+8 <= ones {
+			// Entire byte is network bits — keep as-is
+			continue
+		} else if byteBit >= ones {
+			// Entire byte is host bits — set to 1
+			ip[i] = 0xff
+		} else {
+			// Partial byte — boundary between network and host
+			hostBitInByte := 8 - (ones - byteBit)
+			mask := byte(0)
+			for b := 0; b < hostBitInByte; b++ {
+				mask |= byte(1) << b
+			}
+			ip[i] = ipNet.IP[i] | mask
+		}
+	}
+	return ip
+}
+
+// RandomIPCIDR is a unified dispatcher that auto-detects IPv4 vs IPv6
+// and calls the appropriate random IP generation function.
+func RandomIPCIDR(cidr string) (net.IP, error) {
+	if IsIPv6CIDR(cidr) {
+		return RandomIPv6(cidr)
+	}
+	return RandomIP(cidr)
 }

@@ -173,3 +173,123 @@ func TestSendPacket(t *testing.T) {
 		t.Errorf("Failed to get proper packet!")
 	}
 }
+
+func TestIsIPv6CIDR(t *testing.T) {
+	t.Parallel()
+
+	// IPv6 CIDRs
+	if !IsIPv6CIDR("2001:db8::/32") {
+		t.Error("expected 2001:db8::/32 to be IPv6")
+	}
+	if !IsIPv6CIDR("fe80::/10") {
+		t.Error("expected fe80::/10 to be IPv6")
+	}
+	if !IsIPv6CIDR("::1/128") {
+		t.Error("expected ::1/128 to be IPv6")
+	}
+
+	// IPv4 CIDRs
+	if IsIPv6CIDR("10.0.0.0/8") {
+		t.Error("expected 10.0.0.0/8 to NOT be IPv6")
+	}
+	if IsIPv6CIDR("192.168.1.0/24") {
+		t.Error("expected 192.168.1.0/24 to NOT be IPv6")
+	}
+
+	// Invalid
+	if IsIPv6CIDR("not-a-cidr") {
+		t.Error("expected invalid CIDR to return false")
+	}
+}
+
+func TestRandomIPv6(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		cidr     string
+		expected net.IP // prefix that must match
+	}{
+		{"2001:db8::/32", net.ParseIP("2001:db8::")},
+		{"fe80::/10", net.ParseIP("fe80::")},
+		{"2001:db8:1::/48", net.ParseIP("2001:db8:1::")},
+		{"2001:db8:1:2::/64", net.ParseIP("2001:db8:1:2::")},
+		{"::1/128", net.ParseIP("::1")},
+		{"::/0", net.ParseIP("::")},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.cidr, func(t *testing.T) {
+			_, ipNet, _ := net.ParseCIDR(tc.cidr)
+			for range 1000 {
+				result, err := RandomIPv6(tc.cidr)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if !ipNet.Contains(result) {
+					t.Errorf("IP %s not in CIDR %s", result, tc.cidr)
+				}
+				if result.To4() != nil {
+					t.Errorf("expected IPv6, got IPv4: %s", result)
+				}
+			}
+		})
+	}
+}
+
+func TestRandomIPv6RejectsIPv4(t *testing.T) {
+	t.Parallel()
+
+	_, err := RandomIPv6("10.0.0.0/8")
+	if err == nil {
+		t.Error("expected error for IPv4 CIDR")
+	}
+}
+
+func TestGetLastIPv6(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		cidr     string
+		expected string
+	}{
+		{"2001:db8::/32", "2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"},
+		{"fe80::/10", "febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff"},
+		{"2001:db8:1::/48", "2001:db8:1:ffff:ffff:ffff:ffff:ffff"},
+		{"2001:db8:1:2::/64", "2001:db8:1:2:ffff:ffff:ffff:ffff"},
+		{"::1/128", "::1"},
+		{"::/0", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.cidr, func(t *testing.T) {
+			_, ipNet, _ := net.ParseCIDR(tc.cidr)
+			last := GetLastIPv6(ipNet)
+			expected := net.ParseIP(tc.expected)
+			if !last.Equal(expected) {
+				t.Errorf("expected %s, got %s", expected, last)
+			}
+		})
+	}
+}
+
+func TestRandomIPCIDR(t *testing.T) {
+	t.Parallel()
+
+	// IPv4 CIDR should return IPv4
+	ip, err := RandomIPCIDR("10.0.0.0/8")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ip.To4() == nil {
+		t.Error("expected IPv4 for IPv4 CIDR")
+	}
+
+	// IPv6 CIDR should return IPv6
+	ip, err = RandomIPCIDR("2001:db8::/32")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ip.To4() != nil {
+		t.Error("expected IPv6 for IPv6 CIDR")
+	}
+}
