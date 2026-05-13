@@ -581,8 +581,12 @@ func UpdateTimeStamp(payload []byte) ([]byte, error) {
 	header.UnixSec = uint32(now / int64(time.Second))
 
 	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, header)
-	binary.Write(&buf, binary.BigEndian, remainder)
+	if err := binary.Write(&buf, binary.BigEndian, header); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.BigEndian, remainder); err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 
