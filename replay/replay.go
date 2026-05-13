@@ -52,10 +52,10 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 			// Reset the buffer and write the new payload into it
 			buf.Reset()
 			// send packet here.
-		_, err := buf.Write(payload)
-		if err != nil {
-			log.Printf("Worker [%2d] Issue writing data: %v\n", id, err)
-		}
+			_, err := buf.Write(payload)
+			if err != nil {
+				log.Printf("Worker [%2d] Issue writing data: %v\n", id, err)
+			}
 			_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
 			if err != nil {
 				log.Printf("Worker [%2d] Issue sending packet: %v\n", id, err)

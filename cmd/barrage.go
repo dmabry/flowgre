@@ -22,6 +22,7 @@ type BarrageCommand struct {
 	webPort    *int
 	webIP      *string
 	web        *bool
+	protocol   *string
 }
 
 // ParseFlags parses command-line flags for the barrage mode.
@@ -37,6 +38,7 @@ func (c *BarrageCommand) ParseFlags(args []string) error {
 	c.webPort = fs.Int("web-port", 8080, "Port to bind the web server on")
 	c.webIP = fs.String("web-ip", "0.0.0.0", "IP address the web server will listen on")
 	c.web = fs.Bool("web", false, "Whether to use the web server or not")
+	c.protocol = fs.String("protocol", "netflow", "protocol to use: netflow or ipfix")
 	return fs.Parse(args)
 }
 
@@ -52,7 +54,11 @@ func (c *BarrageCommand) Execute() error {
 		if err != nil {
 			return fmt.Errorf("error loading barrage config: %v", err)
 		}
-		barrage.Run(cfg)
+		if *c.protocol == "ipfix" {
+			barrage.RunIPFIX(cfg)
+		} else {
+			barrage.Run(cfg)
+		}
 		return nil
 	}
 
@@ -68,7 +74,11 @@ func (c *BarrageCommand) Execute() error {
 		WebPort:  *c.webPort,
 		Web:      *c.web,
 	}
-	barrage.Run(cfg)
+	if *c.protocol == "ipfix" {
+		barrage.RunIPFIX(cfg)
+	} else {
+		barrage.Run(cfg)
+	}
 	return nil
 }
 
