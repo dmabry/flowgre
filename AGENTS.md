@@ -23,9 +23,13 @@
 The project uses the following GitHub actions:
 - **Go Tests** (`.github/workflows/go-test.yml`) – runs tests on push to main and pull requests.
   - Steps include checkout, Go setup, `go mod tidy`, test run (`go test -v ./... -count 1`), and build.
+  - Uses Go 1.26 with `actions/setup-go@v5`.
+  - Includes a Docker service for container-based tests.
 - **Auto‑Merge Dependabot** (`.github/workflows/auto-merge-dependabot.yml`) – merges Dependabot PRs automatically.
 - **Release** (`.github/workflows/release.yml`) – builds release artifacts for multiple platforms.
   - Triggered on tag pushes matching `v*` pattern.
+  - Uses Go 1.26 with `actions/setup-go@v5`.
+  - Injects version string via `-ldflags -X main.version` for accurate version reporting.
   - Automatically updates nfpm configs at runtime using `sed`.
   - Creates packages for RPM, DEB, APK, and standalone binaries.
   - Generates SBOM using Trivy v0.70.0.
@@ -101,12 +105,13 @@ Update: [Enhancement] – details of improvement
 ## Release Workflow Details
 The Release workflow (`.github/workflows/release.yml`) performs the following steps:
 1. **Checkout code** – Pull the repository at the tagged commit.
-2. **Set up Go** – Install Go 1.21.
+2. **Set up Go** – Install Go 1.26.
 3. **Install build dependencies** – Install build-essential.
 4. **Build multi-platform** – Run `scripts/build-multiplatform.sh` with the version.
+   - Version is injected via `-ldflags -X main.version` so binaries report the correct version.
 5. **List built files** – Verify all binaries were created.
 6. **Update nfpm configs** – Dynamically update version and binary paths using `sed`.
-7. **Build musl version** – Build Alpine-compatible binary.
+7. **Build musl version** – Build Alpine-compatible binary (with version ldflags).
 8. **Install nfpm** – Install package manager tool.
 9. **Package RPM and DEB** – Create Linux packages.
 10. **Package APK** – Create Alpine package.
