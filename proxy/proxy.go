@@ -16,8 +16,8 @@ import (
 
 	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/lifecycle"
-	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/stats"
 	"github.com/dmabry/flowgre/utils"
 )
 
@@ -147,7 +147,7 @@ func proxyListener(ctx context.Context, wg *sync.WaitGroup, ip string, port int,
 }
 
 // statsPrinter prints out the status every 10 seconds.
-func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *models.RecordStat) {
+func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *stats.RecordStat) {
 	defer wg.Done()
 	for {
 		select {
@@ -162,7 +162,7 @@ func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *models.Record
 }
 
 // parseNetflow validates that the payload is valid NetFlow v9 or IPFIX v10 and forwards it.
-func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []byte, dataChan chan<- []byte, rStats *models.RecordStat, verbose bool) {
+func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []byte, dataChan chan<- []byte, rStats *stats.RecordStat, verbose bool) {
 	defer wg.Done()
 
 	ticker := time.NewTicker(10 * time.Second)
@@ -213,7 +213,7 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	// Create channels
 	proxyChan := make(chan []byte, bufferSize)
 	dataChan := make(chan []byte, bufferSize)
-	rStats := models.RecordStat{
+	rStats := stats.RecordStat{
 		ValidCount:   0,
 		InvalidCount: 0,
 	}

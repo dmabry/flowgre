@@ -16,8 +16,8 @@ import (
 	badger "github.com/dgraph-io/badger/v3"
 	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/lifecycle"
-	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/stats"
 )
 
 const udpMaxBufferSize = 65507
@@ -115,7 +115,7 @@ func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan
 func parseFlow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []byte, dataChan chan<- []byte, verbose bool) {
 	defer wg.Done()
 	// Prep the loop
-	rStats := models.RecordStat{
+	rStats := stats.RecordStat{
 		ValidCount:   0,
 		InvalidCount: 0,
 	}

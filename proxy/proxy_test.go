@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/stats"
 )
 
 // TestProxyListener tests that the proxy listener can receive UDP packets.
@@ -173,7 +173,7 @@ func TestParseNetflow(t *testing.T) {
 
 	proxyChan := make(chan []byte, bufferSize)
 	dataChan := make(chan []byte, bufferSize)
-	rStats := &models.RecordStat{}
+	rStats := &stats.RecordStat{}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -221,7 +221,7 @@ func TestStatsPrinter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	rStats := &models.RecordStat{
+	rStats := &stats.RecordStat{
 		ValidCount:   5,
 		InvalidCount: 2,
 	}
