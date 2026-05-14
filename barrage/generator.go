@@ -23,12 +23,14 @@ type FlowGenerator interface {
 }
 
 // netflowGenerator implements FlowGenerator for NetFlow v9.
-type netflowGenerator struct{}
+type netflowGenerator struct {
+	profile netflow.FlowProfile
+}
 
 func (g netflowGenerator) Label() string { return "Worker" }
 
 func (g netflowGenerator) GenerateTemplate(sourceID int, session *netflow.Session) []byte {
-	tFlow := netflow.GenerateTemplateNetflow(sourceID, session)
+	tFlow := netflow.GenerateTemplateNetflow(sourceID, session, g.profile)
 	buf := tFlow.ToBytes()
 	return buf.Bytes()
 }
@@ -39,7 +41,7 @@ func (g netflowGenerator) GenerateOptionsData(sourceID int, session *netflow.Ses
 }
 
 func (g netflowGenerator) GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) []byte {
-	flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
+	flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session, g.profile)
 	buf := flow.ToBytes()
 	return buf.Bytes()
 }
@@ -68,7 +70,14 @@ func (g ipfixGenerator) GenerateData(flowCount int, sourceID int, srcRange, dstR
 }
 
 // NetFlow returns a FlowGenerator for NetFlow v9.
-func NetFlow() FlowGenerator { return netflowGenerator{} }
+// Optionally accepts a FlowProfile; defaults to GenericProfile.
+func NetFlow(profile ...netflow.FlowProfile) FlowGenerator {
+	p := netflow.FlowProfile(&netflow.GenericProfile{})
+	if len(profile) > 0 && profile[0] != nil {
+		p = profile[0]
+	}
+	return netflowGenerator{profile: p}
+}
 
 // IPFIX returns a FlowGenerator for IPFIX (RFC 7011).
 func IPFIX() FlowGenerator { return ipfixGenerator{} }

@@ -260,6 +260,8 @@ Usage of flowgre barrage:
         CIDR range to use for generating source IPs for flows (default "10.0.0.0/8")
   -protocol string
         protocol to use: netflow or ipfix (default "netflow")
+  -profile string
+        flow profile for netflow: generic, minimal, extended (default "generic")
   -web
         Whether to use the web server or not
   -web-ip string

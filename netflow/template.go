@@ -102,15 +102,20 @@ type TemplateFlowSet struct {
 
 // Generate a TemplateFlowSet.
 // Per Netflow v9 spec, FlowSetID is *always* 0 for a TemplateFlow.
-// Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255
-// TODO: Hardcoded FieldCount and Fields for HTTPS Flow.  Need to work on Generating different flows
-func (t *TemplateFlowSet) Generate(session *Session) TemplateFlowSet {
+// Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255.
+// If profile is nil, defaults to GenericProfile for backward compatibility.
+func (t *TemplateFlowSet) Generate(session *Session, profile ...FlowProfile) TemplateFlowSet {
+	p := FlowProfile(&GenericProfile{}) // default
+	if len(profile) > 0 && profile[0] != nil {
+		p = profile[0]
+	}
+
 	templateFlowSet := new(TemplateFlowSet)
 	templateFlowSet.FlowSetID = 0
 	var templates []Template
 	// template
 	template := new(Template)
-	fields := new(GenericFlow).GetTemplateFields()
+	fields := p.TemplateFields()
 	template.TemplateID = 256
 	template.FieldCount = uint16(len(fields))
 	// add fields to the template
