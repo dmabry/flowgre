@@ -11,6 +11,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestRandStringBytes
@@ -291,5 +292,49 @@ func TestRandomIPCIDR(t *testing.T) {
 	}
 	if ip.To4() != nil {
 		t.Error("expected IPv6 for IPv6 CIDR")
+	}
+}
+
+func TestSendPacket_IPv6(t *testing.T) {
+	t.Parallel()
+
+	// Start listener on IPv6
+	listener, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.ParseIP("::1"), Port: 0})
+	if err != nil {
+		t.Skipf("IPv6 not available: %v", err)
+	}
+	defer listener.Close()
+
+	// Start receiver goroutine
+	done := make(chan []byte, 1)
+	go func() {
+		buf := make([]byte, 1024)
+		n, _, _ := listener.ReadFromUDP(buf)
+		if n > 0 {
+			done <- buf[:n]
+		}
+	}()
+
+	// Send packet to IPv6 address
+	sender, err := net.ListenUDP("udp6", &net.UDPAddr{Port: 0})
+	if err != nil {
+		t.Fatalf("failed to create sender: %v", err)
+	}
+	defer sender.Close()
+
+	listenerAddr := listener.LocalAddr().(*net.UDPAddr)
+	payload := []byte("IPv6 test payload")
+	_, err = SendPacket(sender, &net.UDPAddr{IP: net.ParseIP("::1"), Port: listenerAddr.Port}, payload, false)
+	if err != nil {
+		t.Fatalf("SendPacket failed: %v", err)
+	}
+
+	select {
+	case received := <-done:
+		if string(received) != string(payload) {
+			t.Errorf("payload mismatch: got %q, want %q", received, payload)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("timed out waiting for IPv6 packet")
 	}
 }
