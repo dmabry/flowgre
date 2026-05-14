@@ -12,7 +12,7 @@ Slinging packets since 2022!
                       |___/
 ```
 
-For sending fabricated NetFlow v9 and IPFIX (RFC 7011) traffic to a collector for testing
+For sending fabricated NetFlow v9 and IPFIX (RFC 7011) traffic to a collector for testing. Supports both IPv4 and IPv6 flow records with auto-detection from CIDR ranges.
 
 [![Go Tests](https://github.com/dmabry/flowgre/actions/workflows/go-test.yml/badge.svg)](https://github.com/dmabry/flowgre/actions/workflows/go-test.yml)
 [![Security Scan](https://github.com/dmabry/flowgre/actions/workflows/security.yml/badge.svg)](https://github.com/dmabry/flowgre/actions/workflows/security.yml)
@@ -231,6 +231,14 @@ Usage of flowgre single:
 flowgre single -server 10.10.10.10 -count 10
 ```
 
+### IPv6 Example
+
+IPv6 is supported natively — just pass IPv6 CIDRs and the system auto-detects:
+
+```shell
+flowgre single -server 2001:db8::1 -src-range 2001:db8:1::/48 -dst-range 2001:db8:2::/48 -count 10
+```
+
 ## Barrage Mode
 
 ```shell
@@ -325,6 +333,10 @@ The IPFIX field types used follow the [IANA IPFIX Information Model](https://www
 | outPackets | 1027 | Output packets |
 | sourceIPv4Address | 8 | Source IPv4 address |
 | destinationIPv4Address | 12 | Destination IPv4 address |
+| sourceIPv6Address | 25 | Source IPv6 address |
+| destinationIPv6Address | 26 | Destination IPv6 address |
+| sourceIPv6PrefixLength | 47 | Source IPv6 prefix length |
+| destinationIPv6PrefixLength | 48 | Destination IPv6 prefix length |
 | sourceTransportPort | 7 | Source port |
 | destinationTransportPort | 11 | Destination port |
 | protocolIdentifier | 4 | IP protocol number |

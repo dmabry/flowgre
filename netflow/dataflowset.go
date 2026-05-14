@@ -34,13 +34,13 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 	protoPorts := [13]int{21, 22, 53, 80, 443, 123, 161, 993, 3306, 8080, 8443, 6681, 6682}
 	items := make([]DataAny, flowCount)
 	for i := range flowCount {
-		srcIP, err := utils.RandomIP(srcRange)
+		srcIP, err := utils.RandomIPCIDR(srcRange)
 		if err != nil {
-			log.Printf("Issue generating IP... proceeding anyway: %v", err)
+			log.Printf("Issue generating src IP... proceeding anyway: %v", err)
 		}
-		dstIP, err := utils.RandomIP(dstRange)
+		dstIP, err := utils.RandomIPCIDR(dstRange)
 		if err != nil {
-			log.Printf("Issue generating IP... proceeding anyway: %v", err)
+			log.Printf("Issue generating dst IP... proceeding anyway: %v", err)
 		}
 		hf := new(GenericFlow)
 		var flowPort int

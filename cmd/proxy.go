@@ -31,7 +31,7 @@ type ProxyCommand struct {
 // ParseFlags parses command-line flags for the proxy mode.
 func (c *ProxyCommand) ParseFlags(args []string) error {
 	fs := flag.NewFlagSet("proxy", flag.ExitOnError)
-	c.ip = fs.String("ip", "127.0.0.1", "ip address proxy should listen on")
+	c.ip = fs.String("ip", "127.0.0.1", "IP address proxy should listen on (IPv4 or IPv6)")
 	c.port = fs.Int("port", 9995, "proxy listen udp port")
 	fs.Var(&c.targets, "target", "Can be passed multiple times in IP:PORT format")
 	c.verbose = fs.Bool("verbose", false, "Whether to log every flow received. Warning can be a lot")

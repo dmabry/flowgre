@@ -138,7 +138,9 @@ const (
 	layer2packetSectionData      = 104
 )
 
-// GenericFlow is used to create and generate HTTPS Flows
+// GenericFlow is used to create and generate NetFlow v9 flow records.
+// Field order must match GetTemplateFields() exactly — binary.Write
+// serializes in struct field order, and the template defines the wire format.
 type GenericFlow struct {
 	InBytes       uint32
 	OutBytes      uint32
@@ -146,6 +148,10 @@ type GenericFlow struct {
 	OutPkts       uint32
 	Ipv4SrcAddr   uint32
 	Ipv4DstAddr   uint32
+	Ipv6SrcAddr   [16]byte
+	Ipv6DstAddr   [16]byte
+	Ipv6SrcMask   uint8
+	Ipv6DstMask   uint8
 	L4SrcPort     uint16
 	L4DstPort     uint16
 	Protocol      uint8
@@ -157,26 +163,32 @@ type GenericFlow struct {
 }
 
 // GetTemplateFields returns the Fields for the Template to be used.
+// Field order must match GenericFlow struct field order exactly.
 func (gf *GenericFlow) GetTemplateFields() []Field {
-	fields := make([]Field, 14)
+	fields := make([]Field, 18)
 	fields[0] = Field{Type: IN_BYTES, Length: 4}
 	fields[1] = Field{Type: OUT_BYTES, Length: 4}
 	fields[2] = Field{Type: IN_PKTS, Length: 4}
 	fields[3] = Field{Type: OUT_PKTS, Length: 4}
 	fields[4] = Field{Type: IPV4_SRC_ADDR, Length: 4}
 	fields[5] = Field{Type: IPV4_DST_ADDR, Length: 4}
-	fields[6] = Field{Type: L4_SRC_PORT, Length: 2}
-	fields[7] = Field{Type: L4_DST_PORT, Length: 2}
-	fields[8] = Field{Type: PROTOCOL, Length: 1}
-	fields[9] = Field{Type: TCP_FLAGS, Length: 1}
-	fields[10] = Field{Type: FIRST_SWITCHED, Length: 4}
-	fields[11] = Field{Type: LAST_SWITCHED, Length: 4}
-	fields[12] = Field{Type: ENGINE_TYPE, Length: 1}
-	fields[13] = Field{Type: ENGINE_ID, Length: 1}
+	fields[6] = Field{Type: IPV6_SRC_ADDR, Length: 16}
+	fields[7] = Field{Type: IPV6_DST_ADDR, Length: 16}
+	fields[8] = Field{Type: IPV6_SRC_MASK, Length: 1}
+	fields[9] = Field{Type: IPV6_DST_MASK, Length: 1}
+	fields[10] = Field{Type: L4_SRC_PORT, Length: 2}
+	fields[11] = Field{Type: L4_DST_PORT, Length: 2}
+	fields[12] = Field{Type: PROTOCOL, Length: 1}
+	fields[13] = Field{Type: TCP_FLAGS, Length: 1}
+	fields[14] = Field{Type: FIRST_SWITCHED, Length: 4}
+	fields[15] = Field{Type: LAST_SWITCHED, Length: 4}
+	fields[16] = Field{Type: ENGINE_TYPE, Length: 1}
+	fields[17] = Field{Type: ENGINE_ID, Length: 1}
 	return fields
 }
 
-// Generate returns HTTPS Flow with randomly generated payload
+// Generate returns a NetFlow v9 Flow with randomly generated payload.
+// Populates both IPv4 and IPv6 fields based on the input IP version.
 func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *Session) GenericFlow {
 	now := time.Now().UnixNano()
 	startTime := session.StartTime()
@@ -185,8 +197,24 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 	gf.OutBytes = utils.GenerateRand32(10000)
 	gf.InPkts = utils.GenerateRand32(10000)
 	gf.OutPkts = utils.GenerateRand32(10000)
-	gf.Ipv4SrcAddr = utils.IPToNum(srcIP)
-	gf.Ipv4DstAddr = utils.IPToNum(dstIP)
+
+	// Populate IP addresses based on version
+	if srcIP.To4() != nil {
+		gf.Ipv4SrcAddr = utils.IPToNum(srcIP)
+		gf.Ipv4DstAddr = utils.IPToNum(dstIP)
+		gf.Ipv6SrcAddr = [16]byte{}
+		gf.Ipv6DstAddr = [16]byte{}
+		gf.Ipv6SrcMask = 0
+		gf.Ipv6DstMask = 0
+	} else {
+		gf.Ipv4SrcAddr = 0
+		gf.Ipv4DstAddr = 0
+		copy(gf.Ipv6SrcAddr[:], srcIP.To16())
+		copy(gf.Ipv6DstAddr[:], dstIP.To16())
+		gf.Ipv6SrcMask = 64 // Default /64 mask
+		gf.Ipv6DstMask = 64 // Default /64 mask
+	}
+
 	gf.L4SrcPort = utils.GenerateRand16(10000)
 	gf.TcpFlags = uint8(utils.RandomNum(0, 32))
 	gf.FirstSwitched = uptime - 100

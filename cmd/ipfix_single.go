@@ -33,13 +33,13 @@ type IPFIXCommand struct {
 // ParseFlags parses command-line flags for the ipfix mode.
 func (c *IPFIXCommand) ParseFlags(args []string) error {
 	fs := flag.NewFlagSet("ipfix", flag.ExitOnError)
-	c.server = fs.String("server", "127.0.0.1", "servername or ip address of flow collector.")
+	c.server = fs.String("server", "127.0.0.1", "servername or ip address of flow collector (IPv4 or IPv6)")
 	c.port = fs.Int("port", 9995, "destination port used by the flow collector.")
 	c.srcPort = fs.Int("src-port", 0, "source port used by the client. If 0 a Random port between 10000-15000")
 	c.count = fs.Int("count", 1, "count of flows to send in sequence.")
 	c.hexDump = fs.Bool("hexdump", false, "If true, do a hexdump of the packet")
-	c.srcRange = fs.String("src-range", "10.0.0.0/8", "cidr range to use for generating source IPs for flows")
-	c.dstRange = fs.String("dst-range", "10.0.0.0/8", "cidr range to use for generating destination IPs for flows")
+c.srcRange = fs.String("src-range", "10.0.0.0/8", "CIDR range for source IPs (IPv4 or IPv6)")
+c.dstRange = fs.String("dst-range", "10.0.0.0/8", "CIDR range for destination IPs (IPv4 or IPv6)")
 	return fs.Parse(args)
 }
 

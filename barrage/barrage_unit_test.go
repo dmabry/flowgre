@@ -408,3 +408,69 @@ func TestRunCtxZeroTemplateInterval(t *testing.T) {
 	}
 	t.Logf("Templates with interval=0: %d", tmpl)
 }
+
+// TestRunCtxSendsValidPackets_IPv6 verifies that workers send valid NetFlow
+// packets with IPv6 flow data to an IPv6 listener.
+func TestRunCtxSendsValidPackets_IPv6(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	listener, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.ParseIP("::1"), Port: 0})
+	if err != nil {
+		t.Skipf("IPv6 not available: %v", err)
+	}
+	defer listener.Close()
+	port := listener.LocalAddr().(*net.UDPAddr).Port
+
+	var mu sync.Mutex
+	var validPackets int
+
+	ready := make(chan struct{})
+	go func() {
+		close(ready)
+		buf := make([]byte, 65535)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				listener.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+				n, _, err := listener.ReadFromUDP(buf)
+				if err != nil {
+					continue
+				}
+				pkt := buf[:n]
+				ok, _ := netflow.IsValidNetFlow(pkt, 9)
+				if ok {
+					mu.Lock()
+					validPackets++
+					mu.Unlock()
+				}
+			}
+		}
+	}()
+	<-ready
+
+	config := &models.Config{
+		Server:           "::1",
+		DstPort:          port,
+		SrcRange:         "2001:db8:1::/48",
+		DstRange:         "2001:db8:2::/48",
+		Workers:          1,
+		Delay:            50,
+		TemplateInterval: 30,
+	}
+
+	RunCtx(ctx, config, NetFlow())
+
+	mu.Lock()
+	count := validPackets
+	mu.Unlock()
+
+	if count == 0 {
+		t.Error("No valid packets received")
+	}
+	t.Logf("Received %d valid NetFlow packets with IPv6 flows", count)
+}

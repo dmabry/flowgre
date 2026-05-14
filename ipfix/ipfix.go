@@ -49,21 +49,25 @@ const (
 
 // IANA IPFIX field type constants (RFC 7011 / Information Model)
 const (
-	ProtocolIdentifier       = 4
-	SourceTransportPort      = 7
-	SourceIPv4Address        = 8
-	DestinationTransportPort = 11
-	DestinationIPv4Address   = 12
-	FlowDirection            = 1024
-	InPackets                = 1025
-	InOctets                 = 1026
-	OutPackets               = 1027
-	OutOctets                = 1028
-	IPClassOfService         = 3
-	TCPFlags                 = 6
-	FlowStartMilliseconds    = 152
-	FlowEndMilliseconds      = 153
-	FlowEndReason            = 157
+	ProtocolIdentifier           = 4
+	SourceTransportPort          = 7
+	SourceIPv4Address            = 8
+	DestinationTransportPort     = 11
+	DestinationIPv4Address       = 12
+	SourceIPv6Address            = 25
+	DestinationIPv6Address       = 26
+	SourceIPv6PrefixLength       = 47
+	DestinationIPv6PrefixLength  = 48
+	FlowDirection                = 1024
+	InPackets                    = 1025
+	InOctets                     = 1026
+	OutPackets                   = 1027
+	OutOctets                    = 1028
+	IPClassOfService             = 3
+	TCPFlags                     = 6
+	FlowStartMilliseconds        = 152
+	FlowEndMilliseconds          = 153
+	FlowEndReason                = 157
 	// Options Template fields
 	ObservationDomainId = 31
 	ProcessName         = 279
@@ -246,6 +250,8 @@ func (o *OptionsDataFlowSet) Generate(sourceID int, processName string, pid uint
 }
 
 // GenericFlow represents an IPFIX flow record with IANA field types.
+// Field order must match GetTemplateFields() exactly — binary.Write
+// serializes in struct field order, and the template defines the wire format.
 type GenericFlow struct {
 	InOctets           uint32
 	OutOctets          uint32
@@ -253,6 +259,10 @@ type GenericFlow struct {
 	OutPackets         uint32
 	SourceIPv4Addr     uint32
 	DestIPv4Addr       uint32
+	SourceIPv6Addr     [16]byte
+	DestIPv6Addr       [16]byte
+	SourceIPv6Prefix   uint8
+	DestIPv6Prefix     uint8
 	SourcePort         uint16
 	DestPort           uint16
 	ProtocolIdentifier uint8
@@ -265,6 +275,7 @@ type GenericFlow struct {
 }
 
 // GetTemplateFields returns the IPFIX field definitions for the template.
+// Field order must match GenericFlow struct field order exactly.
 func (gf *GenericFlow) GetTemplateFields() []Field {
 	return []Field{
 		{Type: InOctets, Length: 4},
@@ -273,6 +284,10 @@ func (gf *GenericFlow) GetTemplateFields() []Field {
 		{Type: OutPackets, Length: 4},
 		{Type: SourceIPv4Address, Length: 4},
 		{Type: DestinationIPv4Address, Length: 4},
+		{Type: SourceIPv6Address, Length: 16},
+		{Type: DestinationIPv6Address, Length: 16},
+		{Type: SourceIPv6PrefixLength, Length: 1},
+		{Type: DestinationIPv6PrefixLength, Length: 1},
 		{Type: SourceTransportPort, Length: 2},
 		{Type: DestinationTransportPort, Length: 2},
 		{Type: ProtocolIdentifier, Length: 1},
@@ -286,6 +301,7 @@ func (gf *GenericFlow) GetTemplateFields() []Field {
 }
 
 // Generate creates a GenericFlow with randomly generated data.
+// Populates both IPv4 and IPv6 fields based on the input IP version.
 func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *netflow.Session) GenericFlow {
 	now := time.Now().UnixNano()
 	startTime := session.StartTime()
@@ -295,8 +311,24 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 	gf.OutOctets = utils.GenerateRand32(10000)
 	gf.InPackets = utils.GenerateRand32(10000)
 	gf.OutPackets = utils.GenerateRand32(10000)
-	gf.SourceIPv4Addr = utils.IPToNum(srcIP)
-	gf.DestIPv4Addr = utils.IPToNum(dstIP)
+
+	// Populate IP addresses based on version
+	if srcIP.To4() != nil {
+		gf.SourceIPv4Addr = utils.IPToNum(srcIP)
+		gf.DestIPv4Addr = utils.IPToNum(dstIP)
+		gf.SourceIPv6Addr = [16]byte{}
+		gf.DestIPv6Addr = [16]byte{}
+		gf.SourceIPv6Prefix = 0
+		gf.DestIPv6Prefix = 0
+	} else {
+		gf.SourceIPv4Addr = 0
+		gf.DestIPv4Addr = 0
+		copy(gf.SourceIPv6Addr[:], srcIP.To16())
+		copy(gf.DestIPv6Addr[:], dstIP.To16())
+		gf.SourceIPv6Prefix = 64 // Default /64
+		gf.DestIPv6Prefix = 64   // Default /64
+	}
+
 	gf.SourcePort = utils.GenerateRand16(10000)
 	gf.TCPFlags = uint8(utils.RandomNum(0, 32))
 	gf.FlowStartMillis = uptimeMillis - 100
@@ -370,14 +402,14 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 
 	items := make([]DataAny, flowCount)
 	for i := range flowCount {
-		srcIP, err := utils.RandomIP(srcRange)
+		srcIP, err := utils.RandomIPCIDR(srcRange)
 		if err != nil {
 			// Proceed with zero IP on error
-			srcIP = net.IP{0, 0, 0, 0}
+			srcIP = net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 		}
-		dstIP, err := utils.RandomIP(dstRange)
+		dstIP, err := utils.RandomIPCIDR(dstRange)
 		if err != nil {
-			dstIP = net.IP{0, 0, 0, 0}
+			dstIP = net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 		}
 		port := flowSrcPort
 		if port == 0 {
