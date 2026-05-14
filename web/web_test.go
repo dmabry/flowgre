@@ -21,7 +21,7 @@ type Response struct {
 	Message string `json:"message"`
 }
 
-// TestRun runs a test to verify functionality. TODO: Need to determine a sane test for this
+// TestRun verifies that the web server starts, serves the dashboard, and returns valid JSON.
 func TestRun(t *testing.T) {
 	t.Parallel()
 	wg := &sync.WaitGroup{}
