@@ -6,6 +6,7 @@ package ipfix
 import (
 	"bytes"
 	"encoding/binary"
+	"net"
 	"testing"
 	"time"
 
@@ -54,16 +55,16 @@ func TestGenerateTemplateIPFIX(t *testing.T) {
 		if tFlow.FlowSetID != 0 {
 			t.Errorf("FlowSetID wrong! Got: %d Want: 0", tFlow.FlowSetID)
 		}
-		// Template: FlowSetID(2)+Length(2)+TemplateID(2)+FieldCount(2)+15*(Type(2)+Length(2))=68, no padding
-		if tFlow.Length != 68 {
-			t.Errorf("Template Length wrong! Got: %d Want: 68", tFlow.Length)
+		// Template: FlowSetID(2)+Length(2)+TemplateID(2)+FieldCount(2)+19*(Type(2)+Length(2))=84, no padding
+		if tFlow.Length != 84 {
+			t.Errorf("Template Length wrong! Got: %d Want: 84", tFlow.Length)
 		}
 		for _, template := range tFlow.Templates {
 			if template.TemplateID != 256 {
 				t.Errorf("TemplateID wrong! Got: %d Want: 256", template.TemplateID)
 			}
-			if template.FieldCount != 15 {
-				t.Errorf("FieldCount wrong! Got: %d Want: 15", template.FieldCount)
+			if template.FieldCount != 19 {
+				t.Errorf("FieldCount wrong! Got: %d Want: 19", template.FieldCount)
 			}
 		}
 	}
@@ -450,8 +451,8 @@ func TestGetTemplateFields_IPFIXFieldTypes(t *testing.T) {
 	gf := new(GenericFlow)
 	fields := gf.GetTemplateFields()
 
-	if len(fields) != 15 {
-		t.Fatalf("Field count wrong! Got: %d Want: 15", len(fields))
+	if len(fields) != 19 {
+		t.Fatalf("Field count wrong! Got: %d Want: 19", len(fields))
 	}
 
 	// Expected IPFIX field types (IANA IPFIX Information Model RFC 7011)
@@ -462,6 +463,10 @@ func TestGetTemplateFields_IPFIXFieldTypes(t *testing.T) {
 		1027, // outPackets
 		8,    // sourceIPv4Address
 		12,   // destinationIPv4Address
+		25,   // sourceIPv6Address
+		26,   // destinationIPv6Address
+		47,   // sourceIPv6PrefixLength
+		48,   // destinationIPv6PrefixLength
 		7,    // sourceTransportPort
 		11,   // destinationTransportPort
 		4,    // protocolIdentifier
@@ -480,10 +485,242 @@ func TestGetTemplateFields_IPFIXFieldTypes(t *testing.T) {
 	}
 
 	// Verify field lengths match expected sizes
-	expectedLengths := []uint16{4, 4, 4, 4, 4, 4, 2, 2, 1, 1, 4, 4, 1, 1, 1}
+	expectedLengths := []uint16{4, 4, 4, 4, 4, 4, 16, 16, 1, 1, 2, 2, 1, 1, 4, 4, 1, 1, 1}
 	for i, expected := range expectedLengths {
 		if fields[i].Length != expected {
 			t.Errorf("Field[%d] length wrong! Got: %d Want: %d", i, fields[i].Length, expected)
 		}
+	}
+}
+
+func TestGenericFlowIPv6(t *testing.T) {
+	t.Parallel()
+
+	srcIP := net.ParseIP("2001:db8::1")
+	dstIP := net.ParseIP("2001:db8::2")
+	session := netflow.NewSession()
+
+	result := new(GenericFlow).Generate(srcIP, dstIP, httpsPort, session)
+
+	// IPv4 fields should be zeroed
+	if result.SourceIPv4Addr != 0 {
+		t.Errorf("expected zeroed IPv4 src, got %d", result.SourceIPv4Addr)
+	}
+	if result.DestIPv4Addr != 0 {
+		t.Errorf("expected zeroed IPv4 dst, got %d", result.DestIPv4Addr)
+	}
+
+	// IPv6 fields should be populated
+	expectedSrc := [16]byte{}
+	copy(expectedSrc[:], srcIP.To16())
+	if result.SourceIPv6Addr != expectedSrc {
+		t.Errorf("IPv6 src mismatch: got %v want %v", result.SourceIPv6Addr, expectedSrc)
+	}
+	expectedDst := [16]byte{}
+	copy(expectedDst[:], dstIP.To16())
+	if result.DestIPv6Addr != expectedDst {
+		t.Errorf("IPv6 dst mismatch: got %v want %v", result.DestIPv6Addr, expectedDst)
+	}
+
+	// Prefix should be 64
+	if result.SourceIPv6Prefix != 64 {
+		t.Errorf("expected IPv6 src prefix 64, got %d", result.SourceIPv6Prefix)
+	}
+	if result.DestIPv6Prefix != 64 {
+		t.Errorf("expected IPv6 dst prefix 64, got %d", result.DestIPv6Prefix)
+	}
+}
+
+func TestGenericFlowIPv4_ZerosIPv6(t *testing.T) {
+	t.Parallel()
+
+	srcIP := net.ParseIP("10.0.0.1")
+	dstIP := net.ParseIP("10.0.0.2")
+	session := netflow.NewSession()
+
+	result := new(GenericFlow).Generate(srcIP, dstIP, httpsPort, session)
+
+	// IPv4 fields should be populated
+	if result.SourceIPv4Addr == 0 {
+		t.Error("expected non-zero IPv4 src")
+	}
+	if result.DestIPv4Addr == 0 {
+		t.Error("expected non-zero IPv4 dst")
+	}
+
+	// IPv6 fields should be zeroed
+	if result.SourceIPv6Addr != [16]byte{} {
+		t.Errorf("expected zeroed IPv6 src, got %v", result.SourceIPv6Addr)
+	}
+	if result.DestIPv6Addr != [16]byte{} {
+		t.Errorf("expected zeroed IPv6 dst, got %v", result.DestIPv6Addr)
+	}
+	if result.SourceIPv6Prefix != 0 {
+		t.Errorf("expected zeroed IPv6 src prefix, got %d", result.SourceIPv6Prefix)
+	}
+	if result.DestIPv6Prefix != 0 {
+		t.Errorf("expected zeroed IPv6 dst prefix, got %d", result.DestIPv6Prefix)
+	}
+}
+
+func TestGenerateDataIPFIX_IPv6(t *testing.T) {
+	t.Parallel()
+	flowCount := 10
+	sourceID := 618
+	session := netflow.NewSession()
+	flow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", httpsPort, session)
+
+	if len(flow.DataFlowSets) < 1 {
+		t.Fatal("No data flowsets generated")
+	}
+
+	for _, dFlow := range flow.DataFlowSets {
+		if dFlow.FlowSetID < 256 {
+			t.Errorf("FlowSetID wrong! Got: %d Want >= 256", dFlow.FlowSetID)
+		}
+		if len(dFlow.Items) < flowCount {
+			t.Errorf("Items count wrong! Got: %d Want: %d", len(dFlow.Items), flowCount)
+		}
+
+		// Verify each item has IPv6 addresses populated
+		for i, item := range dFlow.Items {
+			gf, ok := item.(GenericFlow)
+			if !ok {
+				t.Fatalf("Item %d is not a GenericFlow", i)
+			}
+			// IPv6 addresses should be populated (non-zero)
+			if gf.SourceIPv6Addr == [16]byte{} {
+				t.Errorf("Item %d: expected non-zero IPv6 src", i)
+			}
+			if gf.DestIPv6Addr == [16]byte{} {
+				t.Errorf("Item %d: expected non-zero IPv6 dst", i)
+			}
+			// IPv4 addresses should be zeroed
+			if gf.SourceIPv4Addr != 0 {
+				t.Errorf("Item %d: expected zeroed IPv4 src, got %d", i, gf.SourceIPv4Addr)
+			}
+			if gf.DestIPv4Addr != 0 {
+				t.Errorf("Item %d: expected zeroed IPv4 dst, got %d", i, gf.DestIPv4Addr)
+			}
+		}
+	}
+}
+
+func TestGenerateIPFIX_IPv6(t *testing.T) {
+	t.Parallel()
+	flowCount := 10
+	sourceID := 618
+	session := netflow.NewSession()
+	flow := GenerateIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", session)
+
+	if flow.Header.Version != 10 {
+		t.Errorf("Version wrong! Got: %d Want: 10", flow.Header.Version)
+	}
+	if len(flow.TemplateFlowSets) < 1 {
+		t.Error("Should have template flowsets")
+	}
+	if len(flow.DataFlowSets) < 1 {
+		t.Error("Should have data flowsets")
+	}
+	if flow.Header.FlowCount != uint16(flowCount+1) {
+		t.Errorf("FlowCount wrong! Got: %d Want: %d", flow.Header.FlowCount, flowCount+1)
+	}
+}
+
+func TestToBytes_IPv6_RoundTrip(t *testing.T) {
+	t.Parallel()
+	sourceID := 618
+	flowCount := 10
+	session := netflow.NewSession()
+
+	dFlow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", httpsPort, session)
+	dBuf := dFlow.ToBytes()
+
+	// Read back
+	dLength := dBuf.Len()
+	dread := make([]byte, dLength)
+	dn, err := dBuf.Read(dread)
+	if err != nil {
+		t.Fatalf("Error during IPFIX Data Read! Got: %v", err)
+	}
+	if dn != dLength {
+		t.Fatalf("Returned invalid IPFIX Data buffer length! Got: %d Want: %d", dn, dBuf.Len())
+	}
+
+	// Parse Data — skip the IPFIX header first
+	dreader := bytes.NewReader(dread)
+	var parsedHeader Header
+	if err := binary.Read(dreader, binary.BigEndian, &parsedHeader); err != nil {
+		t.Fatalf("Failed to parse IPFIX Data Header: %v", err)
+	}
+
+	dFlowSet := new(DataFlowSet)
+	if err := binary.Read(dreader, binary.BigEndian, &dFlowSet.FlowSetID); err != nil {
+		t.Fatalf("Failed to parse IPFIX Data FlowSetID: %v", err)
+	}
+	if err := binary.Read(dreader, binary.BigEndian, &dFlowSet.Length); err != nil {
+		t.Fatalf("Failed to parse IPFIX Data Length: %v", err)
+	}
+
+	dataItems := make([]DataAny, flowCount)
+	for i := range flowCount {
+		dataItem := GenericFlow{}
+		if err := binary.Read(dreader, binary.BigEndian, &dataItem); err != nil {
+			t.Fatalf("Issue reading IPFIX GenericFlow: %v", err)
+		}
+		// Verify IPv6 addresses survived serialization
+		if dataItem.SourceIPv6Addr == [16]byte{} {
+			t.Errorf("Item %d: IPv6 src was zeroed after serialization", i)
+		}
+		if dataItem.DestIPv6Addr == [16]byte{} {
+			t.Errorf("Item %d: IPv6 dst was zeroed after serialization", i)
+		}
+		if dataItem.SourceIPv6Prefix != 64 {
+			t.Errorf("Item %d: expected IPv6 src prefix 64, got %d", i, dataItem.SourceIPv6Prefix)
+		}
+		dataItems[i] = dataItem
+	}
+	dFlowSet.Items = dataItems
+
+	if dreader.Len() > 0 {
+		padLength := dreader.Len()
+		padding := make([]byte, padLength)
+		if err := binary.Read(dreader, binary.BigEndian, padding); err != nil {
+			t.Errorf("Failed to parse IPFIX Data Padding: %v", err)
+		}
+		dFlowSet.Padding = padLength
+	}
+}
+
+func TestToBytes_IPv6_BufferLengthMatchesFlowSetLengths(t *testing.T) {
+	t.Parallel()
+	sourceID := 618
+	flowCount := 10
+	session := netflow.NewSession()
+
+	dFlow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", httpsPort, session)
+	dBuf := dFlow.ToBytes()
+	expectedDLen := binary.Size(dFlow.Header)
+	for _, fs := range dFlow.DataFlowSets {
+		expectedDLen += int(fs.Length)
+	}
+	if dBuf.Len() != expectedDLen {
+		t.Errorf("IPv6 Data buffer length mismatch: got %d, want %d (header %d + flowsets %d)",
+			dBuf.Len(), expectedDLen, binary.Size(dFlow.Header),
+			expectedDLen-binary.Size(dFlow.Header))
+	}
+
+	cFlow := GenerateIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", session)
+	cBuf := cFlow.ToBytes()
+	expectedCLen := binary.Size(cFlow.Header)
+	for _, fs := range cFlow.TemplateFlowSets {
+		expectedCLen += int(fs.Length)
+	}
+	for _, fs := range cFlow.DataFlowSets {
+		expectedCLen += int(fs.Length)
+	}
+	if cBuf.Len() != expectedCLen {
+		t.Errorf("IPv6 Combined buffer length mismatch: got %d, want %d",
+			cBuf.Len(), expectedCLen)
 	}
 }
