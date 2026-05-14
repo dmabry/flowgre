@@ -8,6 +8,7 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/gob"
 	"net"
 	"strings"
 	"testing"
@@ -96,7 +97,36 @@ func TestRandomNum(t *testing.T) {
 
 func TestToBytes(t *testing.T) {
 	t.Parallel()
-	//Stub TODO: Make a test that is actually applicable.  The function isn't used currently
+
+	// Test with a simple struct
+	type TestStruct struct {
+		Name  string
+		Value int
+	}
+	original := TestStruct{Name: "flowgre", Value: 42}
+
+	data, err := ToBytes(original)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("expected non-empty byte slice")
+	}
+
+	// Verify we can decode it back
+	var buf bytes.Buffer
+	buf.Write(data)
+	dec := gob.NewDecoder(&buf)
+	var decoded TestStruct
+	if err := dec.Decode(&decoded); err != nil {
+		t.Fatalf("failed to decode: %v", err)
+	}
+	if decoded.Name != original.Name {
+		t.Errorf("expected Name %q, got %q", original.Name, decoded.Name)
+	}
+	if decoded.Value != original.Value {
+		t.Errorf("expected Value %d, got %d", original.Value, decoded.Value)
+	}
 }
 
 func TestRandomIP(t *testing.T) {

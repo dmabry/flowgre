@@ -26,6 +26,7 @@ const (
 
 // Collector gathers stats about barrage workers and emits them via stdout and web UI.
 type Collector struct {
+	mu          sync.RWMutex
 	StatsMap    map[int]models.WorkerStat
 	StatsChan   chan models.WorkerStat
 	StatsTotals models.StatTotals
@@ -56,16 +57,18 @@ func (sc *Collector) Run(wg *sync.WaitGroup, ctx context.Context) {
 				default:
 					sizeOut = stat.BytesSent
 				}
-				log.Printf("Worker [%2d] SourceID: %4d Cycles: %d Flows Sent: %d Bytes Sent: %d %s\n",
-					stat.WorkerID, stat.SourceID, stat.Cycles, stat.FlowsSent, sizeOut, sizeLabel)
-				sc.StatsMap[stat.WorkerID] = stat
-				// Recalculate totals from map to avoid double-counting cumulative stats
-				sc.StatsTotals = models.StatTotals{}
-				for _, s := range sc.StatsMap {
-					sc.StatsTotals.Cycles += s.Cycles
-					sc.StatsTotals.FlowsSent += s.FlowsSent
-					sc.StatsTotals.BytesSent += s.BytesSent
-				}
+			log.Printf("Worker [%2d] SourceID: %4d Cycles: %d Flows Sent: %d Bytes Sent: %d %s\n",
+				stat.WorkerID, stat.SourceID, stat.Cycles, stat.FlowsSent, sizeOut, sizeLabel)
+			sc.mu.Lock()
+			sc.StatsMap[stat.WorkerID] = stat
+			// Recalculate totals from map to avoid double-counting cumulative stats
+			sc.StatsTotals = models.StatTotals{}
+			for _, s := range sc.StatsMap {
+				sc.StatsTotals.Cycles += s.Cycles
+				sc.StatsTotals.FlowsSent += s.FlowsSent
+				sc.StatsTotals.BytesSent += s.BytesSent
+			}
+			sc.mu.Unlock()
 			} else {
 				log.Println("Stats Channel Closed!")
 			}
@@ -85,7 +88,14 @@ func (sc *Collector) Run(wg *sync.WaitGroup, ctx context.Context) {
 
 // StatsHandler emits worker stats as JSON for the web API.
 func (sc *Collector) StatsHandler(w http.ResponseWriter, r *http.Request) {
-	err := json.NewEncoder(w).Encode(sc.StatsMap)
+	sc.mu.RLock()
+	statsCopy := make(map[int]models.WorkerStat, len(sc.StatsMap))
+	for k, v := range sc.StatsMap {
+		statsCopy[k] = v
+	}
+	sc.mu.RUnlock()
+
+	err := json.NewEncoder(w).Encode(statsCopy)
 	if err != nil {
 		log.Printf("Web server had an issue: %v\n", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -94,6 +104,14 @@ func (sc *Collector) StatsHandler(w http.ResponseWriter, r *http.Request) {
 
 // DashboardHandler renders the dashboard HTML page with current stats.
 func (sc *Collector) DashboardHandler(w http.ResponseWriter, r *http.Request) {
+	sc.mu.RLock()
+	statsCopy := make(map[int]models.WorkerStat, len(sc.StatsMap))
+	for k, v := range sc.StatsMap {
+		statsCopy[k] = v
+	}
+	totalsCopy := sc.StatsTotals
+	sc.mu.RUnlock()
+
 	d := models.DashboardPage{
 		Title:   "Flowgre Dashboard",
 		Comment: "Basic metrics about flowgre",
@@ -102,8 +120,8 @@ func (sc *Collector) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 			Message: "Flowgre is Flinging Packets!",
 		},
 		ConfigOut:   sc.Config,
-		StatsMapOut: sc.StatsMap,
-		StatsTotal:  sc.StatsTotals,
+		StatsMapOut: statsCopy,
+		StatsTotal:  totalsCopy,
 	}
 
 	t, err := template.New("dashboard").Parse(templates.DashboardTpl)
