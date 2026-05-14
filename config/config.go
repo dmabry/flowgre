@@ -22,9 +22,10 @@ import (
 //	    template-interval: 30
 //	    src-range: 10.0.0.0/8
 //	    dst-range: 10.0.0.0/8
-//	    web: false
-//	    web-ip: 0.0.0.0
-//	    web-port: 8080
+//\t    web: false
+//\t    web-ip: 0.0.0.0
+//\t    web-port: 8080
+//\t    protocol: netflow
 func LoadBarrageConfig() (*models.Config, error) {
 	if !viper.IsSet("targets") {
 		return nil, fmt.Errorf("couldn't find targets section in config file")
@@ -63,9 +64,10 @@ func LoadBarrageConfig() (*models.Config, error) {
 	webIP := getString(targetValues, "web-ip", "0.0.0.0")
 	webPort := getInt(targetValues, "web-port", 8080)
 	web := getBool(targetValues, "web", false)
+	protocol := getString(targetValues, "protocol", "netflow")
 
-	log.Printf("target: %s ip: %s port: %d workers: %d delay: %d template-interval: %d src-range: %s dst-range: %s web: %v web-ip: %s web-port: %d\n",
-		targetName, ip, port, workers, delay, templateInterval, srcRange, dstRange, web, webIP, webPort)
+	log.Printf("target: %s ip: %s port: %d workers: %d delay: %d template-interval: %d src-range: %s dst-range: %s web: %v web-ip: %s web-port: %d protocol: %s\n",
+		targetName, ip, port, workers, delay, templateInterval, srcRange, dstRange, web, webIP, webPort, protocol)
 
 	return &models.Config{
 		Server:           ip,
@@ -78,6 +80,7 @@ func LoadBarrageConfig() (*models.Config, error) {
 		WebIP:            webIP,
 		WebPort:          webPort,
 		Web:              web,
+		Protocol:         protocol,
 	}, nil
 }
 

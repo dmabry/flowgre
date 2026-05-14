@@ -76,6 +76,7 @@ func (c *BarrageCommand) Execute() error {
 		WebIP:            *c.webIP,
 		WebPort:          *c.webPort,
 		Web:              *c.web,
+		Protocol:         *c.protocol,
 	}
 	if *c.protocol == "ipfix" {
 		barrage.Run(cfg, barrage.IPFIX())
