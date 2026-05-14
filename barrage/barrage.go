@@ -129,7 +129,9 @@ func RunCtx(ctx context.Context, config *models.Config, gen FlowGenerator) {
 
 	buffer := 20
 	// Start the StatsCollector
-	sc := &stats.Collector{}
+	sc := &stats.Collector{
+		StartTime: time.Now(),
+	}
 	sc.StatsChan = make(chan models.WorkerStat, config.Workers+buffer)
 	sc.StatsMap = make(map[int]models.WorkerStat)
 	sc.StatsTotals = models.StatTotals{
@@ -175,7 +177,9 @@ func Run(config *models.Config, gen FlowGenerator) {
 
 	buffer := 20
 	// Start the StatsCollector
-	sc := &stats.Collector{}
+	sc := &stats.Collector{
+		StartTime: time.Now(),
+	}
 	sc.StatsChan = make(chan models.WorkerStat, config.Workers+buffer)
 	sc.StatsMap = make(map[int]models.WorkerStat)
 	sc.StatsTotals = models.StatTotals{

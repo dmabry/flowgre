@@ -5,6 +5,8 @@
 
 package models
 
+import "time"
+
 type Config struct {
 	Server           string `json:"server,omitempty"`
 	DstPort          int    `json:"dst_port,omitempty"`
@@ -16,6 +18,7 @@ type Config struct {
 	WebIP            string `json:"web_ip,omitempty"`
 	WebPort          int    `json:"web_port,omitempty"`
 	Web              bool   `json:"web,omitempty"`
+	Protocol         string `json:"protocol,omitempty"` // "netflow" or "ipfix"
 }
 
 type WorkerStat struct {
@@ -27,9 +30,16 @@ type WorkerStat struct {
 }
 
 type StatTotals struct {
-	FlowsSent uint64
-	Cycles    uint64
-	BytesSent uint64
+	FlowsSent uint64 `json:"flows_sent"`
+	Cycles    uint64 `json:"cycles"`
+	BytesSent uint64 `json:"bytes_sent"`
+}
+
+// StatSnapshot is a point-in-time snapshot of stats for time-series charting.
+type StatSnapshot struct {
+	Timestamp time.Time      `json:"timestamp"`
+	Totals    StatTotals     `json:"totals"`
+	Workers   map[int]WorkerStat `json:"workers"`
 }
 
 type WorkerStats []WorkerStat
@@ -46,4 +56,7 @@ type DashboardPage struct {
 	ConfigOut   *Config            `json:"config_out"`
 	StatsMapOut map[int]WorkerStat `json:"stats_map_out"`
 	StatsTotal  StatTotals         `json:"stats_total"`
+	Protocol    string             `json:"protocol"`    // "netflow" or "ipfix"
+	StartTime   time.Time          `json:"start_time"`  // when barrage started
+	Uptime      string             `json:"uptime"`      // human-readable uptime
 }

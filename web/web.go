@@ -28,6 +28,7 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 	router.HandleFunc("/", IndexHandler)
 	router.HandleFunc("/health", HealthHandler)
 	router.HandleFunc("/stats", sc.StatsHandler)
+	router.HandleFunc("/stats/history", sc.HistoryHandler)
 	router.HandleFunc("/dashboard", sc.DashboardHandler)
 
 	srv := &http.Server{
