@@ -8,6 +8,7 @@ import (
 	"github.com/dmabry/flowgre/barrage"
 	"github.com/dmabry/flowgre/config"
 	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/netflow"
 )
 
 // BarrageCommand holds flags and state for the barrage subcommand.
@@ -24,6 +25,7 @@ type BarrageCommand struct {
 	webIP            *string
 	web              *bool
 	protocol         *string
+	profile          *string
 }
 
 // ParseFlags parses command-line flags for the barrage mode.
@@ -41,11 +43,23 @@ c.dstRange = fs.String("dst-range", "10.0.0.0/8", "CIDR range for destination IP
 	c.webIP = fs.String("web-ip", "0.0.0.0", "IP address the web server will listen on (IPv4 or IPv6)")
 	c.web = fs.Bool("web", false, "Whether to use the web server or not")
 	c.protocol = fs.String("protocol", "netflow", "protocol to use: netflow or ipfix")
+	c.profile = fs.String("profile", "generic", "flow profile: generic, minimal, extended")
 	return fs.Parse(args)
 }
 
 // Execute runs the barrage mode with parsed flags.
 func (c *BarrageCommand) Execute() error {
+	// Resolve profile from string
+	var nfProfile netflow.FlowProfile
+	switch *c.profile {
+	case "minimal":
+		nfProfile = &netflow.MinimalProfile{}
+	case "extended":
+		nfProfile = &netflow.ExtendedProfile{}
+	default:
+		nfProfile = &netflow.GenericProfile{}
+	}
+
 	// If config file is provided, load from it and ignore other args
 	if *c.configFile != "" {
 		fmt.Println("Reading config file... ignoring any other given arguments")
@@ -59,7 +73,7 @@ func (c *BarrageCommand) Execute() error {
 		if *c.protocol == "ipfix" {
 			barrage.Run(cfg, barrage.IPFIX())
 		} else {
-			barrage.Run(cfg, barrage.NetFlow())
+			barrage.Run(cfg, barrage.NetFlow(nfProfile))
 		}
 		return nil
 	}
@@ -81,7 +95,7 @@ func (c *BarrageCommand) Execute() error {
 	if *c.protocol == "ipfix" {
 		barrage.Run(cfg, barrage.IPFIX())
 	} else {
-		barrage.Run(cfg, barrage.NetFlow())
+		barrage.Run(cfg, barrage.NetFlow(nfProfile))
 	}
 	return nil
 }

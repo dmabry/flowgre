@@ -125,9 +125,14 @@ type TemplateFlowSet struct {
 }
 
 // Generate creates a TemplateFlowSet with IPFIX field types.
-func (t *TemplateFlowSet) Generate(session *netflow.Session) TemplateFlowSet {
-	gf := new(GenericFlow)
-	fields := gf.GetTemplateFields()
+// If profile is nil, defaults to GenericIPFIXProfile for backward compatibility.
+func (t *TemplateFlowSet) Generate(session *netflow.Session, profile ...IPFIXFlowProfile) TemplateFlowSet {
+	p := IPFIXFlowProfile(&GenericIPFIXProfile{}) // default
+	if len(profile) > 0 && profile[0] != nil {
+		p = profile[0]
+	}
+
+	fields := p.TemplateFields()
 
 	template := Template{
 		TemplateID: 256,
@@ -397,7 +402,10 @@ type DataFlowSet struct {
 }
 
 // Generate creates a DataFlowSet with random flow data.
-func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, session *netflow.Session) DataFlowSet {
+// If profile is nil, defaults to GenericIPFIXProfile for backward compatibility.
+func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, session *netflow.Session, profile ...IPFIXFlowProfile) DataFlowSet {
+	_ = profile // reserved for future profile-aware data generation
+
 	protoPorts := []int{21, 22, 53, 80, 443, 123, 161, 993, 3306, 8080, 8443, 6681, 6682}
 
 	items := make([]DataAny, flowCount)

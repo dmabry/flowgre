@@ -6,6 +6,7 @@ package netflow
 import (
 	"encoding/binary"
 	"log"
+	"net"
 
 	"github.com/dmabry/flowgre/utils"
 )
@@ -26,9 +27,15 @@ type DataFlowSet struct {
 
 // Generate a DataFlowSet.
 // Per Netflow v9 spec, FlowSetID is *always* set to the TemplateID from a given TemplateFlowSet.
-// Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255
+// Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255.
 // Currently hardcoded to generate random src/dst IPs from 10.0.0.0/8.
-func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, session *Session) DataFlowSet {
+// If profile is nil, defaults to GenericProfile for backward compatibility.
+func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, session *Session, profile ...FlowProfile) DataFlowSet {
+	p := FlowProfile(&GenericProfile{}) // default
+	if len(profile) > 0 && profile[0] != nil {
+		p = profile[0]
+	}
+
 	dataFlowSet := new(DataFlowSet)
 	dataFlowSet.FlowSetID = 256
 	protoPorts := [13]int{21, 22, 53, 80, 443, 123, 161, 993, 3306, 8080, 8443, 6681, 6682}
@@ -42,18 +49,31 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 		if err != nil {
 			log.Printf("Issue generating dst IP... proceeding anyway: %v", err)
 		}
-		hf := new(GenericFlow)
 		var flowPort int
 		if flowSrcPort == 0 {
 			flowPort = protoPorts[utils.RandomNum(0, 12)]
 		} else {
 			flowPort = flowSrcPort
 		}
-		items[i] = hf.Generate(srcIP, dstIP, flowPort, session)
+		items[i] = generateFlow(p, srcIP, dstIP, flowPort, session)
 	}
 	dataFlowSet.Items = items
 	dataFlowSet.Length = uint16(dataFlowSet.size())
 	return *dataFlowSet
+}
+
+// generateFlow creates a flow record appropriate for the given profile.
+func generateFlow(p FlowProfile, srcIP, dstIP net.IP, flowPort int, session *Session) DataAny {
+	switch prof := p.(type) {
+	case *MinimalProfile:
+		_ = prof
+		return new(MinimalFlow).Generate(srcIP, dstIP, flowPort, session)
+	case *ExtendedProfile:
+		_ = prof
+		return new(ExtendedFlow).Generate(srcIP, dstIP, flowPort, session)
+	default:
+		return new(GenericFlow).Generate(srcIP, dstIP, flowPort, session)
+	}
 }
 
 // Get the size of the DataFlowSet in bytes
