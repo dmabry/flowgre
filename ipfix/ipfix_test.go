@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/utils"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -75,7 +76,7 @@ func TestGenerateDataIPFIX(t *testing.T) {
 	flowCount := 10
 	sourceID := 618
 	session := netflow.NewSession()
-	flow := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session)
+	flow := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8",	utils.HTTPSPort, session)
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Fatal("No data flowsets generated")
@@ -122,7 +123,7 @@ func TestToBytes_RoundTrip(t *testing.T) {
 	session := netflow.NewSession()
 
 	tFlow := GenerateTemplateIPFIX(sourceID, session)
-	dFlow := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session)
+	dFlow := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8",	utils.HTTPSPort, session)
 
 	tBuf := tFlow.ToBytes()
 	dBuf := dFlow.ToBytes()
@@ -418,7 +419,7 @@ func TestToBytes_BufferLengthMatchesFlowSetLengths(t *testing.T) {
 	}
 
 	// Test data-only packet
-	dFlow := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session)
+	dFlow := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8",	utils.HTTPSPort, session)
 	dBuf := dFlow.ToBytes()
 	expectedDLen := binary.Size(dFlow.Header)
 	for _, fs := range dFlow.DataFlowSets {
@@ -500,7 +501,7 @@ func TestGenericFlowIPv6(t *testing.T) {
 	dstIP := net.ParseIP("2001:db8::2")
 	session := netflow.NewSession()
 
-	result := new(GenericFlow).Generate(srcIP, dstIP, httpsPort, session)
+	result := new(GenericFlow).Generate(srcIP, dstIP,	utils.HTTPSPort, session)
 
 	// IPv4 fields should be zeroed
 	if result.SourceIPv4Addr != 0 {
@@ -538,7 +539,7 @@ func TestGenericFlowIPv4_ZerosIPv6(t *testing.T) {
 	dstIP := net.ParseIP("10.0.0.2")
 	session := netflow.NewSession()
 
-	result := new(GenericFlow).Generate(srcIP, dstIP, httpsPort, session)
+	result := new(GenericFlow).Generate(srcIP, dstIP,	utils.HTTPSPort, session)
 
 	// IPv4 fields should be populated
 	if result.SourceIPv4Addr == 0 {
@@ -568,7 +569,7 @@ func TestGenerateDataIPFIX_IPv6(t *testing.T) {
 	flowCount := 10
 	sourceID := 618
 	session := netflow.NewSession()
-	flow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", httpsPort, session)
+	flow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32",	utils.HTTPSPort, session)
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Fatal("No data flowsets generated")
@@ -633,7 +634,7 @@ func TestToBytes_IPv6_RoundTrip(t *testing.T) {
 	flowCount := 10
 	session := netflow.NewSession()
 
-	dFlow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", httpsPort, session)
+	dFlow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32",	utils.HTTPSPort, session)
 	dBuf := dFlow.ToBytes()
 
 	// Read back
@@ -698,7 +699,7 @@ func TestToBytes_IPv6_BufferLengthMatchesFlowSetLengths(t *testing.T) {
 	flowCount := 10
 	session := netflow.NewSession()
 
-	dFlow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", httpsPort, session)
+	dFlow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32",	utils.HTTPSPort, session)
 	dBuf := dFlow.ToBytes()
 	expectedDLen := binary.Size(dFlow.Header)
 	for _, fs := range dFlow.DataFlowSets {

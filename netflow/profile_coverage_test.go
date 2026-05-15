@@ -6,6 +6,8 @@ package netflow
 import (
 	"net"
 	"testing"
+
+	"github.com/dmabry/flowgre/utils"
 )
 
 func TestMinimalFlow_Generate_AllProtocols(t *testing.T) {
@@ -17,20 +19,20 @@ func TestMinimalFlow_Generate_AllProtocols(t *testing.T) {
 		wantPort     uint16
 		wantProtocol uint8
 	}{
-		{sshPort, uint16(sshPort), tcpProto},
-		{ftpPort, uint16(ftpPort), tcpProto},
-		{dnsPort, uint16(dnsPort), udpProto},
-		{httpPort, uint16(httpPort), tcpProto},
-		{httpsPort, uint16(httpsPort), tcpProto},
-		{ntpPort, uint16(ntpPort), udpProto},
-		{snmpPort, uint16(snmpPort), udpProto},
-		{imapsPort, uint16(imapsPort), tcpProto},
-		{mysqlPort, uint16(mysqlPort), tcpProto},
-		{httpAltPort, uint16(httpAltPort), tcpProto},
-		{httpsAltPort, uint16(httpsAltPort), tcpProto},
-		{p2pPort, uint16(p2pPort), tcpProto},
-		{btPort, uint16(btPort), tcpProto},
-		{99999, uint16(httpsPort), tcpProto}, // default
+		{utils.SSHPort, uint16(utils.SSHPort), utils.TCPProto},
+		{utils.FTPPort, uint16(utils.FTPPort), utils.TCPProto},
+		{utils.DNSPort, uint16(utils.DNSPort), utils.UDPProto},
+		{utils.HTTPPort, uint16(utils.HTTPPort), utils.TCPProto},
+		{utils.HTTPSPort, uint16(utils.HTTPSPort), utils.TCPProto},
+		{utils.NTPPort, uint16(utils.NTPPort), utils.UDPProto},
+		{utils.SNMPPort, uint16(utils.SNMPPort), utils.UDPProto},
+		{utils.IMAPSPort, uint16(utils.IMAPSPort), utils.TCPProto},
+		{utils.MySQLPort, uint16(utils.MySQLPort), utils.TCPProto},
+		{utils.HTTPAltPort, uint16(utils.HTTPAltPort), utils.TCPProto},
+		{utils.HTTPSAltPort, uint16(utils.HTTPSAltPort), utils.TCPProto},
+		{utils.P2PPort, uint16(utils.P2PPort), utils.TCPProto},
+		{utils.BTPort, uint16(utils.BTPort), utils.TCPProto},
+		{99999, uint16(utils.HTTPSPort), utils.TCPProto}, // default
 	}
 
 	for _, tc := range cases {
@@ -56,20 +58,20 @@ func TestExtendedFlow_Generate_AllProtocols(t *testing.T) {
 		wantPort     uint16
 		wantProtocol uint8
 	}{
-		{sshPort, uint16(sshPort), tcpProto},
-		{ftpPort, uint16(ftpPort), tcpProto},
-		{dnsPort, uint16(dnsPort), udpProto},
-		{httpPort, uint16(httpPort), tcpProto},
-		{httpsPort, uint16(httpsPort), tcpProto},
-		{ntpPort, uint16(ntpPort), udpProto},
-		{snmpPort, uint16(snmpPort), udpProto},
-		{imapsPort, uint16(imapsPort), tcpProto},
-		{mysqlPort, uint16(mysqlPort), tcpProto},
-		{httpAltPort, uint16(httpAltPort), tcpProto},
-		{httpsAltPort, uint16(httpsAltPort), tcpProto},
-		{p2pPort, uint16(p2pPort), tcpProto},
-		{btPort, uint16(btPort), tcpProto},
-		{99999, uint16(httpsPort), tcpProto}, // default
+		{utils.SSHPort, uint16(utils.SSHPort), utils.TCPProto},
+		{utils.FTPPort, uint16(utils.FTPPort), utils.TCPProto},
+		{utils.DNSPort, uint16(utils.DNSPort), utils.UDPProto},
+		{utils.HTTPPort, uint16(utils.HTTPPort), utils.TCPProto},
+		{utils.HTTPSPort, uint16(utils.HTTPSPort), utils.TCPProto},
+		{utils.NTPPort, uint16(utils.NTPPort), utils.UDPProto},
+		{utils.SNMPPort, uint16(utils.SNMPPort), utils.UDPProto},
+		{utils.IMAPSPort, uint16(utils.IMAPSPort), utils.TCPProto},
+		{utils.MySQLPort, uint16(utils.MySQLPort), utils.TCPProto},
+		{utils.HTTPAltPort, uint16(utils.HTTPAltPort), utils.TCPProto},
+		{utils.HTTPSAltPort, uint16(utils.HTTPSAltPort), utils.TCPProto},
+		{utils.P2PPort, uint16(utils.P2PPort), utils.TCPProto},
+		{utils.BTPort, uint16(utils.BTPort), utils.TCPProto},
+		{99999, uint16(utils.HTTPSPort), utils.TCPProto}, // default
 	}
 
 	for _, tc := range cases {
@@ -93,7 +95,7 @@ func TestMinimalFlow_Generate_IPv6(t *testing.T) {
 	srcIP := net.ParseIP("2001:db8::1")
 	dstIP := net.ParseIP("2001:db8::2")
 
-	mf := new(MinimalFlow).Generate(srcIP, dstIP, httpsPort, session)
+	mf := new(MinimalFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
 
 	// IPv4 fields should be zeroed for IPv6
 	if mf.SrcAddr != 0 {
@@ -111,7 +113,7 @@ func TestExtendedFlow_Generate_IPv6(t *testing.T) {
 	srcIP := net.ParseIP("2001:db8::1")
 	dstIP := net.ParseIP("2001:db8::2")
 
-	ef := new(ExtendedFlow).Generate(srcIP, dstIP, httpsPort, session)
+	ef := new(ExtendedFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
 
 	// IPv4 fields should be zeroed for IPv6
 	if ef.SrcAddr != 0 {

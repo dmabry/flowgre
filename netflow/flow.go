@@ -10,37 +10,6 @@ import (
 	"github.com/dmabry/flowgre/utils"
 )
 
-// Port constants (aliases for backwards compatibility within this package)
-const (
-	ftpPort      = utils.FTPPort
-	sshPort      = utils.SSHPort
-	dnsPort      = utils.DNSPort
-	httpPort     = utils.HTTPPort
-	httpsPort    = utils.HTTPSPort
-	ntpPort      = utils.NTPPort
-	snmpPort     = utils.SNMPPort
-	imapsPort    = utils.IMAPSPort
-	mysqlPort    = utils.MySQLPort
-	httpAltPort  = utils.HTTPAltPort
-	httpsAltPort = utils.HTTPSAltPort
-	p2pPort      = utils.P2PPort
-	btPort       = utils.BTPort
-)
-
-// Protocol constants (aliases for backwards compatibility within this package)
-const (
-	tcpProto   = utils.TCPProto
-	udpProto   = utils.UDPProto
-	icmpProto  = utils.ICMPProto
-	sctpProto  = utils.SCTPProto
-	igmpProto  = utils.IGMPProto
-	egpProto   = utils.EGPProto
-	igpProto   = utils.IGPProto
-	greProto   = utils.GREProto
-	espProto   = utils.ESPProto
-	eigrpProto = utils.EIGRPProto
-)
-
 // Constants for Field Types
 const (
 	IN_BYTES                     = 1
@@ -222,50 +191,7 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 	gf.EngineType = 0
 	gf.EngineID = 0
 
-	switch flowSrcPort {
-	case sshPort:
-		gf.L4DstPort = uint16(sshPort)
-		gf.Protocol = uint8(tcpProto)
-	case ftpPort:
-		gf.L4DstPort = uint16(ftpPort)
-		gf.Protocol = uint8(tcpProto)
-	case dnsPort:
-		gf.L4DstPort = uint16(dnsPort)
-		gf.Protocol = uint8(udpProto)
-	case httpPort:
-		gf.L4DstPort = uint16(httpPort)
-		gf.Protocol = uint8(tcpProto)
-	case httpsPort:
-		gf.L4DstPort = uint16(httpsPort)
-		gf.Protocol = uint8(tcpProto)
-	case ntpPort:
-		gf.L4DstPort = uint16(ntpPort)
-		gf.Protocol = uint8(udpProto)
-	case snmpPort:
-		gf.L4DstPort = uint16(snmpPort)
-		gf.Protocol = uint8(udpProto)
-	case imapsPort:
-		gf.L4DstPort = uint16(imapsPort)
-		gf.Protocol = uint8(tcpProto)
-	case mysqlPort:
-		gf.L4DstPort = uint16(mysqlPort)
-		gf.Protocol = uint8(tcpProto)
-	case httpAltPort:
-		gf.L4DstPort = uint16(httpAltPort)
-		gf.Protocol = uint8(tcpProto)
-	case httpsAltPort:
-		gf.L4DstPort = uint16(httpsAltPort)
-		gf.Protocol = uint8(tcpProto)
-	case p2pPort:
-		gf.L4DstPort = uint16(p2pPort)
-		gf.Protocol = uint8(tcpProto)
-	case btPort:
-		gf.L4DstPort = uint16(btPort)
-		gf.Protocol = uint8(tcpProto)
-	default:
-		gf.L4DstPort = uint16(httpsPort)
-		gf.Protocol = uint8(tcpProto)
-	}
+	gf.L4DstPort, gf.Protocol = utils.ResolvePortProtocol(flowSrcPort)
 
 	return *gf
 }

@@ -55,52 +55,8 @@ func (mf *MinimalFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 	}
 
 	mf.SrcPort = utils.GenerateRand16(10000)
-	mf.Protocol = uint8(tcpProto)
 
-	switch flowSrcPort {
-	case sshPort:
-		mf.DstPort = uint16(sshPort)
-		mf.Protocol = uint8(tcpProto)
-	case ftpPort:
-		mf.DstPort = uint16(ftpPort)
-		mf.Protocol = uint8(tcpProto)
-	case dnsPort:
-		mf.DstPort = uint16(dnsPort)
-		mf.Protocol = uint8(udpProto)
-	case httpPort:
-		mf.DstPort = uint16(httpPort)
-		mf.Protocol = uint8(tcpProto)
-	case httpsPort:
-		mf.DstPort = uint16(httpsPort)
-		mf.Protocol = uint8(tcpProto)
-	case ntpPort:
-		mf.DstPort = uint16(ntpPort)
-		mf.Protocol = uint8(udpProto)
-	case snmpPort:
-		mf.DstPort = uint16(snmpPort)
-		mf.Protocol = uint8(udpProto)
-	case imapsPort:
-		mf.DstPort = uint16(imapsPort)
-		mf.Protocol = uint8(tcpProto)
-	case mysqlPort:
-		mf.DstPort = uint16(mysqlPort)
-		mf.Protocol = uint8(tcpProto)
-	case httpAltPort:
-		mf.DstPort = uint16(httpAltPort)
-		mf.Protocol = uint8(tcpProto)
-	case httpsAltPort:
-		mf.DstPort = uint16(httpsAltPort)
-		mf.Protocol = uint8(tcpProto)
-	case p2pPort:
-		mf.DstPort = uint16(p2pPort)
-		mf.Protocol = uint8(tcpProto)
-	case btPort:
-		mf.DstPort = uint16(btPort)
-		mf.Protocol = uint8(tcpProto)
-	default:
-		mf.DstPort = uint16(httpsPort)
-		mf.Protocol = uint8(tcpProto)
-	}
+	mf.DstPort, mf.Protocol = utils.ResolvePortProtocol(flowSrcPort)
 
 	return *mf
 }

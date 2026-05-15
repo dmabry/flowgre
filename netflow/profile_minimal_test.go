@@ -6,6 +6,8 @@ package netflow
 import (
 	"net"
 	"testing"
+
+	"github.com/dmabry/flowgre/utils"
 )
 
 func TestMinimalProfile_Name(t *testing.T) {
@@ -165,7 +167,7 @@ func TestMinimalFlow_Generate(t *testing.T) {
 	srcIP := net.ParseIP("10.0.0.1")
 	dstIP := net.ParseIP("10.0.0.2")
 
-	mf := new(MinimalFlow).Generate(srcIP, dstIP, httpsPort, session)
+	mf := new(MinimalFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
 
 	if mf.SrcAddr == 0 {
 		t.Error("expected non-zero src addr")
@@ -173,11 +175,11 @@ func TestMinimalFlow_Generate(t *testing.T) {
 	if mf.DstAddr == 0 {
 		t.Error("expected non-zero dst addr")
 	}
-	if mf.DstPort != uint16(httpsPort) {
-		t.Errorf("expected dst port %d, got %d", httpsPort, mf.DstPort)
+	if mf.DstPort != uint16(utils.HTTPSPort) {
+		t.Errorf("expected dst port %d, got %d", utils.HTTPSPort, mf.DstPort)
 	}
-	if mf.Protocol != tcpProto {
-		t.Errorf("expected protocol %d, got %d", tcpProto, mf.Protocol)
+	if mf.Protocol != utils.TCPProto {
+		t.Errorf("expected protocol %d, got %d", utils.TCPProto, mf.Protocol)
 	}
 }
 
@@ -188,7 +190,7 @@ func TestExtendedFlow_Generate(t *testing.T) {
 	srcIP := net.ParseIP("10.0.0.1")
 	dstIP := net.ParseIP("10.0.0.2")
 
-	ef := new(ExtendedFlow).Generate(srcIP, dstIP, httpsPort, session)
+	ef := new(ExtendedFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
 
 	if ef.SrcAddr == 0 {
 		t.Error("expected non-zero src addr")
@@ -196,11 +198,11 @@ func TestExtendedFlow_Generate(t *testing.T) {
 	if ef.DstAddr == 0 {
 		t.Error("expected non-zero dst addr")
 	}
-	if ef.DstPort != uint16(httpsPort) {
-		t.Errorf("expected dst port %d, got %d", httpsPort, ef.DstPort)
+	if ef.DstPort != uint16(utils.HTTPSPort) {
+		t.Errorf("expected dst port %d, got %d", utils.HTTPSPort, ef.DstPort)
 	}
-	if ef.Protocol != tcpProto {
-		t.Errorf("expected protocol %d, got %d", tcpProto, ef.Protocol)
+	if ef.Protocol != utils.TCPProto {
+		t.Errorf("expected protocol %d, got %d", utils.TCPProto, ef.Protocol)
 	}
 	if ef.SrcVlan == 0 || ef.SrcVlan > 4094 {
 		t.Errorf("expected valid src VLAN, got %d", ef.SrcVlan)

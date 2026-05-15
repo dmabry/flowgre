@@ -40,9 +40,6 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 		BytesSent: 0,
 	}
 
-	startTime := time.Now().UnixNano()
-	limiter := time.Tick(time.Millisecond * time.Duration(delay))
-
 	// Configure connection to use. It looks like a listener, but it will be used to send packet. Allows setting the source port.
 	srcPort := utils.RandomNum(sourcePortMin, sourcePortMax)
 
@@ -78,35 +75,35 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 
 	log.Printf("%s [%2d] Slinging packets at %s:%d with Source ID: %5d and delay of %dms\n",
 		label, id, server, port, sourceID, delay)
-	// Infinite loop to keep slinging until we receive context done.
-	takeAction := false
+
+	// Data limiter throttles flow packet generation.
+	dataLimiter := time.NewTicker(time.Millisecond * time.Duration(delay))
+	defer dataLimiter.Stop()
+
+	// Template retransmission ticker — fires every templateInterval seconds.
+	// When templateInterval is 0, no ticker is created so templates are never retransmitted.
+	var tmplTicker *time.Ticker
+	if templateInterval > 0 {
+		tmplTicker = time.NewTicker(time.Duration(templateInterval) * time.Second)
+		defer tmplTicker.Stop()
+	}
 
 	for {
-		now := time.Now().UnixNano()
-		cycle := (now - startTime) / int64(time.Second) % int64(templateInterval)
-		if cycle == 0 {
-			if takeAction {
-				takeAction = false
-				// Retransmit template every templateInterval seconds
-				bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
-				if err != nil {
-					log.Printf("%s [%2d] Issue sending template packet: %v", label, id, err)
-					return
-				}
-				wStats.FlowsSent++
-				wStats.BytesSent += uint64(bytes)
-				statsChan <- wStats
-			}
-		} else {
-			takeAction = true
-		}
 		select {
-		case <-ctx.Done(): // Caught the signal to be done.... time to wrap it up
+		case <-ctx.Done():
 			log.Printf("%s [%2d] Exiting due to signal\n", label, id)
 			return
-		default:
-			// Basic limiter to throttle/delay packets
-			<-limiter
+		case <-tmplTicker.C:
+			// Retransmit template every templateInterval seconds
+			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
+			if err != nil {
+				log.Printf("%s [%2d] Issue sending template packet: %v", label, id, err)
+				return
+			}
+			wStats.FlowsSent++
+			wStats.BytesSent += uint64(bytes)
+			statsChan <- wStats
+		case <-dataLimiter.C:
 			flowCount := utils.RandomNum(5, 25)
 			buf := gen.GenerateData(flowCount, sourceID, srcRange, dstRange, session)
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)

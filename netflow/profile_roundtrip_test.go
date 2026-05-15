@@ -7,13 +7,15 @@ import (
 	"bytes"
 	"encoding/binary"
 	"testing"
+
+	"github.com/dmabry/flowgre/utils"
 )
 
 func TestDataFlowSet_Generate_MinimalProfile(t *testing.T) {
 	t.Parallel()
 
 	session := NewSession()
-	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session, &MinimalProfile{})
+	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &MinimalProfile{})
 
 	if len(dfs.Items) != 5 {
 		t.Fatalf("expected 5 items, got %d", len(dfs.Items))
@@ -28,8 +30,8 @@ func TestDataFlowSet_Generate_MinimalProfile(t *testing.T) {
 		if mf.SrcAddr == 0 {
 			t.Errorf("item[%d]: expected non-zero src addr", i)
 		}
-		if mf.DstPort != uint16(httpsPort) {
-			t.Errorf("item[%d]: expected dst port %d, got %d", i, httpsPort, mf.DstPort)
+		if mf.DstPort != uint16(utils.HTTPSPort) {
+			t.Errorf("item[%d]: expected dst port %d, got %d", i, utils.HTTPSPort, mf.DstPort)
 		}
 	}
 }
@@ -38,7 +40,7 @@ func TestDataFlowSet_Generate_ExtendedProfile(t *testing.T) {
 	t.Parallel()
 
 	session := NewSession()
-	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session, &ExtendedProfile{})
+	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &ExtendedProfile{})
 
 	if len(dfs.Items) != 5 {
 		t.Fatalf("expected 5 items, got %d", len(dfs.Items))
@@ -53,8 +55,8 @@ func TestDataFlowSet_Generate_ExtendedProfile(t *testing.T) {
 		if ef.SrcAddr == 0 {
 			t.Errorf("item[%d]: expected non-zero src addr", i)
 		}
-		if ef.DstPort != uint16(httpsPort) {
-			t.Errorf("item[%d]: expected dst port %d, got %d", i, httpsPort, ef.DstPort)
+		if ef.DstPort != uint16(utils.HTTPSPort) {
+			t.Errorf("item[%d]: expected dst port %d, got %d", i, utils.HTTPSPort, ef.DstPort)
 		}
 		if ef.SrcVlan == 0 {
 			t.Errorf("item[%d]: expected non-zero src VLAN", i)
@@ -66,7 +68,7 @@ func TestDataFlowSet_Generate_DefaultProfile(t *testing.T) {
 	t.Parallel()
 
 	session := NewSession()
-	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session)
+	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
 
 	if len(dfs.Items) != 5 {
 		t.Fatalf("expected 5 items, got %d", len(dfs.Items))
@@ -93,7 +95,7 @@ func TestMinimalProfile_RoundTrip(t *testing.T) {
 
 	// Generate template + data with minimal profile
 	tFlow := GenerateTemplateNetflow(sourceID, session, &MinimalProfile{})
-	dFlow := GenerateDataNetflow(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session, &MinimalProfile{})
+	dFlow := GenerateDataNetflow(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &MinimalProfile{})
 
 	// Serialize
 	tBuf := tFlow.ToBytes()
@@ -167,7 +169,7 @@ func TestExtendedProfile_RoundTrip(t *testing.T) {
 
 	// Generate template + data with extended profile
 	tFlow := GenerateTemplateNetflow(sourceID, session, &ExtendedProfile{})
-	dFlow := GenerateDataNetflow(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session, &ExtendedProfile{})
+	dFlow := GenerateDataNetflow(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &ExtendedProfile{})
 
 	// Serialize
 	tBuf := tFlow.ToBytes()
@@ -201,6 +203,10 @@ func TestExtendedProfile_RoundTrip(t *testing.T) {
 	dReader := bytes.NewReader(dRead)
 	var dHeader Header
 	binary.Read(dReader, binary.BigEndian, &dHeader)
+
+	if dHeader.Version != 9 {
+		t.Fatalf("expected version 9, got %d", dHeader.Version)
+	}
 
 	// Parse data flow set header
 	var dFsID, dFsLen uint16

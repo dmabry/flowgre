@@ -38,7 +38,7 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 
 	dataFlowSet := new(DataFlowSet)
 	dataFlowSet.FlowSetID = 256
-	protoPorts := [13]int{21, 22, 53, 80, 443, 123, 161, 993, 3306, 8080, 8443, 6681, 6682}
+	protoPorts := utils.ProtoPorts
 	items := make([]DataAny, flowCount)
 	for i := range flowCount {
 		srcIP, err := utils.RandomIPCIDR(srcRange)
@@ -51,7 +51,7 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 		}
 		var flowPort int
 		if flowSrcPort == 0 {
-			flowPort = protoPorts[utils.RandomNum(0, 12)]
+			flowPort = protoPorts[utils.RandomNum(0, len(protoPorts))]
 		} else {
 			flowPort = flowSrcPort
 		}

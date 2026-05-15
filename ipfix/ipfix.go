@@ -23,30 +23,6 @@ import (
 // IPFIX version number per RFC 7011.
 const Version = 10
 
-// Port constants (aliases for backwards compatibility within this package)
-const (
-	httpsPort    = utils.HTTPSPort
-	sshPort      = utils.SSHPort
-	ftpPort      = utils.FTPPort
-	dnsPort      = utils.DNSPort
-	httpPort     = utils.HTTPPort
-	ntpPort      = utils.NTPPort
-	snmpPort     = utils.SNMPPort
-	imapsPort    = utils.IMAPSPort
-	mysqlPort    = utils.MySQLPort
-	httpAltPort  = utils.HTTPAltPort
-	httpsAltPort = utils.HTTPSAltPort
-	p2pPort      = utils.P2PPort
-	btPort       = utils.BTPort
-)
-
-// Protocol constants (aliases for backwards compatibility within this package)
-const (
-	tcpProto  = utils.TCPProto
-	udpProto  = utils.UDPProto
-	icmpProto = utils.ICMPProto
-)
-
 // IANA IPFIX field type constants (RFC 7011 / Information Model)
 const (
 	ProtocolIdentifier          = 4
@@ -342,50 +318,7 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 	gf.IPClassOfService = 0
 	gf.FlowEndReason = uint8(utils.RandomNum(0, 4)) // 0=active, 1=idle, 2=other, 3=exporterReset, 4=exporterShutdown
 
-	switch flowSrcPort {
-	case sshPort:
-		gf.DestPort = uint16(sshPort)
-		gf.ProtocolIdentifier = tcpProto
-	case ftpPort:
-		gf.DestPort = uint16(ftpPort)
-		gf.ProtocolIdentifier = tcpProto
-	case dnsPort:
-		gf.DestPort = uint16(dnsPort)
-		gf.ProtocolIdentifier = udpProto
-	case httpPort:
-		gf.DestPort = uint16(httpPort)
-		gf.ProtocolIdentifier = tcpProto
-	case httpsPort:
-		gf.DestPort = uint16(httpsPort)
-		gf.ProtocolIdentifier = tcpProto
-	case ntpPort:
-		gf.DestPort = uint16(ntpPort)
-		gf.ProtocolIdentifier = udpProto
-	case snmpPort:
-		gf.DestPort = uint16(snmpPort)
-		gf.ProtocolIdentifier = udpProto
-	case imapsPort:
-		gf.DestPort = uint16(imapsPort)
-		gf.ProtocolIdentifier = tcpProto
-	case mysqlPort:
-		gf.DestPort = uint16(mysqlPort)
-		gf.ProtocolIdentifier = tcpProto
-	case httpAltPort:
-		gf.DestPort = uint16(httpAltPort)
-		gf.ProtocolIdentifier = tcpProto
-	case httpsAltPort:
-		gf.DestPort = uint16(httpsAltPort)
-		gf.ProtocolIdentifier = tcpProto
-	case p2pPort:
-		gf.DestPort = uint16(p2pPort)
-		gf.ProtocolIdentifier = tcpProto
-	case btPort:
-		gf.DestPort = uint16(btPort)
-		gf.ProtocolIdentifier = tcpProto
-	default:
-		gf.DestPort = uint16(httpsPort)
-		gf.ProtocolIdentifier = tcpProto
-	}
+	gf.DestPort, gf.ProtocolIdentifier = utils.ResolvePortProtocol(flowSrcPort)
 
 	return *gf
 }
@@ -406,7 +339,7 @@ type DataFlowSet struct {
 func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, session *netflow.Session, profile ...IPFIXFlowProfile) DataFlowSet {
 	_ = profile // reserved for future profile-aware data generation
 
-	protoPorts := []int{21, 22, 53, 80, 443, 123, 161, 993, 3306, 8080, 8443, 6681, 6682}
+	protoPorts := utils.ProtoPorts
 
 	items := make([]DataAny, flowCount)
 	for i := range flowCount {
@@ -672,7 +605,7 @@ func GenerateDataIPFIX(flowCount int, sourceID int, srcRange string, dstRange st
 // GenerateIPFIX creates an IPFIX packet containing both template and data FlowSets.
 func GenerateIPFIX(flowCount int, sourceID int, srcRange string, dstRange string, session *netflow.Session) IPFIX {
 	templateFlow := new(TemplateFlowSet).Generate(session)
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, httpsPort, session)
+	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, utils.HTTPSPort, session)
 	header := new(Header).Generate(flowCount+1, sourceID, session)
 	return IPFIX{
 		Header:           header,
