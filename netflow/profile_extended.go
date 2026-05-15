@@ -16,7 +16,7 @@ type ExtendedProfile struct{}
 // Name returns the profile name.
 func (p *ExtendedProfile) Name() string { return "extended" }
 
-// TemplateFields returns the 14-field extended template.
+// TemplateFields returns the 15-field extended template.
 func (p *ExtendedProfile) TemplateFields() []Field {
 	return []Field{
 		{Type: IN_BYTES, Length: 4},
@@ -97,52 +97,8 @@ func (ef *ExtendedFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, se
 	ef.MaxTtl = uint8(utils.RandomNum(1, 128))
 	ef.FirstSwitched = uptime - 100
 	ef.LastSwitched = uptime - 10
-	ef.Protocol = uint8(tcpProto)
 
-	switch flowSrcPort {
-	case sshPort:
-		ef.DstPort = uint16(sshPort)
-		ef.Protocol = uint8(tcpProto)
-	case ftpPort:
-		ef.DstPort = uint16(ftpPort)
-		ef.Protocol = uint8(tcpProto)
-	case dnsPort:
-		ef.DstPort = uint16(dnsPort)
-		ef.Protocol = uint8(udpProto)
-	case httpPort:
-		ef.DstPort = uint16(httpPort)
-		ef.Protocol = uint8(tcpProto)
-	case httpsPort:
-		ef.DstPort = uint16(httpsPort)
-		ef.Protocol = uint8(tcpProto)
-	case ntpPort:
-		ef.DstPort = uint16(ntpPort)
-		ef.Protocol = uint8(udpProto)
-	case snmpPort:
-		ef.DstPort = uint16(snmpPort)
-		ef.Protocol = uint8(udpProto)
-	case imapsPort:
-		ef.DstPort = uint16(imapsPort)
-		ef.Protocol = uint8(tcpProto)
-	case mysqlPort:
-		ef.DstPort = uint16(mysqlPort)
-		ef.Protocol = uint8(tcpProto)
-	case httpAltPort:
-		ef.DstPort = uint16(httpAltPort)
-		ef.Protocol = uint8(tcpProto)
-	case httpsAltPort:
-		ef.DstPort = uint16(httpsAltPort)
-		ef.Protocol = uint8(tcpProto)
-	case p2pPort:
-		ef.DstPort = uint16(p2pPort)
-		ef.Protocol = uint8(tcpProto)
-	case btPort:
-		ef.DstPort = uint16(btPort)
-		ef.Protocol = uint8(tcpProto)
-	default:
-		ef.DstPort = uint16(httpsPort)
-		ef.Protocol = uint8(tcpProto)
-	}
+	ef.DstPort, ef.Protocol = utils.ResolvePortProtocol(flowSrcPort)
 
 	return *ef
 }

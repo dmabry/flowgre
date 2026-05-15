@@ -40,12 +40,18 @@ type Collector struct {
 }
 
 // Run starts the stat collection loop. It reads from StatsChan and aggregates totals.
+// Uses a ticker-driven pattern instead of a busy-wait loop to avoid wasting CPU cycles.
 func (sc *Collector) Run(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
-	limiter := time.Tick(time.Second * 5)
 	log.Println("Stats Collector started")
 	sizeLabel := "bytes"
 	var sizeOut uint64
+
+	// Periodic ticker for periodic logging/heartbeat (unused here but keeps
+	// the loop from blocking indefinitely when no stats arrive).
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case stat, ok := <-sc.StatsChan:
@@ -79,17 +85,14 @@ func (sc *Collector) Run(wg *sync.WaitGroup, ctx context.Context) {
 				sc.mu.Unlock()
 			} else {
 				log.Println("Stats Channel Closed!")
+				return
 			}
 		case <-ctx.Done():
 			log.Printf("Stats Collector Exiting due to signal\n")
 			return
-		default:
-			select {
-			case <-limiter:
-			case <-ctx.Done():
-				log.Printf("Stats Collector Exiting due to signal\n")
-				return
-			}
+		case <-ticker.C:
+			// Periodic tick — nothing to do, just keeps the loop alive
+			// so it doesn't block forever when no stats arrive.
 		}
 	}
 }

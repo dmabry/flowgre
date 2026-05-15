@@ -6,9 +6,10 @@ package netflow
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/google/go-cmp/cmp"
 	"net"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/dmabry/flowgre/utils"
 )
@@ -36,7 +37,8 @@ func TestHeader_Generate(t *testing.T) {
 		t.Errorf("Header returned the wrong flow sequence! Got: %d Want: value", header.FlowSequence)
 	}
 	if header.SourceID != uint32(sourceID) {
-		t.Errorf("Header returned the wrong source id! Got: %d Want: %d", header.SourceID, sourceID)
+		t.Errorf("Header returned the wrong source id! Got: %d Want: %d",
+			header.SourceID, sourceID)
 	}
 }
 
@@ -64,7 +66,7 @@ func TestGenerateDataNetflow(t *testing.T) {
 	flowcount := 10
 	sourceID := 618
 	session := NewSession()
-	flow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session)
+	flow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Errorf("Returned incorrect number of Data Flows! Got: %d Want >: %d", len(flow.DataFlowSets), 1)
@@ -90,7 +92,7 @@ func TestToBytes(t *testing.T) {
 	flowcount := 10
 	session := NewSession()
 	tflow := GenerateTemplateNetflow(sourceID, session)
-	dflow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", httpsPort, session)
+	dflow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
 	// Convert to Bytes
 	tbuf := tflow.ToBytes()
 	dbuf := dflow.ToBytes()
@@ -228,7 +230,7 @@ func TestGenericFlowIPv6(t *testing.T) {
 	session := NewSession()
 
 	gf := new(GenericFlow)
-	result := gf.Generate(srcIP, dstIP, httpsPort, session)
+	result := gf.Generate(srcIP, dstIP, utils.HTTPSPort, session)
 
 	// IPv4 fields should be zeroed
 	if result.Ipv4SrcAddr != 0 {
@@ -267,7 +269,7 @@ func TestGenericFlowIPv4BackwardCompat(t *testing.T) {
 	session := NewSession()
 
 	gf := new(GenericFlow)
-	result := gf.Generate(srcIP, dstIP, httpsPort, session)
+	result := gf.Generate(srcIP, dstIP, utils.HTTPSPort, session)
 
 	// IPv4 fields should be populated
 	if result.Ipv4SrcAddr != utils.IPToNum(srcIP) {
@@ -334,7 +336,7 @@ func TestIPv6DataNetflow(t *testing.T) {
 	flowcount := 10
 	sourceID := 618
 	session := NewSession()
-	flow := GenerateDataNetflow(flowcount, sourceID, "2001:db8::/48", "2001:db8:1::/48", httpsPort, session)
+	flow := GenerateDataNetflow(flowcount, sourceID, "2001:db8::/48", "2001:db8:1::/48", utils.HTTPSPort, session)
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Fatal("expected at least one data flow set")
@@ -369,7 +371,7 @@ func TestIPv6ToBytesRoundTrip(t *testing.T) {
 	flowcount := 5
 	session := NewSession()
 	tflow := GenerateTemplateNetflow(sourceID, session)
-	dflow := GenerateDataNetflow(flowcount, sourceID, "2001:db8::/48", "2001:db8:1::/48", httpsPort, session)
+	dflow := GenerateDataNetflow(flowcount, sourceID, "2001:db8::/48", "2001:db8:1::/48", utils.HTTPSPort, session)
 
 	// Serialize and deserialize
 	tbuf := tflow.ToBytes()
