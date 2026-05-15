@@ -35,7 +35,7 @@ type Collector struct {
 	StatsChan   chan models.WorkerStat
 	StatsTotals models.StatTotals
 	Config      *models.Config
-	StartTime   time.Time        // when the barrage started
+	StartTime   time.Time             // when the barrage started
 	History     []models.StatSnapshot // rolling history of stat snapshots
 }
 

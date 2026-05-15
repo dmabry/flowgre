@@ -22,10 +22,11 @@ import (
 //	    template-interval: 30
 //	    src-range: 10.0.0.0/8
 //	    dst-range: 10.0.0.0/8
-//\t    web: false
-//\t    web-ip: 0.0.0.0
-//\t    web-port: 8080
-//\t    protocol: netflow
+//
+// \t    web: false
+// \t    web-ip: 0.0.0.0
+// \t    web-port: 8080
+// \t    protocol: netflow
 func LoadBarrageConfig() (*models.Config, error) {
 	if !viper.IsSet("targets") {
 		return nil, fmt.Errorf("couldn't find targets section in config file")
