@@ -1,35 +1,44 @@
 # Use of this source code is governed by Apache License 2.0
 # that can be found in the LICENSE file.
 
-FROM golang:alpine AS build-stage
+# ---------------------------------------------------------------------------
+# Build stage — compile a fully static binary (CGO_ENABLED=0)
+# ---------------------------------------------------------------------------
+FROM golang:1.26-alpine AS build-stage
 
-COPY . /opt/src
-WORKDIR /opt/src
+WORKDIR /src
 
-ENV GO111MODULE on
+# Cache dependency resolution layer separately from source code.
+COPY go.mod go.sum ./
+RUN go mod download
 
-# prepare for build
-RUN apk add --no-cache build-base git
-# build
-RUN git submodule -q init
-RUN git submodule -q update
-# RUN go build -mod vendor
-RUN go build
+# Copy source and build a static binary.
+# TARGETARCH is auto-injected by BuildKit (arm64 on this host, amd64 on CI).
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags "-s -w" -o /flowgre .
 
-# deploy
-FROM alpine:latest
+# ---------------------------------------------------------------------------
+# Runtime stage — minimal Alpine image, non-root user
+# ---------------------------------------------------------------------------
+FROM alpine:3.21
 
-# add some alpine deps
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata && \
+    addgroup -S flowgre && \
+    adduser -S -g flowgre flowgre
 
-# copy stuff in
 WORKDIR /opt/app
+COPY --from=build-stage /flowgre ./flowgre
 
-COPY --from=build-stage /opt/src/flowgre ./flowgre
+USER flowgre
 
-# override default entrypoint on final container
-ENTRYPOINT [ "/opt/app/flowgre" ]
-LABEL org.opencontainers.image.source=https://github.com/dmabry/flowgre
-LABEL org.opencontainers.image.description="Flowgre container image"
-LABEL org.opencontainers.image.licenses="Apache License 2.0"
-LABEL org.opencontainers.image.version="0.4.10"
+ENTRYPOINT ["/opt/app/flowgre"]
+
+# OCI labels — version is injected at build time via --build-arg
+ARG VERSION=dev
+LABEL org.opencontainers.image.source="https://github.com/dmabry/flowgre" \
+      org.opencontainers.image.description="NetFlow v9 / IPFIX packet generator for collector stress testing" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.version="${VERSION}"
+
+# No HEALTHCHECK — flowgre is a CLI tool, not a daemon.
+# The /health endpoint only exists in barrage mode with -web flag.

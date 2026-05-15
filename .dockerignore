@@ -1,0 +1,33 @@
+# Git
+.git
+.github
+
+# Documentation
+*.md
+docs/
+LICENSE
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# OpenHands microagents
+.openhands/
+
+# Build artifacts
+flowgre
+flowgre_*
+coverage.out
+
+# Test-only / dev files
+examples/
+.nfpm/
+scripts/
+
+# Node / TUI (not needed for Go binary)
+node_modules/
+ui-tui/
