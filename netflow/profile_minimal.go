@@ -32,13 +32,13 @@ func (p *MinimalProfile) TemplateFields() []Field {
 // MinimalFlow is a minimal NetFlow v9 flow record with 7 essential fields.
 // Field order must match MinimalProfile.TemplateFields() exactly.
 type MinimalFlow struct {
-	InBytes   uint32
-	InPkts    uint32
-	SrcAddr   uint32
-	DstAddr   uint32
-	SrcPort   uint16
-	DstPort   uint16
-	Protocol  uint8
+	InBytes  uint32
+	InPkts   uint32
+	SrcAddr  uint32
+	DstAddr  uint32
+	SrcPort  uint16
+	DstPort  uint16
+	Protocol uint8
 }
 
 // Generate creates a MinimalFlow with randomly generated data.

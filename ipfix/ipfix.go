@@ -49,25 +49,25 @@ const (
 
 // IANA IPFIX field type constants (RFC 7011 / Information Model)
 const (
-	ProtocolIdentifier           = 4
-	SourceTransportPort          = 7
-	SourceIPv4Address            = 8
-	DestinationTransportPort     = 11
-	DestinationIPv4Address       = 12
-	SourceIPv6Address            = 25
-	DestinationIPv6Address       = 26
-	SourceIPv6PrefixLength       = 47
-	DestinationIPv6PrefixLength  = 48
-	FlowDirection                = 1024
-	InPackets                    = 1025
-	InOctets                     = 1026
-	OutPackets                   = 1027
-	OutOctets                    = 1028
-	IPClassOfService             = 3
-	TCPFlags                     = 6
-	FlowStartMilliseconds        = 152
-	FlowEndMilliseconds          = 153
-	FlowEndReason                = 157
+	ProtocolIdentifier          = 4
+	SourceTransportPort         = 7
+	SourceIPv4Address           = 8
+	DestinationTransportPort    = 11
+	DestinationIPv4Address      = 12
+	SourceIPv6Address           = 25
+	DestinationIPv6Address      = 26
+	SourceIPv6PrefixLength      = 47
+	DestinationIPv6PrefixLength = 48
+	FlowDirection               = 1024
+	InPackets                   = 1025
+	InOctets                    = 1026
+	OutPackets                  = 1027
+	OutOctets                   = 1028
+	IPClassOfService            = 3
+	TCPFlags                    = 6
+	FlowStartMilliseconds       = 152
+	FlowEndMilliseconds         = 153
+	FlowEndReason               = 157
 	// Options Template fields
 	ObservationDomainId = 31
 	ProcessName         = 279

@@ -38,8 +38,8 @@ func (c *IPFIXCommand) ParseFlags(args []string) error {
 	c.srcPort = fs.Int("src-port", 0, "source port used by the client. If 0 a Random port between 10000-15000")
 	c.count = fs.Int("count", 1, "count of flows to send in sequence.")
 	c.hexDump = fs.Bool("hexdump", false, "If true, do a hexdump of the packet")
-c.srcRange = fs.String("src-range", "10.0.0.0/8", "CIDR range for source IPs (IPv4 or IPv6)")
-c.dstRange = fs.String("dst-range", "10.0.0.0/8", "CIDR range for destination IPs (IPv4 or IPv6)")
+	c.srcRange = fs.String("src-range", "10.0.0.0/8", "CIDR range for source IPs (IPv4 or IPv6)")
+	c.dstRange = fs.String("dst-range", "10.0.0.0/8", "CIDR range for destination IPs (IPv4 or IPv6)")
 	return fs.Parse(args)
 }
 

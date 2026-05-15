@@ -37,8 +37,8 @@ type StatTotals struct {
 
 // StatSnapshot is a point-in-time snapshot of stats for time-series charting.
 type StatSnapshot struct {
-	Timestamp time.Time      `json:"timestamp"`
-	Totals    StatTotals     `json:"totals"`
+	Timestamp time.Time          `json:"timestamp"`
+	Totals    StatTotals         `json:"totals"`
 	Workers   map[int]WorkerStat `json:"workers"`
 }
 
@@ -56,7 +56,7 @@ type DashboardPage struct {
 	ConfigOut   *Config            `json:"config_out"`
 	StatsMapOut map[int]WorkerStat `json:"stats_map_out"`
 	StatsTotal  StatTotals         `json:"stats_total"`
-	Protocol    string             `json:"protocol"`    // "netflow" or "ipfix"
-	StartTime   time.Time          `json:"start_time"`  // when barrage started
-	Uptime      string             `json:"uptime"`      // human-readable uptime
+	Protocol    string             `json:"protocol"`   // "netflow" or "ipfix"
+	StartTime   time.Time          `json:"start_time"` // when barrage started
+	Uptime      string             `json:"uptime"`     // human-readable uptime
 }
