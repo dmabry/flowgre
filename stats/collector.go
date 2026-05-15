@@ -154,6 +154,35 @@ func (sc *Collector) HistoryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// dashboardTmpl is the pre-parsed dashboard HTML template with custom
+// functions registered. Parsed once at package init and reused for every
+// request to avoid repeated template parsing overhead.
+var dashboardTmpl = func() *template.Template {
+	t, err := template.New("dashboard").Funcs(template.FuncMap{
+		"formatBytes": func(bytes uint64) string {
+			if bytes == 0 {
+				return "0 B"
+			}
+			const unit = 1024
+			const units = "BKMG"
+			i := 0
+			f := float64(bytes)
+			for f >= unit && i < len(units)-1 {
+				f /= unit
+				i++
+			}
+			return fmt.Sprintf("%.1f %sB", f, string(units[i]))
+		},
+	}).Parse(templates.DashboardTpl)
+	if err != nil {
+		log.Printf("[WARN] Failed to parse dashboard template: %v", err)
+		// Return a no-op template so the server still starts;
+		// DashboardHandler will log the nil-template error per-request.
+		return template.New("dashboard")
+	}
+	return t
+}()
+
 // DashboardHandler renders the dashboard HTML page with current stats.
 func (sc *Collector) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	sc.mu.RLock()
@@ -190,29 +219,9 @@ func (sc *Collector) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		Uptime:      uptimeStr,
 	}
 
-	t, err := template.New("dashboard").Funcs(template.FuncMap{
-		"formatBytes": func(bytes uint64) string {
-			if bytes == 0 {
-				return "0 B"
-			}
-			const unit = 1024
-			const units = "BKMG"
-			i := 0
-			f := float64(bytes)
-			for f >= unit && i < len(units)-1 {
-				f /= unit
-				i++
-			}
-			return fmt.Sprintf("%.1f %sB", f, string(units[i]))
-		},
-	}).Parse(templates.DashboardTpl)
+	err := dashboardTmpl.Execute(w, d)
 	if err != nil {
 		log.Printf("Web server had issue: %v\n", err)
-	} else {
-		err = t.Execute(w, d)
-		if err != nil {
-			log.Printf("Web server had issue: %v\n", err)
-		}
 	}
 }
 
