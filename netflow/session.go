@@ -3,20 +3,22 @@
 
 package netflow
 
-import "time"
+import (
+	"sync/atomic"
+	"time"
+)
 
 // Session tracks per-invocation state for NetFlow generation.
 // Replaces the previous package-level globals StartTime and flowSequence.
 type Session struct {
 	startTime    int64
-	flowSequence uint32
+	flowSequence atomic.Uint32
 }
 
 // NewSession creates a fresh session with current time as start.
 func NewSession() *Session {
 	return &Session{
-		startTime:    time.Now().UnixNano(),
-		flowSequence: 0,
+		startTime: time.Now().UnixNano(),
 	}
 }
 
@@ -25,8 +27,7 @@ func (s *Session) StartTime() int64 {
 	return s.startTime
 }
 
-// NextSeq increments and returns the next flow sequence number.
+// NextSeq atomically increments and returns the next flow sequence number.
 func (s *Session) NextSeq() uint32 {
-	s.flowSequence++
-	return s.flowSequence
+	return s.flowSequence.Add(1)
 }
