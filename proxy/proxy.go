@@ -6,7 +6,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"log"
 	"net"
@@ -15,9 +14,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/netflow"
-	"github.com/dmabry/flowgre/models"
+	"github.com/dmabry/flowgre/stats"
 	"github.com/dmabry/flowgre/utils"
 )
 
@@ -56,12 +56,7 @@ func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitG
 			// length := len(payload)
 			//log.Printf("Worker [%2d] sending packet to %s:%d with length: %d\n", id, server, port, length)
 			// send packet here.
-			var buf bytes.Buffer
-			_, err := buf.Write(payload)
-			if err != nil {
-				log.Printf("Worker [%2d] Issue writing data: %v\n", id, err)
-			}
-			_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
+			_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, payload, false)
 			if err != nil {
 				log.Printf("Worker [%2d] Issue sending packet: %v\n", id, err)
 				return
@@ -144,15 +139,15 @@ func proxyListener(ctx context.Context, wg *sync.WaitGroup, ip string, port int,
 				return
 			default:
 				if verbose {
-				log.Printf("proxyListener: dropped packet (proxyChan full)")
-			}
+					log.Printf("proxyListener: dropped packet (proxyChan full)")
+				}
 			}
 		}
 	}
 }
 
 // statsPrinter prints out the status every 10 seconds.
-func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *models.RecordStat) {
+func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *stats.RecordStat) {
 	defer wg.Done()
 	for {
 		select {
@@ -166,8 +161,8 @@ func statsPrinter(ctx context.Context, wg *sync.WaitGroup, rStats *models.Record
 	}
 }
 
-// Ingest pulls byte payload off the data chan and puts them in the badger db
-func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []byte, dataChan chan<- []byte, rStats *models.RecordStat, verbose bool) {
+// parseNetflow validates that the payload is valid NetFlow v9 or IPFIX v10 and forwards it.
+func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []byte, dataChan chan<- []byte, rStats *stats.RecordStat, verbose bool) {
 	defer wg.Done()
 
 	ticker := time.NewTicker(10 * time.Second)
@@ -176,30 +171,34 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Netflow parser exiting due to signal")
+			log.Println("Flow parser exiting due to signal")
 			return
 		case payload := <-proxyChan:
 			ok, err := netflow.IsValidNetFlow(payload, 9)
-		if err != nil {
-			log.Printf("Skipping packet due to issue parsing: %v", err)
-			rStats.IncrInvalid()
-		} else if ok {
-			rStats.IncrValid()
-			select {
-			case dataChan <- payload:
-			case <-ctx.Done():
-				log.Println("Netflow parser context cancelled during send")
-				return
-			default:
-				if verbose {
-					log.Printf("Netflow parser: dropped packet (dataChan full)")
+			if err != nil {
+				// Try IPFIX
+				ok, err = ipfix.IsValidIPFIX(payload)
+				if err != nil {
+					log.Printf("Skipping packet due to issue parsing: %v", err)
 				}
 			}
-		} else {
-			rStats.IncrInvalid()
-		}
+			if ok {
+				rStats.IncrValid()
+				select {
+				case dataChan <- payload:
+				case <-ctx.Done():
+					log.Println("Flow parser context cancelled during send")
+					return
+				default:
+					if verbose {
+						log.Printf("Flow parser: dropped packet (dataChan full)")
+					}
+				}
+			} else {
+				rStats.IncrInvalid()
+			}
 		case <-ticker.C:
-			log.Printf("Netflow v9 Packets: %d Ignored Packets: %d",
+			log.Printf("Flow Packets: %d Ignored Packets: %d",
 				rStats.LoadValid(), rStats.LoadInvalid())
 		}
 	}
@@ -214,7 +213,7 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	// Create channels
 	proxyChan := make(chan []byte, bufferSize)
 	dataChan := make(chan []byte, bufferSize)
-	rStats := models.RecordStat{
+	rStats := stats.RecordStat{
 		ValidCount:   0,
 		InvalidCount: 0,
 	}
@@ -230,7 +229,7 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	workerChans := make([]chan []byte, workers)
 	// start workers
 	wg.Add(workers)
-	for w := 0; w < workers; w++ {
+	for w := range workers {
 		id := w + 1
 		workerChan := make(chan []byte, bufferSize)
 		workerChans[w] = workerChan

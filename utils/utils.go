@@ -14,7 +14,7 @@ import (
 )
 
 // BinaryDecoder decodes the given payload from a binary stream into multiple destinations.
-func BinaryDecoder(payload io.Reader, dests ...interface{}) error {
+func BinaryDecoder(payload io.Reader, dests ...any) error {
 	for _, dest := range dests {
 		err := binary.Read(payload, binary.BigEndian, dest)
 		if err != nil {
@@ -25,7 +25,7 @@ func BinaryDecoder(payload io.Reader, dests ...interface{}) error {
 }
 
 // ToBytes converts an interface to a gob-encoded byte stream.
-func ToBytes(key interface{}) ([]byte, error) {
+func ToBytes(key any) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(key)

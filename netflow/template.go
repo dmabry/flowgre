@@ -5,7 +5,7 @@ package netflow
 
 import (
 	"encoding/binary"
-	"strconv"
+	"fmt"
 	"time"
 )
 
@@ -32,13 +32,8 @@ func (h *Header) size() int {
 
 // Get the Header in String
 func (h *Header) String() string {
-	return "Version: " + strconv.Itoa(int(h.Version)) +
-		" Count: " + strconv.Itoa(int(h.FlowCount)) +
-		" SysUptime: " + strconv.Itoa(int(h.SysUptime)) +
-		" UnixSec: " + strconv.Itoa(int(h.UnixSec)) +
-		" FlowSequence: " + strconv.Itoa(int(h.FlowSequence)) +
-		" SourceID: " + strconv.Itoa(int(h.SourceID)) +
-		" || "
+	return fmt.Sprintf("Version: %d Count: %d SysUptime: %d UnixSec: %d FlowSequence: %d SourceID: %d || ",
+		h.Version, h.FlowCount, h.SysUptime, h.UnixSec, h.FlowSequence, h.SourceID)
 }
 
 // Generate a Header accounting for the given flowCount.  Flowcount should match the expected number of flows in the
@@ -68,7 +63,7 @@ type Field struct {
 
 // Get the Field in String
 func (f *Field) String() string {
-	return "Type: " + strconv.Itoa(int(f.Type)) + "Length: " + strconv.Itoa(int(f.Length))
+	return fmt.Sprintf("Type: %d Length: %d", f.Type, f.Length)
 }
 
 // Template for TemplateFlowSet
@@ -107,15 +102,20 @@ type TemplateFlowSet struct {
 
 // Generate a TemplateFlowSet.
 // Per Netflow v9 spec, FlowSetID is *always* 0 for a TemplateFlow.
-// Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255
-// TODO: Hardcoded FieldCount and Fields for HTTPS Flow.  Need to work on Generating different flows
-func (t *TemplateFlowSet) Generate(session *Session) TemplateFlowSet {
+// Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255.
+// If profile is nil, defaults to GenericProfile for backward compatibility.
+func (t *TemplateFlowSet) Generate(session *Session, profile ...FlowProfile) TemplateFlowSet {
+	p := FlowProfile(&GenericProfile{}) // default
+	if len(profile) > 0 && profile[0] != nil {
+		p = profile[0]
+	}
+
 	templateFlowSet := new(TemplateFlowSet)
 	templateFlowSet.FlowSetID = 0
 	var templates []Template
 	// template
 	template := new(Template)
-	fields := new(GenericFlow).GetTemplateFields()
+	fields := p.TemplateFields()
 	template.TemplateID = 256
 	template.FieldCount = uint16(len(fields))
 	// add fields to the template

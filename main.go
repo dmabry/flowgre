@@ -9,13 +9,13 @@ import (
 	"github.com/dmabry/flowgre/cmd"
 )
 
-const version = "0.4.10" // semantic version
+var version = "0.5.15" // semantic version — overridden by -ldflags at build time
 const license = "Apache License, Version 2.0"
 
 func main() {
 	if len(os.Args) < 2 {
 		printGenericHelp()
-		fmt.Println("expected 'single', 'barrage', 'record', 'replay', 'proxy' or 'version' subcommands")
+		fmt.Println("expected 'single', 'barrage', 'ipfix', 'record', 'replay', 'proxy' or 'version' subcommands")
 		os.Exit(1)
 	}
 
@@ -26,6 +26,8 @@ func main() {
 		if err := cmd.RunBarrage(os.Args[2:]); err != nil {
 			log.Fatalf("barrage error: %v", err)
 		}
+	case "ipfix":
+		cmd.RunIPFIX(os.Args[2:])
 	case "record":
 		cmd.RunRecord(os.Args[2:])
 	case "replay":
@@ -39,7 +41,7 @@ func main() {
 		printGenericHelp()
 	default:
 		printGenericHelp()
-		fmt.Println("expected 'single', 'barrage', 'record', 'replay', 'proxy' or 'version' subcommands")
+		fmt.Println("expected 'single', 'barrage', 'ipfix', 'record', 'replay', 'proxy' or 'version' subcommands")
 		os.Exit(2)
 	}
 }
@@ -53,7 +55,7 @@ func printHelpHeader() {
                       |___/          
 `)
 	fmt.Println("Slinging packets since 2022!")
-	fmt.Println("Used for Netflow Collector Stress testing and other fun activities.")
+	fmt.Println("Used for NetFlow v9 and IPFIX (RFC 7011) Collector Stress testing and other fun activities.")
 }
 
 func printGenericHelp() {
@@ -64,6 +66,7 @@ func printGenericHelp() {
 	fmt.Println()
 	fmt.Println("Single  - Send a given number of flows in sequence to a collector for testing.")
 	fmt.Println("Barrage - Send a continuous barrage of flows to a collector for testing.")
+	fmt.Println("IPFIX   - Send IPFIX (RFC 7011) flows to a collector for testing.")
 	fmt.Println("Record  - Record flows to a file for later replay testing.")
 	fmt.Println("Replay  - Send recorded flows to a target server.")
 	fmt.Println("Proxy   - Accept flows and relay them to multiple targets.")

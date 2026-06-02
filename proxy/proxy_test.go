@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/stats"
 )
 
 // TestProxyListener tests that the proxy listener can receive UDP packets.
@@ -116,9 +116,7 @@ func TestWorker(t *testing.T) {
 	// Start a receiver on the target port
 	receiverDone := make(chan struct{})
 	receiverReady := make(chan struct{})
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer close(receiverDone)
 
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 19996})
@@ -141,7 +139,7 @@ func TestWorker(t *testing.T) {
 		if !bytes.Equal(payload[:n], []byte("worker test")) {
 			t.Errorf("Received wrong payload: got %v, want %v", payload[:n], "worker test")
 		}
-	}()
+	})
 
 	// Wait until the receiver is actually bound and ready to receive
 	<-receiverReady
@@ -175,7 +173,7 @@ func TestParseNetflow(t *testing.T) {
 
 	proxyChan := make(chan []byte, bufferSize)
 	dataChan := make(chan []byte, bufferSize)
-	rStats := &models.RecordStat{}
+	rStats := &stats.RecordStat{}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -223,7 +221,7 @@ func TestStatsPrinter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	rStats := &models.RecordStat{
+	rStats := &stats.RecordStat{
 		ValidCount:   5,
 		InvalidCount: 2,
 	}
@@ -249,9 +247,7 @@ func TestRunIntegration(t *testing.T) {
 	targetPort := 19997
 	received := make(chan struct{}, 1)
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: targetPort})
 		if err != nil {
 			t.Errorf("Failed to listen: %v", err)
@@ -267,7 +263,7 @@ func TestRunIntegration(t *testing.T) {
 			return
 		}
 		received <- struct{}{}
-	}()
+	})
 
 	// Start proxy in a goroutine
 	proxyDone := make(chan struct{})

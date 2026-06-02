@@ -28,6 +28,7 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 	router.HandleFunc("/", IndexHandler)
 	router.HandleFunc("/health", HealthHandler)
 	router.HandleFunc("/stats", sc.StatsHandler)
+	router.HandleFunc("/stats/history", sc.HistoryHandler)
 	router.HandleFunc("/dashboard", sc.DashboardHandler)
 
 	srv := &http.Server{
@@ -47,7 +48,9 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 	}()
 	<-ctx.Done() // Block until context is cancelled
 	log.Printf("Web server Exiting due to signal\n")
-	_ = srv.Shutdown(context.Background())
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	_ = srv.Shutdown(shutdownCtx)
 }
 
 // HealthHandler is used to generate json payload for health.  static for now.

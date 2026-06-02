@@ -55,7 +55,7 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 	if hexDump {
 		fmt.Printf("%s", hex.Dump(tBuf.Bytes()))
 	}
-	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, tBuf, true)
+	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, tBuf.Bytes(), true)
 	if err != nil {
 		log.Fatalf("Flowgre had an issue sending packet %v\n", err)
 	}
@@ -69,7 +69,7 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 		if hexDump {
 			fmt.Printf("%s", hex.Dump(buf.Bytes()))
 		}
-		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, buf, true)
+		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, buf.Bytes(), true)
 		if err != nil {
 			log.Fatalf("Flowgre had an issue sending packet %v\n", err)
 		}

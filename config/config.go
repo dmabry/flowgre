@@ -19,18 +19,21 @@ import (
 //	    port: 9995
 //	    workers: 4
 //	    delay: 100
+//	    template-interval: 30
 //	    src-range: 10.0.0.0/8
 //	    dst-range: 10.0.0.0/8
-//	    web: false
-//	    web-ip: 0.0.0.0
-//	    web-port: 8080
+//
+// \t    web: false
+// \t    web-ip: 0.0.0.0
+// \t    web-port: 8080
+// \t    protocol: netflow
 func LoadBarrageConfig() (*models.Config, error) {
 	if !viper.IsSet("targets") {
 		return nil, fmt.Errorf("couldn't find targets section in config file")
 	}
 
 	targets := viper.Get("targets")
-	targetMap, ok := targets.(map[string]interface{})
+	targetMap, ok := targets.(map[string]any)
 	if !ok || len(targetMap) == 0 {
 		return nil, fmt.Errorf("no targets found in config")
 	}
@@ -41,10 +44,10 @@ func LoadBarrageConfig() (*models.Config, error) {
 
 	// Get the single target
 	var targetName string
-	var targetValues map[string]interface{}
+	var targetValues map[string]any
 	for name, vals := range targetMap {
 		targetName = name
-		tv, ok := vals.(map[string]interface{})
+		tv, ok := vals.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("unexpected type for target %s: %T", name, vals)
 		}
@@ -58,28 +61,32 @@ func LoadBarrageConfig() (*models.Config, error) {
 	delay := getInt(targetValues, "delay", 100)
 	srcRange := getString(targetValues, "src-range", "10.0.0.0/8")
 	dstRange := getString(targetValues, "dst-range", "10.0.0.0/8")
+	templateInterval := getInt(targetValues, "template-interval", 30)
 	webIP := getString(targetValues, "web-ip", "0.0.0.0")
 	webPort := getInt(targetValues, "web-port", 8080)
 	web := getBool(targetValues, "web", false)
+	protocol := getString(targetValues, "protocol", "netflow")
 
-	log.Printf("target: %s ip: %s port: %d workers: %d delay: %d src-range: %s dst-range: %s web: %v web-ip: %s web-port: %d\n",
-		targetName, ip, port, workers, delay, srcRange, dstRange, web, webIP, webPort)
+	log.Printf("target: %s ip: %s port: %d workers: %d delay: %d template-interval: %d src-range: %s dst-range: %s web: %v web-ip: %s web-port: %d protocol: %s\n",
+		targetName, ip, port, workers, delay, templateInterval, srcRange, dstRange, web, webIP, webPort, protocol)
 
 	return &models.Config{
-		Server:   ip,
-		DstPort:  port,
-		Workers:  workers,
-		Delay:    delay,
-		SrcRange: srcRange,
-		DstRange: dstRange,
-		WebIP:    webIP,
-		WebPort:  webPort,
-		Web:      web,
+		Server:           ip,
+		DstPort:          port,
+		Workers:          workers,
+		Delay:            delay,
+		TemplateInterval: templateInterval,
+		SrcRange:         srcRange,
+		DstRange:         dstRange,
+		WebIP:            webIP,
+		WebPort:          webPort,
+		Web:              web,
+		Protocol:         protocol,
 	}, nil
 }
 
 // getString safely gets a string value from a map with a default.
-func getString(m map[string]interface{}, key, def string) string {
+func getString(m map[string]any, key, def string) string {
 	if v, ok := m[key]; ok {
 		if s, ok := v.(string); ok {
 			return s
@@ -90,7 +97,7 @@ func getString(m map[string]interface{}, key, def string) string {
 
 // getInt safely gets an int value from a map with a default.
 // Viper returns float64 for numbers, so we handle that.
-func getInt(m map[string]interface{}, key string, def int) int {
+func getInt(m map[string]any, key string, def int) int {
 	if v, ok := m[key]; ok {
 		switch val := v.(type) {
 		case int:
@@ -112,7 +119,7 @@ func getInt(m map[string]interface{}, key string, def int) int {
 }
 
 // getBool safely gets a bool value from a map with a default.
-func getBool(m map[string]interface{}, key string, def bool) bool {
+func getBool(m map[string]any, key string, def bool) bool {
 	if v, ok := m[key]; ok {
 		if b, ok := v.(bool); ok {
 			return b

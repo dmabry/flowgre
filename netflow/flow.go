@@ -10,37 +10,6 @@ import (
 	"github.com/dmabry/flowgre/utils"
 )
 
-// Port constants
-const (
-	ftpPort      = 21
-	sshPort      = 22
-	dnsPort      = 53
-	httpPort     = 80
-	httpsPort    = 443
-	ntpPort      = 123
-	snmpPort     = 161
-	imapsPort    = 993
-	mysqlPort    = 3306
-	httpAltPort  = 8080
-	httpsAltPort = 8443
-	p2pPort      = 6681
-	btPort       = 6682
-)
-
-// Protocol constants
-const (
-	tcpProto   = 6
-	udpProto   = 17
-	icmpProto  = 1
-	sctpProto  = 132
-	igmpProto  = 2
-	egpProto   = 8
-	igpProto   = 9
-	greProto   = 47
-	espProto   = 50
-	eigrpProto = 88
-)
-
 // Constants for Field Types
 const (
 	IN_BYTES                     = 1
@@ -138,7 +107,9 @@ const (
 	layer2packetSectionData      = 104
 )
 
-// GenericFlow is used to create and generate HTTPS Flows
+// GenericFlow is used to create and generate NetFlow v9 flow records.
+// Field order must match GetTemplateFields() exactly — binary.Write
+// serializes in struct field order, and the template defines the wire format.
 type GenericFlow struct {
 	InBytes       uint32
 	OutBytes      uint32
@@ -146,6 +117,10 @@ type GenericFlow struct {
 	OutPkts       uint32
 	Ipv4SrcAddr   uint32
 	Ipv4DstAddr   uint32
+	Ipv6SrcAddr   [16]byte
+	Ipv6DstAddr   [16]byte
+	Ipv6SrcMask   uint8
+	Ipv6DstMask   uint8
 	L4SrcPort     uint16
 	L4DstPort     uint16
 	Protocol      uint8
@@ -157,26 +132,32 @@ type GenericFlow struct {
 }
 
 // GetTemplateFields returns the Fields for the Template to be used.
+// Field order must match GenericFlow struct field order exactly.
 func (gf *GenericFlow) GetTemplateFields() []Field {
-	fields := make([]Field, 14)
+	fields := make([]Field, 18)
 	fields[0] = Field{Type: IN_BYTES, Length: 4}
 	fields[1] = Field{Type: OUT_BYTES, Length: 4}
 	fields[2] = Field{Type: IN_PKTS, Length: 4}
 	fields[3] = Field{Type: OUT_PKTS, Length: 4}
 	fields[4] = Field{Type: IPV4_SRC_ADDR, Length: 4}
 	fields[5] = Field{Type: IPV4_DST_ADDR, Length: 4}
-	fields[6] = Field{Type: L4_SRC_PORT, Length: 2}
-	fields[7] = Field{Type: L4_DST_PORT, Length: 2}
-	fields[8] = Field{Type: PROTOCOL, Length: 1}
-	fields[9] = Field{Type: TCP_FLAGS, Length: 1}
-	fields[10] = Field{Type: FIRST_SWITCHED, Length: 4}
-	fields[11] = Field{Type: LAST_SWITCHED, Length: 4}
-	fields[12] = Field{Type: ENGINE_TYPE, Length: 1}
-	fields[13] = Field{Type: ENGINE_ID, Length: 1}
+	fields[6] = Field{Type: IPV6_SRC_ADDR, Length: 16}
+	fields[7] = Field{Type: IPV6_DST_ADDR, Length: 16}
+	fields[8] = Field{Type: IPV6_SRC_MASK, Length: 1}
+	fields[9] = Field{Type: IPV6_DST_MASK, Length: 1}
+	fields[10] = Field{Type: L4_SRC_PORT, Length: 2}
+	fields[11] = Field{Type: L4_DST_PORT, Length: 2}
+	fields[12] = Field{Type: PROTOCOL, Length: 1}
+	fields[13] = Field{Type: TCP_FLAGS, Length: 1}
+	fields[14] = Field{Type: FIRST_SWITCHED, Length: 4}
+	fields[15] = Field{Type: LAST_SWITCHED, Length: 4}
+	fields[16] = Field{Type: ENGINE_TYPE, Length: 1}
+	fields[17] = Field{Type: ENGINE_ID, Length: 1}
 	return fields
 }
 
-// Generate returns HTTPS Flow with randomly generated payload
+// Generate returns a NetFlow v9 Flow with randomly generated payload.
+// Populates both IPv4 and IPv6 fields based on the input IP version.
 func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *Session) GenericFlow {
 	now := time.Now().UnixNano()
 	startTime := session.StartTime()
@@ -185,8 +166,24 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 	gf.OutBytes = utils.GenerateRand32(10000)
 	gf.InPkts = utils.GenerateRand32(10000)
 	gf.OutPkts = utils.GenerateRand32(10000)
-	gf.Ipv4SrcAddr = utils.IPToNum(srcIP)
-	gf.Ipv4DstAddr = utils.IPToNum(dstIP)
+
+	// Populate IP addresses based on version
+	if srcIP.To4() != nil {
+		gf.Ipv4SrcAddr = utils.IPToNum(srcIP)
+		gf.Ipv4DstAddr = utils.IPToNum(dstIP)
+		gf.Ipv6SrcAddr = [16]byte{}
+		gf.Ipv6DstAddr = [16]byte{}
+		gf.Ipv6SrcMask = 0
+		gf.Ipv6DstMask = 0
+	} else {
+		gf.Ipv4SrcAddr = 0
+		gf.Ipv4DstAddr = 0
+		copy(gf.Ipv6SrcAddr[:], srcIP.To16())
+		copy(gf.Ipv6DstAddr[:], dstIP.To16())
+		gf.Ipv6SrcMask = 64 // Default /64 mask
+		gf.Ipv6DstMask = 64 // Default /64 mask
+	}
+
 	gf.L4SrcPort = utils.GenerateRand16(10000)
 	gf.TcpFlags = uint8(utils.RandomNum(0, 32))
 	gf.FirstSwitched = uptime - 100
@@ -194,50 +191,7 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 	gf.EngineType = 0
 	gf.EngineID = 0
 
-	switch flowSrcPort {
-	case sshPort:
-		gf.L4DstPort = uint16(sshPort)
-		gf.Protocol = uint8(tcpProto)
-	case ftpPort:
-		gf.L4DstPort = uint16(ftpPort)
-		gf.Protocol = uint8(tcpProto)
-	case dnsPort:
-		gf.L4DstPort = uint16(dnsPort)
-		gf.Protocol = uint8(udpProto)
-	case httpPort:
-		gf.L4DstPort = uint16(httpPort)
-		gf.Protocol = uint8(tcpProto)
-	case httpsPort:
-		gf.L4DstPort = uint16(httpsPort)
-		gf.Protocol = uint8(tcpProto)
-	case ntpPort:
-		gf.L4DstPort = uint16(ntpPort)
-		gf.Protocol = uint8(udpProto)
-	case snmpPort:
-		gf.L4DstPort = uint16(snmpPort)
-		gf.Protocol = uint8(udpProto)
-	case imapsPort:
-		gf.L4DstPort = uint16(imapsPort)
-		gf.Protocol = uint8(tcpProto)
-	case mysqlPort:
-		gf.L4DstPort = uint16(mysqlPort)
-		gf.Protocol = uint8(tcpProto)
-	case httpAltPort:
-		gf.L4DstPort = uint16(httpAltPort)
-		gf.Protocol = uint8(tcpProto)
-	case httpsAltPort:
-		gf.L4DstPort = uint16(httpsAltPort)
-		gf.Protocol = uint8(tcpProto)
-	case p2pPort:
-		gf.L4DstPort = uint16(p2pPort)
-		gf.Protocol = uint8(tcpProto)
-	case btPort:
-		gf.L4DstPort = uint16(btPort)
-		gf.Protocol = uint8(tcpProto)
-	default:
-		gf.L4DstPort = uint16(httpsPort)
-		gf.Protocol = uint8(tcpProto)
-	}
+	gf.L4DstPort, gf.Protocol = utils.ResolvePortProtocol(flowSrcPort)
 
 	return *gf
 }

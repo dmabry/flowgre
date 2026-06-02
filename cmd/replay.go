@@ -23,7 +23,7 @@ type ReplayCommand struct {
 // ParseFlags parses command-line flags for the replay mode.
 func (c *ReplayCommand) ParseFlags(args []string) error {
 	fs := flag.NewFlagSet("replay", flag.ExitOnError)
-	c.server = fs.String("server", "127.0.0.1", "target server to replay flows at")
+	c.server = fs.String("server", "127.0.0.1", "target server to replay flows at (IPv4 or IPv6)")
 	c.port = fs.Int("port", 9995, "target server udp port")
 	c.delay = fs.Int("delay", 100, "number of milliseconds between packets sent")
 	c.dbDir = fs.String("db", "recorded_flows", "Directory to read recorded flows from")

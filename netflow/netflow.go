@@ -10,12 +10,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"time"
+
+	"github.com/dmabry/flowgre/utils"
 )
 
-func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, session *Session) Netflow {
+func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, session *Session, profile ...FlowProfile) Netflow {
 	netflow := new(Netflow)
-	templateFlow := new(TemplateFlowSet).Generate(session)
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, httpsPort, session)
+	templateFlow := new(TemplateFlowSet).Generate(session, profile...)
+	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, utils.HTTPSPort, session, profile...)
 	header := new(Header).Generate(flowCount+1, sourceID, session) // always +1 of dataflow count, because we are counting the template
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
@@ -24,9 +26,9 @@ func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange stri
 }
 
 // GenerateDataNetflow Generates a Netflow containing Data flows
-func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, session *Session) Netflow {
+func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, session *Session, profile ...FlowProfile) Netflow {
 	netflow := new(Netflow)
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowSrcPort, session)
+	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowSrcPort, session, profile...)
 	header := new(Header).Generate(1, sourceID, session) // always 1 for but could be more in future
 	netflow.Header = header
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)
@@ -34,9 +36,9 @@ func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange 
 }
 
 // GenerateTemplateNetflow Generates a Netflow containing Template flow
-func GenerateTemplateNetflow(sourceID int, session *Session) Netflow {
+func GenerateTemplateNetflow(sourceID int, session *Session, profile ...FlowProfile) Netflow {
 	netflow := new(Netflow)
-	templateFlow := new(TemplateFlowSet).Generate(session)
+	templateFlow := new(TemplateFlowSet).Generate(session, profile...)
 	header := new(Header).Generate(1, sourceID, session) // always 1 counting the template only
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
