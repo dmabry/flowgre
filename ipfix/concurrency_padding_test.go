@@ -53,7 +53,6 @@ func TestOptionsTemplateFlowSet_Padding_Alignment(t *testing.T) {
 
 func TestOptionsDataFlowSet_Padding_Alignment(t *testing.T) {
 	t.Parallel()
-	session := netflow.NewSession()
 	ods := new(OptionsDataFlowSet).Generate(618, "flowgre", 12345)
 
 	// Total length should be aligned to 4-byte boundary per RFC 7011
@@ -106,14 +105,7 @@ func TestPadding_VariesByProfile(t *testing.T) {
 		&GenericIPFIXProfile{},
 	} {
 		tfs := new(TemplateFlowSet).Generate(session, profile)
-		name := profile.(*MinimalIPFIXProfile).Name()
-		if _, ok := profile.(*ExtendedIPFIXProfile); ok {
-			name = profile.(*ExtendedIPFIXProfile).Name()
-		}
-		if _, ok := profile.(*GenericIPFIXProfile); ok {
-			name = profile.(*GenericIPFIXProfile).Name()
-		}
-		results[name] = result{length: tfs.Length, padding: tfs.Padding}
+		results[profile.Name()] = result{length: tfs.Length, padding: tfs.Padding}
 	}
 
 	// Each profile should produce 4-byte-aligned length
@@ -238,10 +230,10 @@ func TestProfileFieldDataAlignment_Minimal(t *testing.T) {
 
 	// Verify field types match MinimalIPFIXFlow struct
 	expectedTypes := []uint16{
-		StartTimestamp, EndTimestamp,
-		SourceTransportPort, DestinationTransportPort,
+		InOctets, InPackets,
 		SourceIPv4Address, DestinationIPv4Address,
-		Protocol,
+		SourceTransportPort, DestinationTransportPort,
+		ProtocolIdentifier,
 	}
 	for i, want := range expectedTypes {
 		if fields[i].Type != want {
@@ -255,19 +247,24 @@ func TestProfileFieldDataAlignment_Extended(t *testing.T) {
 	profile := &ExtendedIPFIXProfile{}
 	fields := profile.TemplateFields()
 
-	// Verify field count matches what ExtendedIPFIXFlow expects
-	if len(fields) != 12 {
-		t.Errorf("ExtendedIPFIXProfile: expected 12 fields, got %d", len(fields))
+	// Verify field count matches ExtendedIPFIXProfile definition
+	if len(fields) != 17 {
+		t.Errorf("ExtendedIPFIXProfile: expected 17 fields, got %d", len(fields))
 	}
 
-	// Verify field types match ExtendedIPFIXFlow struct
+	// Verify field types match ExtendedIPFIXProfile struct
 	expectedTypes := []uint16{
-		StartTimestamp, EndTimestamp,
-		SourceTransportPort, DestinationTransportPort,
+		InOctets, OutOctets,
+		InPackets, OutPackets,
 		SourceIPv4Address, DestinationIPv4Address,
-		Protocol,
-		SourceIPv4Prefix, DestinationIPv4Prefix,
-		MinimumPacketOctets, MaximumPacketOctets,
+		SourceTransportPort, DestinationTransportPort,
+		ProtocolIdentifier,
+		TCPFlags,
+		FlowStartMilliseconds, FlowEndMilliseconds,
+		FlowDirection,
+		IPClassOfService,
+		FlowEndReason,
+		SourceIPv6Address, DestinationIPv6Address,
 	}
 	for i, want := range expectedTypes {
 		if fields[i].Type != want {
@@ -281,42 +278,23 @@ func TestProfileFieldDataAlignment_Generic(t *testing.T) {
 	profile := &GenericIPFIXProfile{}
 	fields := profile.TemplateFields()
 
-	// Verify field count matches what GenericFlow expects
-	if len(fields) != 16 {
-		t.Errorf("GenericIPFIXProfile: expected 16 fields, got %d", len(fields))
+	// Verify field count matches GenericFlow struct
+	if len(fields) != 19 {
+		t.Errorf("GenericIPFIXProfile: expected 19 fields, got %d", len(fields))
 	}
 
 	// Verify first and last fields match expectations
-	if fields[0].Type != StartTimestamp {
-		t.Errorf("first field type: got %d, want %d", fields[0].Type, StartTimestamp)
+	if fields[0].Type != InOctets {
+		t.Errorf("first field type: got %d, want %d", fields[0].Type, InOctets)
 	}
-	if fields[len(fields)-1].Type != FlowEndSeconds {
-		t.Errorf("last field type: got %d, want %d", fields[len(fields)-1].Type, FlowEndSeconds)
+	if fields[len(fields)-1].Type != FlowEndReason {
+		t.Errorf("last field type: got %d, want %d", fields[len(fields)-1].Type, FlowEndReason)
 	}
 }
 
 // ---------------------------------------------------------------------------
 // Padding edge cases
 // ---------------------------------------------------------------------------
-
-func TestTemplateFlowSet_Padding_ZeroNeeded(t *testing.T) {
-	t.Parallel()
-	session := netflow.NewSession()
-
-	// Find a profile where raw size is already 4-byte aligned
-	for _, profile := range []IPFIXFlowProfile{
-		&MinimalIPFIXProfile{},
-		&ExtendedIPFIXProfile{},
-		&GenericIPFIXProfile{},
-	} {
-		tfs := new(TemplateFlowSet).Generate(session, profile)
-		// Regardless of padding value, total length must be 4-byte aligned
-		if tfs.Length%4 != 0 {
-			t.Errorf("TemplateFlowSet length %d not 4-byte aligned (padding=%d)",
-				tfs.Length, tfs.Padding)
-		}
-	}
-}
 
 func TestDataFlowSet_Padding_ZeroFlowCount(t *testing.T) {
 	t.Parallel()
@@ -332,7 +310,6 @@ func TestDataFlowSet_Padding_ZeroFlowCount(t *testing.T) {
 
 func TestOptionsDataFlowSet_Padding_ProcessName(t *testing.T) {
 	t.Parallel()
-	session := netflow.NewSession()
 
 	// Test with various process name lengths to exercise padding calculations
 	testCases := []struct {
