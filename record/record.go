@@ -153,11 +153,11 @@ func parseFlow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []byte,
 	}
 }
 
-// Run Record. Kicks off the recording process.
-func Run(ip string, port int, dbdir string, verbose bool) {
-	mgr := lifecycle.New()
-	ctx := mgr.Context()
-	wg := mgr.WaitGroup()
+// RunCtx starts the recording process with an external context.
+// Cancelling ctx stops all workers cleanly. Use Run() for CLI usage
+// where OS signal handling is desired.
+func RunCtx(ctx context.Context, ip string, port int, dbdir string, verbose bool) {
+	wg := &sync.WaitGroup{}
 	dataChan := make(chan []byte, 1024)
 	parseChan := make(chan []byte, 1024)
 
@@ -172,6 +172,17 @@ func Run(ip string, port int, dbdir string, verbose bool) {
 	// Start dbIngest
 	wg.Add(1)
 	go dbIngest(ctx, wg, dbdir, dataChan, verbose)
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+}
+
+// Run Record. Kicks off the recording process.
+// It sets up OS signal handling (SIGINT/SIGTERM) for clean shutdown.
+// Use RunCtx() when you need to control the lifecycle via context.
+func Run(ip string, port int, dbdir string, verbose bool) {
+	mgr := lifecycle.New()
+	RunCtx(mgr.Context(), ip, port, dbdir, verbose)
 
 	// Setup signal handling via lifecycle manager
 	cleanupDone := mgr.SetupSignalHandler()
