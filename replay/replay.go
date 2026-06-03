@@ -130,11 +130,12 @@ func dbReader(ctx context.Context, wg *sync.WaitGroup, dbdir string, dataChan ch
 	return
 }
 
-// Run Replay. Kicks off the replay of netflow packets from a db.
-func Run(server string, port int, delay int, dbdir string, loop bool, workers int, updateTS bool, verbose bool) {
-	mgr := lifecycle.New()
-	ctx := mgr.Context()
-	wg := mgr.WaitGroup()
+// RunCtx replays netflow packets from a db with an external context.
+// Cancelling ctx stops all workers cleanly. In non-loop mode, the function
+// returns when all packets have been sent. Use Run() for CLI usage where
+// OS signal handling is desired.
+func RunCtx(ctx context.Context, server string, port int, delay int, dbdir string, loop bool, workers int, updateTS bool, verbose bool) {
+	wg := &sync.WaitGroup{}
 	dataChan := make(chan []byte, 1024)
 
 	// Start dbReader
@@ -147,33 +148,30 @@ func Run(server string, port int, delay int, dbdir string, loop bool, workers in
 		go worker(w, ctx, server, port, delay, wg, loop, dataChan)
 	}
 
+	// Wait for all goroutines to finish
+	wg.Wait()
+
+	// Log completion if context was not cancelled (natural completion)
+	if ctx.Err() == nil {
+		log.Printf("\nReplay complete, shutting down...\n")
+	}
+}
+
+// Run Replay. Kicks off the replay of netflow packets from a db.
+// It sets up OS signal handling (SIGINT/SIGTERM) for clean shutdown.
+// Use RunCtx() when you need to control the lifecycle via context.
+func Run(server string, port int, delay int, dbdir string, loop bool, workers int, updateTS bool, verbose bool) {
+	mgr := lifecycle.New()
+
 	// Setup signal handling via lifecycle manager.
-	// For non-loop mode, also detect when replay is complete (dataChan empty).
-	cleanupDone := make(chan bool, 1)
-	sigCleanup := mgr.SetupSignalHandler()
+	cleanupDone := mgr.SetupSignalHandler()
 
 	go func() {
-		for {
-			select {
-			case <-sigCleanup:
-				log.Printf("\rReceived signal, shutting down...\n\n")
-				mgr.Cancel()
-				cleanupDone <- true
-			case <-ctx.Done():
-				if !loop && len(dataChan) == 0 {
-					log.Printf("Replay complete, shutting down...\n\n")
-				}
-				cleanupDone <- true
-			case <-time.After(time.Second * 1):
-				if !loop && len(dataChan) == 0 {
-					log.Printf("Replay complete, shutting down...\n\n")
-					mgr.Cancel()
-					cleanupDone <- true
-				}
-			}
-		}
+		<-cleanupDone
+		log.Printf("\rReceived signal, shutting down...\n\n")
+		mgr.Cancel()
 	}()
 
-	<-cleanupDone
+	RunCtx(mgr.Context(), server, port, delay, dbdir, loop, workers, updateTS, verbose)
 	mgr.Wait()
 }

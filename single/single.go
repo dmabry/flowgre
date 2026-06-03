@@ -6,8 +6,10 @@
 package single
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/utils"
 	"log"
@@ -23,10 +25,11 @@ const (
 	sourceIDMax = 10000
 )
 
-// Run Creates the given number of Netflow packets, including the required
-// Template, for a Single run. Creates the packets and puts them on the wire to
-// the targeted host.
-func Run(collectorIP string, destPort int, srcPort int, count int, srcRange string, dstRange string, hexDump bool) {
+// RunCtx creates the given number of Netflow packets, including the required
+// Template, for a Single run with an external context. Cancelling ctx stops
+// packet generation cleanly. Use Run() for CLI usage where OS signal handling
+// is desired.
+func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, count int, srcRange string, dstRange string, hexDump bool) {
 	// Configure connection to use. It looks like a listener, but it will be used to send packet. Allows setting the source port.
 	if srcPort == 0 {
 		// Pick random source port between 10000 and 15000
@@ -39,6 +42,7 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 	if err != nil {
 		log.Fatal("Listen:", err)
 	}
+	defer conn.Close()
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(collectorIP)
 	if destIP == nil {
@@ -63,6 +67,12 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 	// Generate and send Data Flow(s)
 	fmt.Printf("\nSending Data Flows\n\n")
 	for i := 1; i <= count; i++ {
+		select {
+		case <-ctx.Done():
+			log.Printf("Single run cancelled after %d/%d packets\n", i-1, count)
+			return
+		default:
+		}
 		flow := netflow.GenerateDataNetflow(10, sourceID, srcRange, dstRange, 0, session)
 		buf := flow.ToBytes()
 		fmt.Println(netflow.GetNetFlowSizes(flow))
@@ -74,4 +84,23 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 			log.Fatalf("Flowgre had an issue sending packet %v\n", err)
 		}
 	}
+}
+
+// Run Creates the given number of Netflow packets, including the required
+// Template, for a Single run. Creates the packets and puts them on the wire to
+// the targeted host. Sets up OS signal handling (SIGINT/SIGTERM) for clean
+// shutdown. Use RunCtx() when you need to control the lifecycle via context.
+func Run(collectorIP string, destPort int, srcPort int, count int, srcRange string, dstRange string, hexDump bool) {
+	mgr := lifecycle.New()
+
+	// Setup signal handling via lifecycle manager
+	cleanupDone := mgr.SetupSignalHandler()
+	go func() {
+		<-cleanupDone
+		log.Printf("Received signal, shutting down...\n")
+		mgr.Cancel()
+	}()
+
+	RunCtx(mgr.Context(), collectorIP, destPort, srcPort, count, srcRange, dstRange, hexDump)
+	mgr.Wait()
 }
