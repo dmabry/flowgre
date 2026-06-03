@@ -6,15 +6,45 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/stats"
 	"io"
+	"math/rand"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 )
+
+// pickPort tries 8080 first, then falls back to a random port > 1024.
+func pickPort() int {
+	// Try the default port first
+	listener, err := net.Listen("tcp", "127.0.0.1:8080")
+	if err == nil {
+		listener.Close()
+		return 8080
+	}
+	// Pick a random port in the ephemeral range
+	for i := 0; i < 5; i++ {
+		port := 1024 + rand.Intn(64512)
+		listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err == nil {
+			listener.Close()
+			return port
+		}
+	}
+	// Last resort: let the OS pick
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic("cannot find an available port")
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	return port
+}
 
 type Response struct {
 	Status  string `json:"status"`
@@ -26,9 +56,9 @@ func TestRun(t *testing.T) {
 	t.Parallel()
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
-	// configure web server
+	// configure web server — pick an available port
 	webIP := "127.0.0.1"
-	webPort := 8080
+	webPort := pickPort()
 	statusURL := "http://" + webIP + ":" + strconv.Itoa(webPort) + "/"
 	statusExpected := "OK"
 	buffer := 20
