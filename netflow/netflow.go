@@ -14,25 +14,31 @@ import (
 	"github.com/dmabry/flowgre/utils"
 )
 
-func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, session *Session, profile ...FlowProfile) Netflow {
+func GenerateNetflow(flowCount int, sourceID int, srcRange string, dstRange string, session *Session, profile ...FlowProfile) (Netflow, error) {
 	netflow := new(Netflow)
 	templateFlow := new(TemplateFlowSet).Generate(session, profile...)
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, utils.HTTPSPort, session, profile...)
+	dataFlow, err := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, utils.HTTPSPort, session, profile...)
+	if err != nil {
+		return Netflow{}, fmt.Errorf("generate data flow set: %w", err)
+	}
 	header := new(Header).Generate(flowCount+1, sourceID, session) // always +1 of dataflow count, because we are counting the template
 	netflow.Header = header
 	netflow.TemplateFlowSets = append(netflow.TemplateFlowSets, templateFlow)
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)
-	return *netflow
+	return *netflow, nil
 }
 
 // GenerateDataNetflow Generates a Netflow containing Data flows
-func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, session *Session, profile ...FlowProfile) Netflow {
+func GenerateDataNetflow(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, session *Session, profile ...FlowProfile) (Netflow, error) {
 	netflow := new(Netflow)
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowSrcPort, session, profile...)
+	dataFlow, err := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowSrcPort, session, profile...)
+	if err != nil {
+		return Netflow{}, fmt.Errorf("generate data flow set: %w", err)
+	}
 	header := new(Header).Generate(1, sourceID, session) // always 1 for but could be more in future
 	netflow.Header = header
 	netflow.DataFlowSets = append(netflow.DataFlowSets, dataFlow)
-	return *netflow
+	return *netflow, nil
 }
 
 // GenerateTemplateNetflow Generates a Netflow containing Template flow

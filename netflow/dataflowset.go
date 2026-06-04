@@ -5,7 +5,7 @@ package netflow
 
 import (
 	"encoding/binary"
-	"log"
+	"fmt"
 	"net"
 
 	"github.com/dmabry/flowgre/utils"
@@ -30,7 +30,7 @@ type DataFlowSet struct {
 // Hardcoded TemplateID to 256, but could be variable as long as it is greater than 255.
 // Currently hardcoded to generate random src/dst IPs from 10.0.0.0/8.
 // If profile is nil, defaults to GenericProfile for backward compatibility.
-func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, session *Session, profile ...FlowProfile) DataFlowSet {
+func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, session *Session, profile ...FlowProfile) (DataFlowSet, error) {
 	p := FlowProfile(&GenericProfile{}) // default
 	if len(profile) > 0 && profile[0] != nil {
 		p = profile[0]
@@ -43,11 +43,11 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 	for i := range flowCount {
 		srcIP, err := utils.RandomIPCIDR(srcRange)
 		if err != nil {
-			log.Printf("Issue generating src IP... proceeding anyway: %v", err)
+			return DataFlowSet{}, fmt.Errorf("failed to generate src IP for flow %d: %w", i, err)
 		}
 		dstIP, err := utils.RandomIPCIDR(dstRange)
 		if err != nil {
-			log.Printf("Issue generating dst IP... proceeding anyway: %v", err)
+			return DataFlowSet{}, fmt.Errorf("failed to generate dst IP for flow %d: %w", i, err)
 		}
 		var flowPort int
 		if flowSrcPort == 0 {
@@ -59,7 +59,7 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 	}
 	dataFlowSet.Items = items
 	dataFlowSet.Length = uint16(dataFlowSet.size())
-	return *dataFlowSet
+	return *dataFlowSet, nil
 }
 
 // generateFlow creates a flow record appropriate for the given profile.

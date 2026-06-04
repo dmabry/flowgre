@@ -241,7 +241,9 @@ func TestStatsPrinter(t *testing.T) {
 // TestRunIntegration tests the full proxy flow with a single target.
 func TestRunIntegration(t *testing.T) {
 	t.Parallel()
+	origStdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull) // hide logs
+	defer func() { os.Stdout = origStdout }()
 
 	// Start a receiver on target port
 	targetPort := 19997

@@ -108,7 +108,10 @@ func TestTemplateFlowSet_Padding_Alignment(t *testing.T) {
 func TestDataFlowSet_Size(t *testing.T) {
 	t.Parallel()
 	session := NewSession()
-	dfs := new(DataFlowSet).Generate(10, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	dfs, err := new(DataFlowSet).Generate(10, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	size := dfs.size()
 	if size <= 0 {
@@ -119,7 +122,10 @@ func TestDataFlowSet_Size(t *testing.T) {
 func TestDataFlowSet_Generate_ZeroFlowCount(t *testing.T) {
 	t.Parallel()
 	session := NewSession()
-	dfs := new(DataFlowSet).Generate(0, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	dfs, err := new(DataFlowSet).Generate(0, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(dfs.Items) != 0 {
 		t.Errorf("expected 0 items with zero flow count, got %d", len(dfs.Items))
@@ -146,7 +152,10 @@ func TestDataFlowSet_Padding_Alignment(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			dfs := new(DataFlowSet).Generate(1, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, tc.profile)
+			dfs, err := new(DataFlowSet).Generate(1, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, tc.profile)
+			if err != nil {
+				t.Fatal(err)
+			}
 			// Total length should be aligned to 4-byte boundary
 			if dfs.Length%4 != 0 {
 				t.Errorf("%s: DataFlowSet length %d should be 4-byte aligned",
@@ -165,7 +174,10 @@ func TestGetNetFlowSizes(t *testing.T) {
 	sourceID := 618
 	flowcount := 10
 	session := NewSession()
-	nf := GenerateNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", session)
+	nf, err := GenerateNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	output := GetNetFlowSizes(nf)
 
@@ -342,7 +354,10 @@ func TestToBytes_BufferLengthMatchesFlowSetLengths(t *testing.T) {
 	sourceID := 618
 	flowcount := 10
 	session := NewSession()
-	nf := GenerateNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", session)
+	nf, err := GenerateNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	buf := nf.ToBytes()
 
@@ -365,7 +380,10 @@ func TestToBytes_DataOnly_BufferLengthMatchesFlowSetLengths(t *testing.T) {
 	sourceID := 618
 	flowcount := 10
 	session := NewSession()
-	nf := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	nf, err := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	buf := nf.ToBytes()
 

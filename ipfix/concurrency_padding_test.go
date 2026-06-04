@@ -76,7 +76,10 @@ func TestDataFlowSet_Padding_Alignment(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			dfs := new(DataFlowSet).Generate(1, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, tc.profile)
+			dfs, err := new(DataFlowSet).Generate(1, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, tc.profile)
+			if err != nil {
+				t.Fatal(err)
+			}
 			// Total length should be aligned to 4-byte boundary per RFC 7011
 			if dfs.Length%4 != 0 {
 				t.Errorf("%s: DataFlowSet length %d should be 4-byte aligned",
@@ -162,7 +165,10 @@ func TestGenerateIPFIX_Concurrent_Safe(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ipfix := GenerateIPFIX(1, 618, "10.0.0.0/8", "10.0.0.0/8", session)
+			ipfix, err := GenerateIPFIX(1, 618, "10.0.0.0/8", "10.0.0.0/8", session)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			mu.Lock()
 			sequences = append(sequences, ipfix.Header.FlowSequence)
@@ -300,7 +306,10 @@ func TestDataFlowSet_Padding_ZeroFlowCount(t *testing.T) {
 	t.Parallel()
 	session := netflow.NewSession()
 
-	dfs := new(DataFlowSet).Generate(0, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	dfs, err := new(DataFlowSet).Generate(0, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Even with zero flows, length should be 4-byte aligned
 	if dfs.Length%4 != 0 {

@@ -76,7 +76,10 @@ func TestGenerateDataIPFIX(t *testing.T) {
 	flowCount := 10
 	sourceID := 618
 	session := netflow.NewSession()
-	flow := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8",	utils.HTTPSPort, session)
+	flow, err := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8",	utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Fatal("No data flowsets generated")
@@ -100,7 +103,10 @@ func TestGenerateIPFIX(t *testing.T) {
 	flowCount := 10
 	sourceID := 618
 	session := netflow.NewSession()
-	flow := GenerateIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", session)
+	flow, err := GenerateIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if flow.Header.Version != 10 {
 		t.Errorf("Version wrong! Got: %d Want: 10", flow.Header.Version)
@@ -123,7 +129,10 @@ func TestToBytes_RoundTrip(t *testing.T) {
 	session := netflow.NewSession()
 
 	tFlow := GenerateTemplateIPFIX(sourceID, session)
-	dFlow := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8",	utils.HTTPSPort, session)
+	dFlow, err := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8",	utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tBuf := tFlow.ToBytes()
 	dBuf := dFlow.ToBytes()
@@ -382,9 +391,18 @@ func TestUpdateTimeStamp(t *testing.T) {
 func TestFlowSequenceMonotonicallyIncreases(t *testing.T) {
 	t.Parallel()
 	session := netflow.NewSession()
-	f1 := GenerateDataIPFIX(1, 42, "10.0.0.0/8", "10.0.0.0/8", 443, session)
-	f2 := GenerateDataIPFIX(1, 42, "10.0.0.0/8", "10.0.0.0/8", 443, session)
-	f3 := GenerateDataIPFIX(1, 42, "10.0.0.0/8", "10.0.0.0/8", 443, session)
+	f1, err := GenerateDataIPFIX(1, 42, "10.0.0.0/8", "10.0.0.0/8", 443, session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f2, err := GenerateDataIPFIX(1, 42, "10.0.0.0/8", "10.0.0.0/8", 443, session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f3, err := GenerateDataIPFIX(1, 42, "10.0.0.0/8", "10.0.0.0/8", 443, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if f1.Header.FlowSequence >= f2.Header.FlowSequence {
 		t.Errorf("FlowSequence not monotonically increasing: f1=%d >= f2=%d",
@@ -419,7 +437,10 @@ func TestToBytes_BufferLengthMatchesFlowSetLengths(t *testing.T) {
 	}
 
 	// Test data-only packet
-	dFlow := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8",	utils.HTTPSPort, session)
+	dFlow, err := GenerateDataIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8",	utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 	dBuf := dFlow.ToBytes()
 	expectedDLen := binary.Size(dFlow.Header)
 	for _, fs := range dFlow.DataFlowSets {
@@ -432,7 +453,10 @@ func TestToBytes_BufferLengthMatchesFlowSetLengths(t *testing.T) {
 	}
 
 	// Test combined packet
-	cFlow := GenerateIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", session)
+	cFlow, err := GenerateIPFIX(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", session)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cBuf := cFlow.ToBytes()
 	expectedCLen := binary.Size(cFlow.Header)
 	for _, fs := range cFlow.TemplateFlowSets {
@@ -569,7 +593,10 @@ func TestGenerateDataIPFIX_IPv6(t *testing.T) {
 	flowCount := 10
 	sourceID := 618
 	session := netflow.NewSession()
-	flow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32",	utils.HTTPSPort, session)
+	flow, err := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32",	utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Fatal("No data flowsets generated")
@@ -612,7 +639,10 @@ func TestGenerateIPFIX_IPv6(t *testing.T) {
 	flowCount := 10
 	sourceID := 618
 	session := netflow.NewSession()
-	flow := GenerateIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", session)
+	flow, err := GenerateIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if flow.Header.Version != 10 {
 		t.Errorf("Version wrong! Got: %d Want: 10", flow.Header.Version)
@@ -634,7 +664,10 @@ func TestToBytes_IPv6_RoundTrip(t *testing.T) {
 	flowCount := 10
 	session := netflow.NewSession()
 
-	dFlow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32",	utils.HTTPSPort, session)
+	dFlow, err := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32",	utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 	dBuf := dFlow.ToBytes()
 
 	// Read back
@@ -699,7 +732,10 @@ func TestToBytes_IPv6_BufferLengthMatchesFlowSetLengths(t *testing.T) {
 	flowCount := 10
 	session := netflow.NewSession()
 
-	dFlow := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32",	utils.HTTPSPort, session)
+	dFlow, err := GenerateDataIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32",	utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 	dBuf := dFlow.ToBytes()
 	expectedDLen := binary.Size(dFlow.Header)
 	for _, fs := range dFlow.DataFlowSets {
@@ -711,7 +747,10 @@ func TestToBytes_IPv6_BufferLengthMatchesFlowSetLengths(t *testing.T) {
 			expectedDLen-binary.Size(dFlow.Header))
 	}
 
-	cFlow := GenerateIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", session)
+	cFlow, err := GenerateIPFIX(flowCount, sourceID, "2001:db8::/32", "2001:db8::/32", session)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cBuf := cFlow.ToBytes()
 	expectedCLen := binary.Size(cFlow.Header)
 	for _, fs := range cFlow.TemplateFlowSets {
