@@ -5,8 +5,8 @@ go 1.26
 require (
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/google/go-cmp v0.7.0
-	github.com/gorilla/mux v1.8.1
 	github.com/spf13/viper v1.21.0
+	golang.org/x/crypto v0.52.0
 )
 
 require (
@@ -33,8 +33,8 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.opencensus.io v0.22.5 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )

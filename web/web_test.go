@@ -17,6 +17,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // pickPort tries 8080 first, then falls back to a random port > 1024.
@@ -77,11 +79,15 @@ func TestRun(t *testing.T) {
 
 	// run web server
 	wg.Add(1)
-	go RunWebServer(webIP, webPort, wg, ctx, sc)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("testpass"), bcrypt.DefaultCost)
+	go RunWebServer(webIP, webPort, wg, ctx, sc, "admin", string(hashedPassword))
 	// check that it is serving up status page
 	time.Sleep(time.Second * 2)
-	// do check
-	resp, err := http.Get(statusURL)
+	// do check with auth
+	req, _ := http.NewRequest("GET", statusURL, nil)
+	req.SetBasicAuth("admin", "testpass")
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
