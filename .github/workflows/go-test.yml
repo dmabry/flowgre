@@ -14,13 +14,6 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
-    services:
-      docker:
-        image: docker:24.0.6
-        options: --privileged
-        ports:
-          - 2375:2375
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -34,5 +27,5 @@ jobs:
       run: go mod tidy
     - name: Run tests
       run: |
-        go test -v ./... -count 1 || echo "No test files found"
+        go test -v ./... -count 1
         go build

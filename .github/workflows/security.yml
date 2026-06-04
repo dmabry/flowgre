@@ -30,7 +30,7 @@ jobs:
         go install github.com/securego/gosec/v2/cmd/gosec@latest
         gosec -exclude=G115 ./...
     - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
+      uses: aquasecurity/trivy-action@bfa4b33a029b9aa80ddb784b45574c30e072c59e
       with:
         scan-type: 'fs'
         severity: 'CRITICAL,HIGH'
