@@ -76,7 +76,10 @@ func (c *IPFIXCommand) Execute() {
 
 	// Generate and send Data Flows
 	for i := 1; i <= *c.count; i++ {
-		flow := ipfix.GenerateDataIPFIX(10, sourceID, *c.srcRange, *c.dstRange, 0, session)
+		flow, err := ipfix.GenerateDataIPFIX(10, sourceID, *c.srcRange, *c.dstRange, 0, session)
+		if err != nil {
+			log.Fatalf("GenerateDataIPFIX failed: %v", err)
+		}
 		buf := flow.ToBytes()
 		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: *c.port}, buf.Bytes(), *c.hexDump)
 		if err != nil {

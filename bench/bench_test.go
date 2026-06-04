@@ -49,7 +49,10 @@ func BenchmarkNetflow_FullPacket_Generic(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		nf := netflow.GenerateNetflow(flowCount, sourceID, srcRange, dstRange, session)
+		nf, err := netflow.GenerateNetflow(flowCount, sourceID, srcRange, dstRange, session)
+		if err != nil {
+			b.Fatal(err)
+		}
 		_ = nf.ToBytes()
 	}
 }
@@ -66,7 +69,10 @@ func BenchmarkNetflow_DataOnly_Generic(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		nf := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
+		nf, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
+		if err != nil {
+			b.Fatal(err)
+		}
 		_ = nf.ToBytes()
 	}
 }
@@ -82,7 +88,10 @@ func BenchmarkNetflow_DataOnly_Minimal(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		nf := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session, &netflow.MinimalProfile{})
+		nf, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session, &netflow.MinimalProfile{})
+		if err != nil {
+			b.Fatal(err)
+		}
 		_ = nf.ToBytes()
 	}
 }
@@ -98,7 +107,10 @@ func BenchmarkNetflow_DataOnly_Extended(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		nf := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session, &netflow.ExtendedProfile{})
+		nf, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session, &netflow.ExtendedProfile{})
+		if err != nil {
+			b.Fatal(err)
+		}
 		_ = nf.ToBytes()
 	}
 }
@@ -116,7 +128,10 @@ func BenchmarkIPFIX_DataOnly_Generic(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		pkt := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+		pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+		if err != nil {
+			b.Fatal(err)
+		}
 		_ = pkt.ToBytes()
 	}
 }
@@ -131,7 +146,10 @@ func BenchmarkNetflow_UpdateTimeStamp(b *testing.B) {
 	flowCount := 15
 	sourceID := 100
 	session := netflow.NewSession()
-	nf := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
+	nf, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
+		if err != nil {
+			b.Fatal(err)
+		}
 	buf := nf.ToBytes()
 	data := buf.Bytes()
 
@@ -150,7 +168,10 @@ func BenchmarkIPFIX_UpdateTimeStamp(b *testing.B) {
 	flowCount := 15
 	sourceID := 100
 	session := netflow.NewSession()
-	pkt := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+	pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+		if err != nil {
+			b.Fatal(err)
+		}
 	buf := pkt.ToBytes()
 	data := buf.Bytes()
 
@@ -170,7 +191,10 @@ func BenchmarkValidate_NetFlow_Valid(b *testing.B) {
 	flowCount := 15
 	sourceID := 100
 	session := netflow.NewSession()
-	nf := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
+	nf, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
+		if err != nil {
+			b.Fatal(err)
+		}
 	buf := nf.ToBytes()
 	data := buf.Bytes()
 
@@ -188,7 +212,10 @@ func BenchmarkValidate_NetFlow_Invalid(b *testing.B) {
 	flowCount := 15
 	sourceID := 100
 	session := netflow.NewSession()
-	nf := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
+	nf, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
+		if err != nil {
+			b.Fatal(err)
+		}
 	buf := nf.ToBytes()
 	data := buf.Bytes()
 
@@ -206,7 +233,10 @@ func BenchmarkValidate_IPFIX_Valid(b *testing.B) {
 	flowCount := 15
 	sourceID := 100
 	session := netflow.NewSession()
-	pkt := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+	pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+		if err != nil {
+			b.Fatal(err)
+		}
 	buf := pkt.ToBytes()
 	data := buf.Bytes()
 

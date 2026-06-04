@@ -99,7 +99,9 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 // TestRun runs a test to verify functionality.
 func TestRun(t *testing.T) {
 	t.Parallel()
+	origStdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull) // hide all stdout from single
+	defer func() { os.Stdout = origStdout }()
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	sleep := 2 * time.Second

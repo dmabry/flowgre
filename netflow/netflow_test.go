@@ -66,7 +66,10 @@ func TestGenerateDataNetflow(t *testing.T) {
 	flowcount := 10
 	sourceID := 618
 	session := NewSession()
-	flow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	flow, err := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("GenerateDataNetflow failed: %v", err)
+	}
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Errorf("Returned incorrect number of Data Flows! Got: %d Want >: %d", len(flow.DataFlowSets), 1)
@@ -92,7 +95,10 @@ func TestToBytes(t *testing.T) {
 	flowcount := 10
 	session := NewSession()
 	tflow := GenerateTemplateNetflow(sourceID, session)
-	dflow := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	dflow, err := GenerateDataNetflow(flowcount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("GenerateDataNetflow failed: %v", err)
+	}
 	// Convert to Bytes
 	tbuf := tflow.ToBytes()
 	dbuf := dflow.ToBytes()
@@ -336,7 +342,10 @@ func TestIPv6DataNetflow(t *testing.T) {
 	flowcount := 10
 	sourceID := 618
 	session := NewSession()
-	flow := GenerateDataNetflow(flowcount, sourceID, "2001:db8::/48", "2001:db8:1::/48", utils.HTTPSPort, session)
+	flow, err := GenerateDataNetflow(flowcount, sourceID, "2001:db8::/48", "2001:db8:1::/48", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("GenerateDataNetflow failed: %v", err)
+	}
 
 	if len(flow.DataFlowSets) < 1 {
 		t.Fatal("expected at least one data flow set")
@@ -371,7 +380,10 @@ func TestIPv6ToBytesRoundTrip(t *testing.T) {
 	flowcount := 5
 	session := NewSession()
 	tflow := GenerateTemplateNetflow(sourceID, session)
-	dflow := GenerateDataNetflow(flowcount, sourceID, "2001:db8::/48", "2001:db8:1::/48", utils.HTTPSPort, session)
+	dflow, err := GenerateDataNetflow(flowcount, sourceID, "2001:db8::/48", "2001:db8:1::/48", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("GenerateDataNetflow failed: %v", err)
+	}
 
 	// Serialize and deserialize
 	tbuf := tflow.ToBytes()
