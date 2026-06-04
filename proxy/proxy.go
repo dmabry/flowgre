@@ -204,11 +204,19 @@ func parseNetflow(ctx context.Context, wg *sync.WaitGroup, proxyChan <-chan []by
 	}
 }
 
-// Run Replay. Kicks off the replay of netflow packets from a db.
+// Run starts the proxy, accepting flows and relaying them to multiple targets.
+// It sets up OS signal handling (SIGINT/SIGTERM) for clean shutdown.
 func Run(ip string, port int, verbose bool, targets []string) {
 	mgr := lifecycle.New()
 	ctx := mgr.Context()
 	wg := mgr.WaitGroup()
+
+	// Setup signal handling BEFORE starting goroutines to avoid missed signals
+	cleanupDone := mgr.SetupSignalHandler()
+	go func() {
+		<-cleanupDone
+		mgr.Cancel()
+	}()
 
 	// Create channels
 	proxyChan := make(chan []byte, bufferSize)
@@ -260,9 +268,5 @@ func Run(ip string, port int, verbose bool, targets []string) {
 	wg.Add(1)
 	go proxyListener(ctx, wg, ip, port, proxyChan, verbose)
 
-	// Setup signal handling via lifecycle manager
-	cleanupDone := mgr.SetupSignalHandler()
-	<-cleanupDone
 	mgr.Wait()
-	return
 }

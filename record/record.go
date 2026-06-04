@@ -62,8 +62,13 @@ func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, dat
 			if verbose {
 				log.Printf("Packet Received from %s with size of %d", fromIP.String(), length)
 			}
-			// Send payload to the data channel
-			data <- payload
+			// Send payload to the data channel with context awareness
+			select {
+			case data <- payload:
+			case <-ctx.Done():
+				log.Println("Packet ingest exiting due to signal")
+				return
+			}
 		}
 	}
 }
@@ -141,7 +146,12 @@ func parseFlow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []byte,
 			if ok {
 				// Valid NetFlow v9 or IPFIX v10 Packet send it on
 				rStats.IncrValid()
-				dataChan <- payload
+				select {
+				case dataChan <- payload:
+				case <-ctx.Done():
+					log.Println("Flow parser exiting due to signal")
+					return
+				}
 			} else {
 				// Not a valid flow Packet... skip
 				rStats.IncrInvalid()
@@ -182,10 +192,15 @@ func RunCtx(ctx context.Context, ip string, port int, dbdir string, verbose bool
 // Use RunCtx() when you need to control the lifecycle via context.
 func Run(ip string, port int, dbdir string, verbose bool) {
 	mgr := lifecycle.New()
-	RunCtx(mgr.Context(), ip, port, dbdir, verbose)
 
-	// Setup signal handling via lifecycle manager
+	// Setup signal handling BEFORE starting goroutines to avoid missed signals
 	cleanupDone := mgr.SetupSignalHandler()
-	<-cleanupDone
+
+	go func() {
+		<-cleanupDone
+		mgr.Cancel()
+	}()
+
+	RunCtx(mgr.Context(), ip, port, dbdir, verbose)
 	mgr.Wait()
 }
