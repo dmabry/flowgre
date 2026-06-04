@@ -23,7 +23,8 @@ import (
 func worker(id int, ctx context.Context, server string, port int, delay int, wg *sync.WaitGroup, loop bool, dataChan <-chan []byte) {
 	defer wg.Done()
 	// Sent limiter to given delay
-	limiter := time.Tick(time.Millisecond * time.Duration(delay))
+	limiter := time.NewTicker(time.Millisecond * time.Duration(delay))
+	defer limiter.Stop()
 	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
 	srcPort := utils.RandomNum(10000, 15000)
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
@@ -51,7 +52,7 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 				log.Printf("Worker [%2d] Issue sending packet: %v\n", id, err)
 				return
 			}
-			<-limiter
+			<-limiter.C
 		case <-time.After(time.Second * 1):
 			if !loop {
 				log.Printf("Worker [%2d] Exiting due to empty channel\n", id)
