@@ -174,7 +174,9 @@ func TestWorkerContextCancellation(t *testing.T) {
 // TestRunIntegration tests the full replay flow.
 func TestRunIntegration(t *testing.T) {
 	t.Parallel()
+	origStdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull) // hide logs
+	defer func() { os.Stdout = origStdout }()
 
 	// Create a temporary directory for the test DB
 	tmpDir := t.TempDir()

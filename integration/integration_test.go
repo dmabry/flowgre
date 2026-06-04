@@ -114,7 +114,10 @@ func sendIPFIX(t *testing.T, port int, count int) {
 
 	// Send data flows
 	for i := 0; i < count; i++ {
-		pkt := ipfix.GenerateDataIPFIX(1, 1, "10.0.0.0/8", "172.16.0.0/12", 0, session)
+		pkt, err := ipfix.GenerateDataIPFIX(1, 1, "10.0.0.0/8", "172.16.0.0/12", 0, session)
+		if err != nil {
+			t.Fatal(err)
+		}
 		pktBuf := pkt.ToBytes()
 		conn.Write(pktBuf.Bytes())
 		time.Sleep(10 * time.Millisecond)

@@ -336,7 +336,7 @@ type DataFlowSet struct {
 
 // Generate creates a DataFlowSet with random flow data.
 // If profile is nil, defaults to GenericIPFIXProfile for backward compatibility.
-func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, session *netflow.Session, profile ...IPFIXFlowProfile) DataFlowSet {
+func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, flowSrcPort int, session *netflow.Session, profile ...IPFIXFlowProfile) (DataFlowSet, error) {
 	_ = profile // reserved for future profile-aware data generation
 
 	protoPorts := utils.ProtoPorts
@@ -345,12 +345,11 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 	for i := range flowCount {
 		srcIP, err := utils.RandomIPCIDR(srcRange)
 		if err != nil {
-			// Proceed with zero IP on error
-			srcIP = net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+			return DataFlowSet{}, fmt.Errorf("failed to generate src IP for flow %d: %w", i, err)
 		}
 		dstIP, err := utils.RandomIPCIDR(dstRange)
 		if err != nil {
-			dstIP = net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+			return DataFlowSet{}, fmt.Errorf("failed to generate dst IP for flow %d: %w", i, err)
 		}
 		port := flowSrcPort
 		if port == 0 {
@@ -374,7 +373,7 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 		Length:    uint16(length),
 		Items:     items,
 		Padding:   padding,
-	}
+	}, nil
 }
 
 // IPFIX is the complete IPFIX export packet structure.
@@ -593,25 +592,31 @@ func GenerateOptionsDataIPFIX(sourceID int, session *netflow.Session) IPFIX {
 }
 
 // GenerateDataIPFIX creates an IPFIX packet containing only data FlowSets.
-func GenerateDataIPFIX(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, session *netflow.Session) IPFIX {
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowSrcPort, session)
+func GenerateDataIPFIX(flowCount int, sourceID int, srcRange string, dstRange string, flowSrcPort int, session *netflow.Session) (IPFIX, error) {
+	dataFlow, err := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, flowSrcPort, session)
+	if err != nil {
+		return IPFIX{}, fmt.Errorf("generate data flow set: %w", err)
+	}
 	header := new(Header).Generate(1, sourceID, session)
 	return IPFIX{
 		Header:       header,
 		DataFlowSets: []DataFlowSet{dataFlow},
-	}
+	}, nil
 }
 
 // GenerateIPFIX creates an IPFIX packet containing both template and data FlowSets.
-func GenerateIPFIX(flowCount int, sourceID int, srcRange string, dstRange string, session *netflow.Session) IPFIX {
+func GenerateIPFIX(flowCount int, sourceID int, srcRange string, dstRange string, session *netflow.Session) (IPFIX, error) {
 	templateFlow := new(TemplateFlowSet).Generate(session)
-	dataFlow := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, utils.HTTPSPort, session)
+	dataFlow, err := new(DataFlowSet).Generate(flowCount, srcRange, dstRange, utils.HTTPSPort, session)
+	if err != nil {
+		return IPFIX{}, fmt.Errorf("generate data flow set: %w", err)
+	}
 	header := new(Header).Generate(flowCount+1, sourceID, session)
 	return IPFIX{
 		Header:           header,
 		TemplateFlowSets: []TemplateFlowSet{templateFlow},
 		DataFlowSets:     []DataFlowSet{dataFlow},
-	}
+	}, nil
 }
 
 // size returns the size of the Header in bytes.

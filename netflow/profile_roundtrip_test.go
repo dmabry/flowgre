@@ -15,7 +15,10 @@ func TestDataFlowSet_Generate_MinimalProfile(t *testing.T) {
 	t.Parallel()
 
 	session := NewSession()
-	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &MinimalProfile{})
+	dfs, err := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &MinimalProfile{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(dfs.Items) != 5 {
 		t.Fatalf("expected 5 items, got %d", len(dfs.Items))
@@ -40,7 +43,10 @@ func TestDataFlowSet_Generate_ExtendedProfile(t *testing.T) {
 	t.Parallel()
 
 	session := NewSession()
-	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &ExtendedProfile{})
+	dfs, err := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &ExtendedProfile{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(dfs.Items) != 5 {
 		t.Fatalf("expected 5 items, got %d", len(dfs.Items))
@@ -68,7 +74,10 @@ func TestDataFlowSet_Generate_DefaultProfile(t *testing.T) {
 	t.Parallel()
 
 	session := NewSession()
-	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	dfs, err := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(dfs.Items) != 5 {
 		t.Fatalf("expected 5 items, got %d", len(dfs.Items))
@@ -95,7 +104,10 @@ func TestMinimalProfile_RoundTrip(t *testing.T) {
 
 	// Generate template + data with minimal profile
 	tFlow := GenerateTemplateNetflow(sourceID, session, &MinimalProfile{})
-	dFlow := GenerateDataNetflow(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &MinimalProfile{})
+	dFlow, err := GenerateDataNetflow(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &MinimalProfile{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Serialize
 	tBuf := tFlow.ToBytes()
@@ -169,7 +181,10 @@ func TestExtendedProfile_RoundTrip(t *testing.T) {
 
 	// Generate template + data with extended profile
 	tFlow := GenerateTemplateNetflow(sourceID, session, &ExtendedProfile{})
-	dFlow := GenerateDataNetflow(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &ExtendedProfile{})
+	dFlow, err := GenerateDataNetflow(flowCount, sourceID, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, &ExtendedProfile{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Serialize
 	tBuf := tFlow.ToBytes()
@@ -244,7 +259,10 @@ func TestGenerateNetflow_WithProfile(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			session := NewSession()
 
-			nf := GenerateNetflow(5, 1, "10.0.0.0/8", "10.0.0.0/8", session, tc.profile)
+			nf, err := GenerateNetflow(5, 1, "10.0.0.0/8", "10.0.0.0/8", session, tc.profile)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			if len(nf.TemplateFlowSets) != 1 {
 				t.Fatal("expected 1 template flow set")

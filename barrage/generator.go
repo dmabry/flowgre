@@ -4,6 +4,8 @@
 package barrage
 
 import (
+	"fmt"
+
 	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/netflow"
 )
@@ -41,7 +43,10 @@ func (g netflowGenerator) GenerateOptionsData(sourceID int, session *netflow.Ses
 }
 
 func (g netflowGenerator) GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) []byte {
-	flow := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session, g.profile)
+	flow, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session, g.profile)
+	if err != nil {
+		panic(fmt.Sprintf("GenerateDataNetflow failed: %v", err))
+	}
 	buf := flow.ToBytes()
 	return buf.Bytes()
 }
@@ -64,7 +69,10 @@ func (g ipfixGenerator) GenerateOptionsData(sourceID int, session *netflow.Sessi
 }
 
 func (g ipfixGenerator) GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) []byte {
-	flow := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+	flow, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+	if err != nil {
+		panic(fmt.Sprintf("GenerateDataIPFIX failed: %v", err))
+	}
 	buf := flow.ToBytes()
 	return buf.Bytes()
 }

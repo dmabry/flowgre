@@ -362,7 +362,10 @@ func TestTemplateFlowSet_Size(t *testing.T) {
 func TestDataFlowSet_Size(t *testing.T) {
 	t.Parallel()
 	session := netflow.NewSession()
-	dfs := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	dfs, err := new(DataFlowSet).Generate(5, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	size := dfs.size()
 	if size != int(dfs.Length) {
@@ -376,7 +379,10 @@ func TestDataFlowSet_Size(t *testing.T) {
 func TestGetIPFIXSizes(t *testing.T) {
 	t.Parallel()
 	session := netflow.NewSession()
-	flow := GenerateIPFIX(5, 42, "10.0.0.0/8", "10.0.0.0/8", session)
+	flow, err := GenerateIPFIX(5, 42, "10.0.0.0/8", "10.0.0.0/8", session)
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := GetIPFIXSizes(flow)
 
 	if s == "" {
@@ -459,7 +465,10 @@ func TestUpdateTimeStamp_Empty(t *testing.T) {
 func TestUpdateTimeStamp_PreservesPayload(t *testing.T) {
 	t.Parallel()
 	session := netflow.NewSession()
-	flow := GenerateDataIPFIX(3, 42, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	flow, err := GenerateDataIPFIX(3, 42, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 	buf := flow.ToBytes()
 	original := buf.Bytes()
 
@@ -570,7 +579,10 @@ func TestOptionsTemplateAndData_RoundTrip(t *testing.T) {
 func TestDataFlowSet_Generate_ZeroFlowCount(t *testing.T) {
 	t.Parallel()
 	session := netflow.NewSession()
-	dfs := new(DataFlowSet).Generate(0, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	dfs, err := new(DataFlowSet).Generate(0, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if len(dfs.Items) != 0 {
 		t.Errorf("Expected 0 items, got %d", len(dfs.Items))

@@ -73,7 +73,10 @@ func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, 
 			return
 		default:
 		}
-		flow := netflow.GenerateDataNetflow(10, sourceID, srcRange, dstRange, 0, session)
+		flow, err := netflow.GenerateDataNetflow(10, sourceID, srcRange, dstRange, 0, session)
+		if err != nil {
+			log.Fatalf("GenerateDataNetflow failed: %v", err)
+		}
 		buf := flow.ToBytes()
 		fmt.Println(netflow.GetNetFlowSizes(flow))
 		if hexDump {
