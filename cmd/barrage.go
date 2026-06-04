@@ -1,3 +1,6 @@
+// Use of this source code is governed by Apache License 2.0
+// that can be found in the LICENSE file.
+
 // Package cmd provides per-mode command implementations for flowgre.
 package cmd
 
@@ -40,7 +43,7 @@ func (c *BarrageCommand) ParseFlags(args []string) error {
 	c.templateInterval = fs.Int("template-interval", 30, "seconds between template retransmissions (0 to disable)")
 	c.configFile = fs.String("config", "", "Config file to use. Supersedes all given args")
 	c.webPort = fs.Int("web-port", 8080, "Port to bind the web server on")
-	c.webIP = fs.String("web-ip", "0.0.0.0", "IP address the web server will listen on (IPv4 or IPv6)")
+	c.webIP = fs.String("web-ip", "127.0.0.1", "IP address the web server will listen on (IPv4 or IPv6)")
 	c.web = fs.Bool("web", false, "Whether to use the web server or not")
 	c.protocol = fs.String("protocol", "netflow", "protocol to use: netflow or ipfix")
 	c.profile = fs.String("profile", "generic", "flow profile: generic, minimal, extended")

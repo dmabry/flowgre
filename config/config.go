@@ -1,3 +1,6 @@
+// Use of this source code is governed by Apache License 2.0
+// that can be found in the LICENSE file.
+
 // Package config handles YAML configuration file loading for flowgre modes.
 package config
 

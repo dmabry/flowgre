@@ -1,3 +1,6 @@
+// Use of this source code is governed by Apache License 2.0
+// that can be found in the LICENSE file.
+
 // Package cmd provides per-mode command implementations for flowgre.
 package cmd
 
