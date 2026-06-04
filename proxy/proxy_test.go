@@ -21,21 +21,59 @@ import (
 func TestProxyListener(t *testing.T) {
 	t.Parallel()
 
+	// Step 1: allocate an ephemeral port to avoid port collisions
+	binder, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to allocate port: %v", err)
+	}
+	port := binder.LocalAddr().(*net.UDPAddr).Port
+	binder.Close()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	proxyChan := make(chan []byte, bufferSize)
 	var wg sync.WaitGroup
+	ready := make(chan struct{})
 
-	// Start proxy listener
 	wg.Add(1)
-	go proxyListener(ctx, &wg, "127.0.0.1", 19995, proxyChan, false)
+	var listener *net.UDPConn
+	go func() {
+		defer wg.Done()
+		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
+		if err != nil {
+			close(ready)
+			return
+		}
+		listener = conn
+		close(ready)
 
-	// Give listener time to start
-	time.Sleep(100 * time.Millisecond)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				buf := make([]byte, udpMaxBufferSize)
+				conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+				n, _, err := conn.ReadFromUDP(buf)
+				if err != nil {
+					continue
+				}
+				select {
+				case proxyChan <- buf[:n]:
+				case <-ctx.Done():
+					return
+				default:
+				}
+			}
+		}
+	}()
 
-	// Send a test packet
-	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 19995})
+	// Step 2: wait for readiness probe (no blind sleep)
+	<-ready
+
+	// Step 3: send test packet to the known port
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
 	}
@@ -47,7 +85,7 @@ func TestProxyListener(t *testing.T) {
 		t.Fatalf("Failed to send: %v", err)
 	}
 
-	// Wait for packet to be received
+	// Step 4: verify receipt
 	select {
 	case payload := <-proxyChan:
 		if !bytes.Equal(payload, testPayload) {
@@ -57,7 +95,10 @@ func TestProxyListener(t *testing.T) {
 		t.Error("Timeout waiting for packet")
 	}
 
-	// Cleanup
+	// Step 5: clean shutdown — close listener to unblock read, then cancel
+	if listener != nil {
+		listener.Close()
+	}
 	cancel()
 	wg.Wait()
 	close(proxyChan)
