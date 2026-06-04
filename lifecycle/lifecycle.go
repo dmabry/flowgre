@@ -1,3 +1,6 @@
+// Use of this source code is governed by Apache License 2.0
+// that can be found in the LICENSE file.
+
 // Package lifecycle provides shared process management for flowgre modes.
 // It handles context creation, signal handling (SIGINT/SIGTERM), and WaitGroup coordination.
 package lifecycle
