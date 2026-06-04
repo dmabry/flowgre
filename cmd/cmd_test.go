@@ -586,3 +586,88 @@ func TestProxyCommandSingleTarget(t *testing.T) {
 		t.Errorf("expected 1 target, got %d", len(c.targets))
 	}
 }
+
+// =============================================================================
+// Execute tests (blocking paths, verify configuration)
+// =============================================================================
+
+func TestBarrageCommandExecuteConfig(t *testing.T) {
+	c := &BarrageCommand{}
+	if err := c.ParseFlags([]string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.server != "127.0.0.1" {
+		t.Errorf("expected server '127.0.0.1', got %q", *c.server)
+	}
+	if *c.port != 9995 {
+		t.Errorf("expected port 9995, got %d", *c.port)
+	}
+	if *c.protocol != "netflow" {
+		t.Errorf("expected protocol 'netflow', got %q", *c.protocol)
+	}
+}
+
+func TestSingleCommandExecuteConfig(t *testing.T) {
+	c := &SingleCommand{}
+	if err := c.ParseFlags([]string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.server != "127.0.0.1" {
+		t.Errorf("expected server '127.0.0.1', got %q", *c.server)
+	}
+	if *c.count != 1 {
+		t.Errorf("expected count 1, got %d", *c.count)
+	}
+}
+
+func TestIPFIXCommandExecuteConfig(t *testing.T) {
+	c := &IPFIXCommand{}
+	if err := c.ParseFlags([]string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.server != "127.0.0.1" {
+		t.Errorf("expected server '127.0.0.1', got %q", *c.server)
+	}
+	if *c.count != 1 {
+		t.Errorf("expected count 1, got %d", *c.count)
+	}
+}
+
+func TestProxyCommandExecuteConfig(t *testing.T) {
+	c := &ProxyCommand{}
+	if err := c.ParseFlags([]string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.ip != "127.0.0.1" {
+		t.Errorf("expected ip '127.0.0.1', got %q", *c.ip)
+	}
+	if *c.port != 9995 {
+		t.Errorf("expected port 9995, got %d", *c.port)
+	}
+}
+
+func TestReplayCommandExecuteConfig(t *testing.T) {
+	c := &ReplayCommand{}
+	if err := c.ParseFlags([]string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.server != "127.0.0.1" {
+		t.Errorf("expected server '127.0.0.1', got %q", *c.server)
+	}
+	if *c.delay != 100 {
+		t.Errorf("expected delay 100, got %d", *c.delay)
+	}
+}
+
+func TestRecordCommandExecuteConfig(t *testing.T) {
+	c := &RecordCommand{}
+	if err := c.ParseFlags([]string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.ip != "127.0.0.1" {
+		t.Errorf("expected ip '127.0.0.1', got %q", *c.ip)
+	}
+	if *c.dbDir != "recorded_flows" {
+		t.Errorf("expected dbDir 'recorded_flows', got %q", *c.dbDir)
+	}
+}
