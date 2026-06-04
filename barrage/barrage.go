@@ -17,6 +17,7 @@ import (
 	"github.com/dmabry/flowgre/stats"
 	"github.com/dmabry/flowgre/utils"
 	"github.com/dmabry/flowgre/web"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -156,7 +157,9 @@ func RunCtx(ctx context.Context, config *models.Config, gen FlowGenerator) {
 	// Start WebServer if needed
 	if config.Web {
 		wg.Add(1)
-		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx, sc)
+		// Hash the default password with bcrypt
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("changeme"), bcrypt.DefaultCost)
+		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx, sc, "admin", string(hashedPassword))
 	}
 
 	// Wait for all goroutines to finish
