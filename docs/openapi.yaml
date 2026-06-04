@@ -1,0 +1,263 @@
+openapi: 3.0.3
+info:
+  title: FlowGre Web API
+  description: >-
+    REST API for querying the status, statistics, and real-time metrics of a
+    running FlowGre NetFlow/iPFIX barrage generator instance.
+  version: 1.0.0
+  license:
+    name: Apache-2.0
+servers:
+  - url: http://{host}:{port}
+    description: Local web server (default 0.0.0.0:8080)
+    variables:
+      host:
+        default: 127.0.0.1
+      port:
+        default: "8080"
+paths:
+  /:
+    get:
+      summary: Root status endpoint
+      description: |-
+        Returns a lightweight JSON health payload indicating the server is
+        alive. Semantically identical to `/health` but with a different
+        message string.
+      operationId: getIndex
+      responses:
+        "200":
+          description: OK — server is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "OK"
+                message: "Flowgre is flinging packets!"
+        "500":
+          $ref: '#/components/responses/InternalError'
+  /health:
+    get:
+      summary: Health check endpoint
+      description: |-
+        Static health probe. Always returns 200 with `status: OK` when the
+        handler executes. Suitable for load balancer health checks or
+        container orchestration probes.
+      operationId: getHealth
+      responses:
+        "200":
+          description: OK — server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "OK"
+                message: "Everything is OK!"
+        "500":
+          $ref: '#/components/responses/InternalError'
+  /stats:
+    get:
+      summary: Current worker statistics
+      description: |-
+        Returns aggregated per-worker statistics and overall totals at the
+        time of the request instant. The `workers` map is keyed by integer
+        worker ID. Totals are recalculated from the worker map on every stat
+        update, so they reflect cumulative counts since the barrage started.
+      operationId: getStats
+      responses:
+        "200":
+          description: OK — current stats snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+              example:
+                workers:
+                  "1":
+                    worker_id: 1
+                    source_id: 100
+                    flows_sent: 1500
+                    cycles: 100
+                    bytes_sent: 15728640
+                  "2":
+                    worker_id: 2
+                    source_id: 200
+                    flows_sent: 1400
+                    cycles: 95
+                    bytes_sent: 14680064
+                totals:
+                  flows_sent: 2900
+                  cycles: 195
+                  bytes_sent: 30408704
+        "500":
+          $ref: '#/components/responses/InternalError'
+  /stats/history:
+    get:
+      summary: Historical statistics (time series)
+      description: |-
+        Returns a rolling buffer of historical stat snapshots collected as
+        workers report new stats. Each snapshot captures total counters and
+        per-worker breakdown at a point in time. The buffer is capped at 300
+        entries (~10 minutes at typical 2-second intervals). Oldest entries
+        are evicted first.
+      operationId: getStatsHistory
+      responses:
+        "200":
+          description: OK — array of historical snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StatSnapshot'
+              example:
+                - timestamp: "2025-06-04T12:00:00Z"
+                  totals:
+                    flows_sent: 100
+                    cycles: 10
+                    bytes_sent: 10240
+                  workers:
+                    "1":
+                      worker_id: 1
+                      source_id: 100
+                      flows_sent: 100
+                      cycles: 10
+                      bytes_sent: 10240
+        "500":
+          $ref: '#/components/responses/InternalError'
+  /dashboard:
+    get:
+      summary: Interactive web dashboard
+      description: |-
+        Renders an HTML dashboard page with embedded Chart.js visualisations.
+        Displays current worker stats, totals, configuration, uptime, and
+        protocol information. The page polls `/stats` via AJAX (setInterval)
+        to update charts in near-real-time. Supports dark/light theme toggle.
+      operationId: getDashboard
+      responses:
+        "200":
+          description: OK — HTML dashboard page
+          content:
+            text/html:
+              schema:
+                type: string
+                description: Rendered HTML dashboard
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - "OK"
+          description: Always "OK" when the handler succeeds
+        message:
+          type: string
+          description: Human-readable status message
+      required:
+        - status
+        - message
+
+    WorkerStat:
+      type: object
+      description: Per-worker cumulative statistics
+      properties:
+        worker_id:
+          type: integer
+          format: int32
+          description: Unique worker identifier
+        source_id:
+          type: integer
+          format: int32
+          description: Source flow identifier
+        flows_sent:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Cumulative number of flows sent by this worker
+        cycles:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of send cycles completed
+        bytes_sent:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total bytes sent by this worker
+      required:
+        - worker_id
+        - source_id
+        - flows_sent
+        - cycles
+        - bytes_sent
+
+    StatTotals:
+      type: object
+      description: Aggregated totals across all workers
+      properties:
+        flows_sent:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Sum of flows_sent across all workers
+        cycles:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Sum of cycles across all workers
+        bytes_sent:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Sum of bytes_sent across all workers
+      required:
+        - flows_sent
+        - cycles
+        - bytes_sent
+
+    StatsResponse:
+      type: object
+      description: Combined worker stats and totals response
+      properties:
+        workers:
+          type: object
+          description: Map of worker ID (stringified integer) to WorkerStat
+          additionalProperties:
+            $ref: '#/components/schemas/WorkerStat'
+        totals:
+          $ref: '#/components/schemas/StatTotals'
+      required:
+        - workers
+        - totals
+
+    StatSnapshot:
+      type: object
+      description: Point-in-time stats snapshot for time-series data
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: RFC 3339 timestamp when the snapshot was taken
+        totals:
+          $ref: '#/components/schemas/StatTotals'
+        workers:
+          type: object
+          description: Map of worker ID (stringified integer) to WorkerStat at this point in time
+          additionalProperties:
+            $ref: '#/components/schemas/WorkerStat'
+      required:
+        - timestamp
+        - totals
+        - workers
+
+  responses:
+    InternalError:
+      description: Internal server error — JSON encoding failed
+      content:
+        text/plain:
+          schema:
+            type: string
+          example: "Internal server error"
