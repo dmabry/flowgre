@@ -173,8 +173,8 @@ func TestBarrageCommandDefaults(t *testing.T) {
 	if *c.webPort != 8080 {
 		t.Errorf("expected webPort 8080, got %d", *c.webPort)
 	}
-	if *c.webIP != "0.0.0.0" {
-		t.Errorf("expected webIP '0.0.0.0', got %q", *c.webIP)
+	if *c.webIP != "127.0.0.1" {
+		t.Errorf("expected webIP '127.0.0.1', got %q", *c.webIP)
 	}
 	if *c.web != false {
 		t.Errorf("expected web false, got %v", *c.web)
