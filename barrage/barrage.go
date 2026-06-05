@@ -16,8 +16,6 @@ import (
 	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/stats"
 	"github.com/dmabry/flowgre/utils"
-	"github.com/dmabry/flowgre/web"
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -119,10 +117,19 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 	}
 }
 
-// RunCtx starts the barrage with the given config, FlowGenerator, and external
-// context. Cancelling ctx stops all workers cleanly. Use Run() for CLI usage
-// where OS signal handling is desired.
-func RunCtx(ctx context.Context, config *models.Config, gen FlowGenerator) {
+// RunOpts holds the components returned by StartCtx so the caller can
+// optionally attach a web server or other consumers before waiting.
+type RunOpts struct {
+	Wg     *sync.WaitGroup
+	Stats  *stats.Collector
+	StopFn func() // calls Stop() on the stats collector
+}
+
+// StartCtx starts the barrage workers and stats collector, returning immediately.
+// The caller must call opts.Wg.Wait() to block until completion, and opts.StopFn()
+// to shut down the stats collector. This allows the caller to optionally start
+// a web server or other components that consume the stats collector.
+func StartCtx(ctx context.Context, config *models.Config, gen FlowGenerator) *RunOpts {
 	wg := &sync.WaitGroup{}
 
 	buffer := 20
@@ -154,17 +161,24 @@ func RunCtx(ctx context.Context, config *models.Config, gen FlowGenerator) {
 		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, templateInterval, wg, sc.StatsChan, gen)
 	}
 
-	// Start WebServer if needed
-	if config.Web {
-		wg.Add(1)
-		// Hash the default password with bcrypt
-		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("changeme"), bcrypt.DefaultCost)
-		go web.RunWebServer(config.WebIP, config.WebPort, wg, ctx, sc, "admin", string(hashedPassword))
+	return &RunOpts{
+		Wg:     wg,
+		Stats:  sc,
+		StopFn: func() { sc.Stop() },
 	}
+}
 
-	// Wait for all goroutines to finish
-	wg.Wait()
-	sc.Stop()
+// RunCtx starts the barrage with the given config, FlowGenerator, and external
+// context. Cancelling ctx stops all workers cleanly. Use Run() for CLI usage
+// where OS signal handling is desired.
+//
+// Deprecated: Use StartCtx instead, which returns the stats collector so the
+// caller can optionally attach a web server. RunCtx retains the old behavior
+// for backward compatibility.
+func RunCtx(ctx context.Context, config *models.Config, gen FlowGenerator) {
+	opts := StartCtx(ctx, config, gen)
+	opts.Wg.Wait()
+	opts.StopFn()
 }
 
 // Run starts the barrage with the given config and FlowGenerator.

@@ -7,11 +7,15 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"log"
 
 	"github.com/dmabry/flowgre/barrage"
 	"github.com/dmabry/flowgre/config"
+	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/netflow"
+	"github.com/dmabry/flowgre/web"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // BarrageCommand holds flags and state for the barrage subcommand.
@@ -95,11 +99,33 @@ func (c *BarrageCommand) Execute() error {
 		Web:              *c.web,
 		Protocol:         *c.protocol,
 	}
-	if *c.protocol == "ipfix" {
-		barrage.Run(cfg, barrage.IPFIX())
-	} else {
-		barrage.Run(cfg, barrage.NetFlow(nfProfile))
+
+	mgr := lifecycle.New()
+	cleanupDone := mgr.SetupSignalHandler()
+
+	go func() {
+		<-cleanupDone
+		log.Printf("Received signal, shutting down...\n")
+		mgr.Cancel()
+	}()
+
+	opts := barrage.StartCtx(mgr.Context(), cfg, func() barrage.FlowGenerator {
+		if *c.protocol == "ipfix" {
+			return barrage.IPFIX()
+		}
+		return barrage.NetFlow(nfProfile)
+	}())
+
+	// Start web server if needed
+	if cfg.Web {
+		opts.Wg.Add(1)
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("changeme"), bcrypt.DefaultCost)
+		go web.RunWebServer(cfg.WebIP, cfg.WebPort, opts.Wg, mgr.Context(), opts.Stats, "admin", string(hashedPassword))
 	}
+
+	opts.Wg.Wait()
+	opts.StopFn()
+	mgr.Wait()
 	return nil
 }
 
