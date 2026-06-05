@@ -21,6 +21,7 @@ For sending fabricated NetFlow v9 and IPFIX (RFC 7011) traffic to a collector fo
 
 ## Table of Contents
 - [CLI Flags Reference](#cli-flags-reference)
+- [Exit Codes](#exit-codes)
 - [Configuration Keys Reference](#configuration-keys-reference)
 - [Single Mode](#single-mode)
 - [Barrage Mode](#barrage-mode)
@@ -126,6 +127,27 @@ Source: [`cmd/proxy.go`](cmd/proxy.go)
 | `-port` | int | `9995` | Proxy listen UDP port |
 | `-target` | string | *(required)* | Target in `IP:PORT` format. Repeat this flag for multiple targets |
 | `-verbose` | bool | `false` | Log every flow received (warning: high volume) |
+
+## Exit Codes
+
+| Code | Meaning | When |
+|------|---------|------|
+| `0` | Success | Normal termination, graceful shutdown |
+| `1` | Error | Invalid arguments, parse failure, network error, or runtime panic (`log.Fatal`/`log.Fatalf`) |
+| `2` | Unknown subcommand | Passed unrecognized subcommand to `main` |
+
+**Details:**
+
+- **Exit 1** is used broadly across all subcommands for:
+  - Missing required flags (e.g., `-target` for proxy)
+  - Invalid IP/port parsing
+  - Network listen/bind failures
+  - Database open/close errors (record/replay)
+  - Flow generation failures (barrage)
+  - Any unrecoverable runtime error logged via `log.Fatal` or `log.Fatalf`
+- **Exit 2** is exclusive to `main.go` when an unrecognized subcommand is passed (e.g., `flowgre foobar`). Valid subcommands are: `single`, `barrage`, `ipfix`, `record`, `replay`, `proxy`, `version`, `help`.
+
+Signal handlers (`SIGINT`, `SIGTERM`) trigger graceful shutdown and exit with code `0`.
 
 ## Configuration Keys Reference
 
