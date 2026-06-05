@@ -6,6 +6,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"github.com/dmabry/flowgre/models"
@@ -376,4 +377,41 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// TestBasicAuthMiddleware tests the auth middleware directly.
+func TestBasicAuthMiddleware(t *testing.T) {
+	t.Parallel()
+
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("testpass"), bcrypt.DefaultCost)
+	middleware := BasicAuthMiddleware("admin", string(hashedPassword), "FlowGre")
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	tests := []struct {
+		name       string
+		auth       string
+		wantStatus int
+	}{
+		{"no auth", "", http.StatusUnauthorized},
+		{"wrong user", "Basic " + base64.StdEncoding.EncodeToString([]byte("wrong:testpass")), http.StatusUnauthorized},
+		{"wrong pass", "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:wrong")), http.StatusUnauthorized},
+		{"correct", "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:testpass")), http.StatusOK},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/", nil)
+			if tt.auth != "" {
+				req.Header.Set("Authorization", tt.auth)
+			}
+			rec := httptest.NewRecorder()
+			middleware(handler).ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Errorf("wanted %d, got %d", tt.wantStatus, rec.Code)
+			}
+		})
+	}
 }
