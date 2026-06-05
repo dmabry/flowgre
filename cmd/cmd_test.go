@@ -671,3 +671,79 @@ func TestRecordCommandExecuteConfig(t *testing.T) {
 		t.Errorf("expected dbDir 'recorded_flows', got %q", *c.dbDir)
 	}
 }
+
+// =============================================================================
+// Run* entry points (verify flag parsing without blocking)
+// =============================================================================
+
+func TestRunSingle(t *testing.T) {
+	// Verify RunSingle parses flags correctly
+	c := &SingleCommand{}
+	err := c.ParseFlags([]string{"-server", "127.0.0.1", "-port", "9995"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.server != "127.0.0.1" || *c.port != 9995 {
+		t.Error("flags not parsed correctly")
+	}
+}
+
+func TestRunBarrage(t *testing.T) {
+	// Verify RunBarrage parses flags correctly
+	c := &BarrageCommand{}
+	err := c.ParseFlags([]string{"-server", "127.0.0.1", "-port", "9995"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.server != "127.0.0.1" || *c.port != 9995 {
+		t.Error("flags not parsed correctly")
+	}
+}
+
+func TestRunIPFIX(t *testing.T) {
+	// Verify RunIPFIX parses flags correctly
+	c := &IPFIXCommand{}
+	err := c.ParseFlags([]string{"-server", "127.0.0.1", "-port", "9995"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.server != "127.0.0.1" || *c.port != 9995 {
+		t.Error("flags not parsed correctly")
+	}
+}
+
+func TestRunRecord(t *testing.T) {
+	// Verify RunRecord parses flags correctly
+	c := &RecordCommand{}
+	err := c.ParseFlags([]string{"-ip", "127.0.0.1", "-port", "9995"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.ip != "127.0.0.1" || *c.port != 9995 {
+		t.Error("flags not parsed correctly")
+	}
+}
+
+func TestRunReplay(t *testing.T) {
+	// Verify RunReplay parses flags correctly
+	c := &ReplayCommand{}
+	err := c.ParseFlags([]string{"-server", "127.0.0.1", "-port", "9995"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.server != "127.0.0.1" || *c.port != 9995 {
+		t.Error("flags not parsed correctly")
+	}
+}
+
+func TestRunProxy(t *testing.T) {
+	// Verify RunProxy parses flags correctly
+	c := &ProxyCommand{}
+	err := c.ParseFlags([]string{"-ip", "127.0.0.1", "-port", "9995", "-target", "10.0.0.1:9995"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if *c.ip != "127.0.0.1" || *c.port != 9995 {
+		t.Error("flags not parsed correctly")
+	}
+}
