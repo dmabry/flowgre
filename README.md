@@ -20,6 +20,8 @@ For sending fabricated NetFlow v9 and IPFIX (RFC 7011) traffic to a collector fo
 [![Go Reference](https://pkg.go.dev/badge/github.com/dmabry/flowgre.svg)](https://pkg.go.dev/github.com/dmabry/flowgre)
 
 ## Table of Contents
+- [CLI Flags Reference](#cli-flags-reference)
+- [Configuration Keys Reference](#configuration-keys-reference)
 - [Single Mode](#single-mode)
 - [Barrage Mode](#barrage-mode)
 - [IPFIX Mode](#ipfix-mode)
@@ -28,6 +30,150 @@ For sending fabricated NetFlow v9 and IPFIX (RFC 7011) traffic to a collector fo
 - [Proxy Mode](#proxy-mode)
 - [Web Dashboard](#web-dashboard)
 - [License](#license)
+
+## CLI Flags Reference
+
+Flowgre uses Go's `flag` package. Flags are passed with a single dash (`-flag`) and are scoped to individual subcommands. Global subcommands (`version`, `help`) take no flags.
+
+### Global Subcommands
+
+| Subcommand | Description |
+|---|---|
+| `version` | Print the current version and license. Overridden at build time via `-ldflags -X main.version`. |
+| `help` | Print the help header with subcommand summaries. |
+
+### `single` — Send sequential flows
+
+Source: [`cmd/single.go`](cmd/single.go)
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-server` | string | `127.0.0.1` | Servername or IP address of flow collector (IPv4 or IPv6) |
+| `-port` | int | `9995` | Destination port used by the flow collector |
+| `-src-port` | int | `0` | Source port used by the client. If `0`, a random port between 10000–15000 is chosen |
+| `-count` | int | `1` | Count of flows to send in sequence |
+| `-hexdump` | bool | `false` | If true, do a hexdump of each packet |
+| `-src-range` | string | `10.0.0.0/8` | CIDR range for source IPs (IPv4 or IPv6) |
+| `-dst-range` | string | `10.0.0.0/8` | CIDR range for destination IPs (IPv4 or IPv6) |
+
+### `barrage` — Continuous flow barrage
+
+Source: [`cmd/barrage.go`](cmd/barrage.go)
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-server` | string | `127.0.0.1` | Servername or IP address of the flow collector (IPv4 or IPv6) |
+| `-port` | int | `9995` | Destination port used by the flow collector |
+| `-src-range` | string | `10.0.0.0/8` | CIDR range for source IPs (IPv4 or IPv6) |
+| `-dst-range` | string | `10.0.0.0/8` | CIDR range for destination IPs (IPv4 or IPv6) |
+| `-workers` | int | `4` | Number of workers to create. Each worker uses unique source addresses |
+| `-delay` | int | `100` | Milliseconds between packets sent |
+| `-template-interval` | int | `30` | Seconds between template retransmissions (`0` to disable) |
+| `-config` | string | *(empty)* | Path to a YAML config file. Supersedes all other flags when provided |
+| `-web` | bool | `false` | Enable the web dashboard server |
+| `-web-ip` | string | `0.0.0.0` | IP address the web server listens on (IPv4 or IPv6) |
+| `-web-port` | int | `8080` | Port to bind the web server on |
+| `-protocol` | string | `netflow` | Protocol to use: `netflow` or `ipfix` |
+| `-profile` | string | `generic` | NetFlow flow profile: `generic`, `minimal`, or `extended` |
+
+### `ipfix` — Send IPFIX flows
+
+Source: [`cmd/ipfix_single.go`](cmd/ipfix_single.go)
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-server` | string | `127.0.0.1` | Servername or IP address of flow collector (IPv4 or IPv6) |
+| `-port` | int | `9995` | Destination port used by the flow collector |
+| `-src-port` | int | `0` | Source port used by the client. If `0`, a random port between 10000–15000 is chosen |
+| `-count` | int | `1` | Count of flows to send in sequence |
+| `-hexdump` | bool | `false` | If true, do a hexdump of each packet |
+| `-src-range` | string | `10.0.0.0/8` | CIDR range for source IPs (IPv4 or IPv6) |
+| `-dst-range` | string | `10.0.0.0/8` | CIDR range for destination IPs (IPv4 or IPv6) |
+
+### `record` — Capture flows to disk
+
+Source: [`cmd/record.go`](cmd/record.go)
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-ip` | string | `127.0.0.1` | IP address to listen on (IPv4 or IPv6) |
+| `-port` | int | `9995` | Listen UDP port |
+| `-db` | string | `recorded_flows` | Directory to place recorded flows for later replay |
+| `-verbose` | bool | `false` | Log every packet received (warning: high volume) |
+
+### `replay` — Replay recorded flows
+
+Source: [`cmd/replay.go`](cmd/replay.go)
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-server` | string | `127.0.0.1` | Target server to replay flows at (IPv4 or IPv6) |
+| `-port` | int | `9995` | Target server UDP port |
+| `-delay` | int | `100` | Milliseconds between packets sent |
+| `-db` | string | `recorded_flows` | Directory to read recorded flows from |
+| `-loop` | bool | `false` | Loop the replays indefinitely |
+| `-workers` | int | `1` | Number of concurrent workers for replay |
+| `-updatets` | bool | `false` | Update timestamps on replayed flows to the current time |
+| `-verbose` | bool | `false` | Log every packet sent (warning: high volume) |
+
+### `proxy` — Relay flows to multiple targets
+
+Source: [`cmd/proxy.go`](cmd/proxy.go)
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `-ip` | string | `127.0.0.1` | IP address the proxy listens on (IPv4 or IPv6) |
+| `-port` | int | `9995` | Proxy listen UDP port |
+| `-target` | string | *(required)* | Target in `IP:PORT` format. Repeat this flag for multiple targets |
+| `-verbose` | bool | `false` | Log every flow received (warning: high volume) |
+
+## Configuration Keys Reference
+
+When using `flowgre barrage -config <file.yaml>`, the YAML config supersedes all command-line flags. Config is loaded via [Viper](https://github.com/spf13/viper) from the `config` package ([`config/config.go`](config/config.go)).
+
+Only **one target** is allowed per config file. The target name is arbitrary.
+
+### YAML Schema
+
+```yaml
+targets:
+  <name>:                          # Arbitrary target name (only one allowed)
+    ip: "127.0.0.1"               # Collector IP address
+    port: 9995                    # Collector UDP port
+    workers: 4                    # Concurrent workers
+    delay: 100                    # Milliseconds between packets
+    template-interval: 30         # Seconds between template retransmissions (0 = disable)
+    src-range: "10.0.0.0/8"      # CIDR range for source IPs
+    dst-range: "10.0.0.0/8"      # CIDR range for destination IPs
+    web: false                    # Enable web dashboard
+    web-ip: "0.0.0.0"            # Web server listen address
+    web-port: 8080               # Web server port
+    protocol: "netflow"          # Protocol: "netflow" or "ipfix"
+```
+
+### Key Descriptions
+
+| Key | Type | Default | CLI Equivalent | Description |
+|---|---|---|---|---|
+| `ip` | string | `127.0.0.1` | `-server` | Collector hostname or IP address (IPv4/IPv6) |
+| `port` | int | `9995` | `-port` | Collector UDP port |
+| `workers` | int | `4` | `-workers` | Number of concurrent sender workers |
+| `delay` | int | `100` | `-delay` | Milliseconds between packets per worker |
+| `template-interval` | int | `30` | `-template-interval` | Seconds between NetFlow/IPFIX template retransmissions. Set to `0` to disable retransmission |
+| `src-range` | string | `10.0.0.0/8` | `-src-range` | CIDR notation for source IP pool (auto-detects IPv4 vs IPv6) |
+| `dst-range` | string | `10.0.0.0/8` | `-dst-range` | CIDR notation for destination IP pool (auto-detects IPv4 vs IPv6) |
+| `web` | bool | `false` | `-web` | Enable the built-in web dashboard |
+| `web-ip` | string | `0.0.0.0` | `-web-ip` | Bind address for the web dashboard (IPv4/IPv6) |
+| `web-port` | int | `8080` | `-web-port` | Listening port for the web dashboard |
+| `protocol` | string | `netflow` | `-protocol` | Export protocol: `netflow` (NetFlow v9) or `ipfix` (IPFIX/RFC 7011) |
+
+Note: The `profile` flag (`-profile`) has **no config file equivalent** — it is only available via the CLI for the `barrage` subcommand and controls the NetFlow field set (`generic`, `minimal`, `extended`).
+
+Note: The `updatets` flag (`-updatets`) has **no config file equivalent** — it is only available via the CLI for the `replay` subcommand.
+
+---
+
+## Single Mode
 
 ## Build / Lint / Test Commands
 - `go build` – compile the binary.
