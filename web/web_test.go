@@ -8,11 +8,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/stats"
 	"io"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -24,24 +22,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// pickPort tries 8080 first, then falls back to a random port > 1024.
+// pickPort lets the OS pick an available ephemeral port.
 func pickPort() int {
-	// Try the default port first
-	listener, err := net.Listen("tcp", "127.0.0.1:8080")
-	if err == nil {
-		listener.Close()
-		return 8080
-	}
-	// Pick a random port in the ephemeral range
-	for i := 0; i < 5; i++ {
-		port := 1024 + rand.Intn(64512)
-		listener, err = net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-		if err == nil {
-			listener.Close()
-			return port
-		}
-	}
-	// Last resort: let the OS pick
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic("cannot find an available port")
@@ -338,12 +320,14 @@ func TestRunWithMockedCollector(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go sc.Run(&wg, ctx)
-	go RunWebServer(webIP, webPort, &wg, ctx, sc)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("testpass"), bcrypt.DefaultCost)
+	go RunWebServer(webIP, webPort, &wg, ctx, sc, "admin", string(hashedPassword))
 
 	// Allow server to start
 	time.Sleep(2 * time.Second)
 
-	// Test all endpoints
+	// Test all endpoints with basic auth
+	client := &http.Client{}
 	endpoints := []struct {
 		path         string
 		expectedKey  string
@@ -357,14 +341,20 @@ func TestRunWithMockedCollector(t *testing.T) {
 
 	for _, ep := range endpoints {
 		url := "http://" + webIP + ":" + strconv.Itoa(webPort) + ep.path
-		resp, err := http.Get(url)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			t.Errorf("Failed to create request for %s: %v", ep.path, err)
+			continue
+		}
+		req.SetBasicAuth("admin", "testpass")
+		resp, err := client.Do(req)
 		if err != nil {
 			t.Errorf("Failed to GET %s: %v", ep.path, err)
 			continue
 		}
-		defer resp.Body.Close()
 
 		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		if err != nil {
 			t.Errorf("Failed to read body from %s: %v", ep.path, err)
 			continue
