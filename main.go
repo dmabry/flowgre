@@ -9,7 +9,7 @@ import (
 	"github.com/dmabry/flowgre/cmd"
 )
 
-var version = "0.5.15" // semantic version — overridden by -ldflags at build time
+var version = "0.6.0" // semantic version — overridden by -ldflags at build time
 const license = "Apache License, Version 2.0"
 
 func main() {
