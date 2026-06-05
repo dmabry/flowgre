@@ -24,7 +24,7 @@ func RandStringBytes(n int) string {
 func CryptoRandomNumber(max int64) int64 {
 	n, err := rand.Int(rand.Reader, big.NewInt(max))
 	if err != nil {
-		panic(fmt.Errorf("crypto random failed: %v", err))
+		panic(fmt.Errorf("crypto random failed: %w", err))
 	}
 	return n.Int64()
 }

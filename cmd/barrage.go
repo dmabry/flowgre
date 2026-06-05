@@ -71,11 +71,11 @@ func (c *BarrageCommand) Execute() error {
 	if *c.configFile != "" {
 		fmt.Println("Reading config file... ignoring any other given arguments")
 		if err := config.InitViper(*c.configFile); err != nil {
-			return fmt.Errorf("error reading config file: %v", err)
+			return fmt.Errorf("error reading config file: %w", err)
 		}
 		cfg, err := config.LoadBarrageConfig()
 		if err != nil {
-			return fmt.Errorf("error loading barrage config: %v", err)
+			return fmt.Errorf("error loading barrage config: %w", err)
 		}
 		if *c.protocol == "ipfix" {
 			barrage.Run(cfg, barrage.IPFIX())
