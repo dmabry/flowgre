@@ -236,9 +236,9 @@ func TestMinimalIPFIXFlow_Generate_AllProtocols(t *testing.T) {
 	session := netflow.NewSession()
 
 	cases := []struct {
-		port       int
-		wantPort   uint16
-		wantProto  uint8
+		port      int
+		wantPort  uint16
+		wantProto uint8
 	}{
 		{utils.SSHPort, uint16(utils.SSHPort), utils.TCPProto},
 		{utils.FTPPort, uint16(utils.FTPPort), utils.TCPProto},
@@ -426,12 +426,12 @@ func TestIsValidIPFIX_RejectOtherVersions(t *testing.T) {
 	t.Parallel()
 	// Craft a 20-byte header with version 11
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, uint16(11)) // version
-	binary.Write(buf, binary.BigEndian, uint16(1))  // flowCount
-	binary.Write(buf, binary.BigEndian, uint32(1000)) // sysUptime
+	binary.Write(buf, binary.BigEndian, uint16(11))         // version
+	binary.Write(buf, binary.BigEndian, uint16(1))          // flowCount
+	binary.Write(buf, binary.BigEndian, uint32(1000))       // sysUptime
 	binary.Write(buf, binary.BigEndian, uint32(1234567890)) // unixSec
-	binary.Write(buf, binary.BigEndian, uint32(1)) // flowSequence
-	binary.Write(buf, binary.BigEndian, uint32(42)) // sourceID
+	binary.Write(buf, binary.BigEndian, uint32(1))          // flowSequence
+	binary.Write(buf, binary.BigEndian, uint32(42))         // sourceID
 
 	ok, err := IsValidIPFIX(buf.Bytes())
 	if ok {

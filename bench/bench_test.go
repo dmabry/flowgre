@@ -147,9 +147,9 @@ func BenchmarkNetflow_UpdateTimeStamp(b *testing.B) {
 	sourceID := 100
 	session := netflow.NewSession()
 	nf, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
-		if err != nil {
-			b.Fatal(err)
-		}
+	if err != nil {
+		b.Fatal(err)
+	}
 	buf := nf.ToBytes()
 	data := buf.Bytes()
 
@@ -169,9 +169,9 @@ func BenchmarkIPFIX_UpdateTimeStamp(b *testing.B) {
 	sourceID := 100
 	session := netflow.NewSession()
 	pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
-		if err != nil {
-			b.Fatal(err)
-		}
+	if err != nil {
+		b.Fatal(err)
+	}
 	buf := pkt.ToBytes()
 	data := buf.Bytes()
 
@@ -192,9 +192,9 @@ func BenchmarkValidate_NetFlow_Valid(b *testing.B) {
 	sourceID := 100
 	session := netflow.NewSession()
 	nf, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
-		if err != nil {
-			b.Fatal(err)
-		}
+	if err != nil {
+		b.Fatal(err)
+	}
 	buf := nf.ToBytes()
 	data := buf.Bytes()
 
@@ -213,9 +213,9 @@ func BenchmarkValidate_NetFlow_Invalid(b *testing.B) {
 	sourceID := 100
 	session := netflow.NewSession()
 	nf, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session)
-		if err != nil {
-			b.Fatal(err)
-		}
+	if err != nil {
+		b.Fatal(err)
+	}
 	buf := nf.ToBytes()
 	data := buf.Bytes()
 
@@ -234,9 +234,9 @@ func BenchmarkValidate_IPFIX_Valid(b *testing.B) {
 	sourceID := 100
 	session := netflow.NewSession()
 	pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
-		if err != nil {
-			b.Fatal(err)
-		}
+	if err != nil {
+		b.Fatal(err)
+	}
 	buf := pkt.ToBytes()
 	data := buf.Bytes()
 

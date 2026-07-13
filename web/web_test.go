@@ -330,8 +330,8 @@ func TestRunWithMockedCollector(t *testing.T) {
 	// Test all endpoints with basic auth
 	client := &http.Client{}
 	endpoints := []struct {
-		path         string
-		expectedKey  string
+		path        string
+		expectedKey string
 	}{
 		{"/", "status"},
 		{"/health", "status"},

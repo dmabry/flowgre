@@ -33,16 +33,6 @@ jobs:
       run: |
         ls -l flowgre_*
 
-    - name: Update nfpm configs for release version
-      run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
-        # Update Linux AMD64 config (glibc)
-        sed -i "s/version:.*/version: \"v${VERSION}\"/" .nfpm/nfpm-linux-amd64.yaml
-        sed -i "s|src: .*_0\.[0-9]*\.[0-9]*|src: ./flowgre_linux_amd64_${VERSION}|" .nfpm/nfpm-linux-amd64.yaml
-        # Update Alpine AMD64 config (musl)
-        sed -i "s/version:.*/version: \"v${VERSION}\"/" .nfpm/nfpm-alpine-amd64.yaml
-        sed -i "s|src: .*_0\.[0-9]*\.[0-9]*|src: ./flowgre_linux_amd64_musl_${VERSION}|" .nfpm/nfpm-alpine-amd64.yaml
-
     - name: Build musl version
       run: |
         CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags '-s -w -X main.version=${GITHUB_REF#refs/tags/v}' -o flowgre_linux_amd64_musl_${GITHUB_REF#refs/tags/v}
@@ -55,11 +45,17 @@ jobs:
         rm -f nfpm.deb
 
     - name: Package RPM and DEB
+      env:
+        VERSION: "${{ github.ref_name }}"
+        BINARY: "./flowgre_linux_amd64_${{ github.ref_name }}"
       run: |
         nfpm package -p rpm -f ./.nfpm/nfpm-linux-amd64.yaml
         nfpm package -p deb -f ./.nfpm/nfpm-linux-amd64.yaml
 
     - name: Package APK
+      env:
+        VERSION: "${{ github.ref_name }}"
+        BINARY: "./flowgre_linux_amd64_musl_${{ github.ref_name }}"
       run: |
         nfpm package -p apk -f ./.nfpm/nfpm-alpine-amd64.yaml
 

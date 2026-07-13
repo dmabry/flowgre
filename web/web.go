@@ -31,37 +31,37 @@ func BasicAuthMiddleware(username, hashedPassword string, realm string) func(htt
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			
+
 			if !strings.HasPrefix(auth, "Basic ") {
 				w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			
+
 			payload, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(auth, "Basic "))
 			if err != nil {
 				http.Error(w, "Bad Authorization", http.StatusBadRequest)
 				return
 			}
-			
+
 			parts := strings.SplitN(string(payload), ":", 2)
 			if len(parts) != 2 {
 				http.Error(w, "Bad Authorization", http.StatusBadRequest)
 				return
 			}
-			
+
 			// Constant-time comparison for username
 			if !constantTimeCompare(parts[0], username) {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			
+
 			// bcrypt comparison for password
 			if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(parts[1])); err != nil {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -85,12 +85,12 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 	defer wg.Done()
 	listenAddr := ip + ":" + strconv.Itoa(port)
 	log.Printf("Starting Web server %s\n", listenAddr)
-	
+
 	router := http.NewServeMux()
-	
+
 	// Wrap all handlers with basic auth middleware
 	authMiddleware := BasicAuthMiddleware(username, hashedPassword, "FlowGre")
-	
+
 	router.Handle("/", authMiddleware(http.HandlerFunc(IndexHandler)))
 	router.Handle("/health", authMiddleware(http.HandlerFunc(HealthHandler)))
 	router.Handle("/stats", authMiddleware(http.HandlerFunc(sc.StatsHandler)))

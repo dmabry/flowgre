@@ -30,9 +30,9 @@ type WorkerStat struct {
 }
 
 type StatTotals struct {
-	FlowsSent uint64 `json:"flows_sent"`
-	Cycles    uint64 `json:"cycles"`
-	BytesSent uint64 `json:"bytes_sent"`
+	FlowsSent uint64 `json:"flows_sent,omitempty"`
+	Cycles    uint64 `json:"cycles,omitempty"`
+	BytesSent uint64 `json:"bytes_sent,omitempty"`
 }
 
 // StatSnapshot is a point-in-time snapshot of stats for time-series charting.

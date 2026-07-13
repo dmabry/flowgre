@@ -209,10 +209,7 @@ func TestGetLastIP_TableDriven(t *testing.T) {
 		t.Run(tc.cidr, func(t *testing.T) {
 			t.Parallel()
 			_, ipNet, _ := net.ParseCIDR(tc.cidr)
-			last, err := GetLastIP(ipNet)
-			if err != nil {
-				t.Fatalf("GetLastIP(%s) error: %v", tc.cidr, err)
-			}
+			last := GetLastIP(ipNet)
 			if last.String() != tc.expected {
 				t.Errorf("GetLastIP(%s) = %s, want %s", tc.cidr, last, tc.expected)
 			}

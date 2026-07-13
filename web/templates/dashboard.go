@@ -13,8 +13,8 @@ const DashboardTpl = `
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontawesome/free@6.5.1/css/all.min.css" integrity="sha384-+0mG0CSBW8WrlbJ3FlRuG4Wp7Io7d9p8rQ75XrVZtP3vM8cBfZz8Y8Y8Y8Y8Y8Y8" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-HgyBrqJxjRUZOv6HlKBv1z2zhzYIhqBvmdgynJ1C5ovwUhVzoC7pGFCjw5F7m1x0" crossorigin="anonymous"></script>
 <style>
 :root {
   --bg-primary: #1a1a2e;
@@ -316,13 +316,13 @@ tr:hover {
 <!-- Header -->
 <div class="header">
   <div class="header-left">
-    <h1><i class="fa fa-dashboard"></i> Flowgre Dashboard</h1>
+    <h1><i class="fa-solid fa-gauge"></i> Flowgre Dashboard</h1>
     <span class="protocol-badge" id="protocolBadge">{{.Protocol}}</span>
   </div>
   <div class="header-right">
     <span class="uptime" id="uptimeDisplay">Uptime: {{.Uptime}}</span>
     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-      <i class="fa fa-sun-o" id="themeIcon"></i>
+      <i class="fa-solid fa-sun" id="themeIcon"></i>
     </button>
   </div>
 </div>
@@ -332,22 +332,22 @@ tr:hover {
   <!-- Summary cards -->
   <div class="cards">
     <div class="card card-workers">
-      <div class="card-icon"><i class="fa fa-users"></i></div>
+      <div class="card-icon"><i class="fa-solid fa-users"></i></div>
       <div class="card-value" id="workersCount">{{.ConfigOut.Workers}}</div>
       <div class="card-label">Workers</div>
     </div>
     <div class="card card-flows">
-      <div class="card-icon"><i class="fa fa-share-alt"></i></div>
+      <div class="card-icon"><i class="fa-solid fa-share-nodes"></i></div>
       <div class="card-value" id="flowsCount">{{.StatsTotal.FlowsSent}}</div>
       <div class="card-label">Total Flows</div>
     </div>
     <div class="card card-cycles">
-      <div class="card-icon"><i class="fa fa-circle"></i></div>
+      <div class="card-icon"><i class="fa-solid fa-circle-nodes"></i></div>
       <div class="card-value" id="cyclesCount">{{.StatsTotal.Cycles}}</div>
       <div class="card-label">Cycles</div>
     </div>
     <div class="card card-bytes">
-      <div class="card-icon"><i class="fa fa-cloud-download"></i></div>
+      <div class="card-icon"><i class="fa-solid fa-cloud-arrow-down"></i></div>
       <div class="card-value" id="bytesCount">{{formatBytes .StatsTotal.BytesSent}}</div>
       <div class="card-label">Bytes Sent</div>
     </div>
@@ -356,7 +356,7 @@ tr:hover {
   <!-- Charts -->
   <div class="charts-section">
     <div class="chart-container">
-      <h3><i class="fa fa-line-chart"></i> Flow Rate Over Time</h3>
+      <h3><i class="fa-solid fa-chart-line"></i> Flow Rate Over Time</h3>
       <div class="chart-wrapper">
         <canvas id="flowRateChart"></canvas>
       </div>
@@ -365,7 +365,7 @@ tr:hover {
 
   <!-- Worker details -->
   <div class="table-section">
-    <h3><i class="fa fa-cogs"></i> Worker Details</h3>
+    <h3><i class="fa-solid fa-gears"></i> Worker Details</h3>
     <table>
       <thead>
         <tr>
@@ -380,7 +380,7 @@ tr:hover {
       <tbody id="workerTable">
         {{ range $worker, $value := .StatsMapOut }}
         <tr>
-          <td><i class="fa fa-user" style="color: var(--accent-blue)"></i> #{{$worker}}</td>
+          <td><i class="fa-solid fa-user" style="color: var(--accent-blue)"></i> #{{$worker}}</td>
           <td>{{$value.SourceID}}</td>
           <td>{{$value.FlowsSent}}</td>
           <td>{{$value.Cycles}}</td>
@@ -398,7 +398,7 @@ tr:hover {
 
   <!-- Config details -->
   <div class="config-section">
-    <h3><i class="fa fa-wrench"></i> Configuration</h3>
+    <h3><i class="fa-solid fa-wrench"></i> Configuration</h3>
     <div class="config-grid">
       <div class="config-item">
         <span class="config-label">Target Server</span>
@@ -448,11 +448,11 @@ function toggleTheme() {
   const icon = document.getElementById('themeIcon');
   if (body.dataset.theme === 'dark') {
     body.dataset.theme = 'light';
-    icon.className = 'fa fa-moon-o';
+    icon.className = 'fa-solid fa-moon';
     updateChartTheme();
   } else {
     body.dataset.theme = 'dark';
-    icon.className = 'fa fa-sun-o';
+    icon.className = 'fa-solid fa-sun';
     updateChartTheme();
   }
 }
@@ -631,7 +631,7 @@ function updateWorkerTable(workers, timeDiff) {
     }
     
     html += '<tr>';
-    html += '<td><i class="fa fa-user" style="color: var(--accent-blue)"></i> #' + id + '</td>';
+    html += '<td><i class="fa-solid fa-user" style="color: var(--accent-blue)"></i> #' + id + '</td>';
     html += '<td>' + w.source_id + '</td>';
     html += '<td>' + formatNumber(w.flows_sent) + '</td>';
     html += '<td>' + formatNumber(w.cycles) + '</td>';
