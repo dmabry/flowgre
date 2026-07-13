@@ -100,11 +100,11 @@ const (
 	APPLICATION_DESCRIPTION      = 94
 	APPLICATION_TAG              = 95
 	APPLICATION_NAME             = 96
-	postipDiffServCodePoint      = 98
-	replication_factor           = 99
-	layer2packetSectionOffset    = 102
-	layer2packetSectionSize      = 103
-	layer2packetSectionData      = 104
+	POSTIP_DIFF_SERV_CODE_POINT  = 98
+	REPLICATION_FACTOR           = 99
+	LAYER2_PKT_SECTION_OFFSET    = 102
+	LAYER2_PKT_SECTION_SIZE      = 103
+	LAYER2_PKT_SECTION_DATA      = 104
 )
 
 // GenericFlow is used to create and generate NetFlow v9 flow records.

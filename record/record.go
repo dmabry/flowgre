@@ -182,12 +182,12 @@ func RunCtx(ctx context.Context, ip string, port int, dbdir string, verbose bool
 // Use RunCtx() when you need to control the lifecycle via context.
 func Run(ip string, port int, dbdir string, verbose bool) {
 	mgr := lifecycle.New()
-	
+
 	// Setup signal handling BEFORE starting workers to avoid race
 	cleanupDone := mgr.SetupSignalHandler()
-	
+
 	RunCtx(mgr.Context(), ip, port, dbdir, verbose)
-	
+
 	<-cleanupDone
 	mgr.Wait()
 }

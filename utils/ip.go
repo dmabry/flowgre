@@ -13,6 +13,8 @@ import (
 
 // IPto32 converts an IPv4 string to its uint32 representation.
 // Handles nil, IPv6 (via IPv4-mapped prefix), and valid IPv4 gracefully without panicking.
+// Note: Returns 0 for both invalid input and the valid address "0.0.0.0".
+// Use ParseIPv4ToNum when error distinction is needed.
 func IPto32(s string) uint32 {
 	ip := net.ParseIP(s)
 	if ip == nil {
@@ -27,6 +29,26 @@ func IPto32(s string) uint32 {
 	return 0
 }
 
+// ParseIPv4ToNum converts an IPv4 string to its uint32 representation,
+// returning an error for IPv6 or invalid input.
+func ParseIPv4ToNum(s string) (uint32, error) {
+	ip := net.ParseIP(s)
+	if ip == nil {
+		return 0, fmt.Errorf("invalid IP address: %s", s)
+	}
+	if len(ip) == 16 {
+		ipv4 := ip.To4()
+		if ipv4 != nil {
+			return binary.BigEndian.Uint32(ipv4), nil
+		}
+		return 0, fmt.Errorf("pure IPv6 not supported: %s", s)
+	}
+	if len(ip) == 4 {
+		return binary.BigEndian.Uint32(ip), nil
+	}
+	return 0, fmt.Errorf("unrecognized IP format: %s", s)
+}
+
 // RandomIP picks a random IP from the given CIDR range.
 func RandomIP(cidr string) (net.IP, error) {
 	_, ipNet, err := net.ParseCIDR(cidr)
@@ -35,7 +57,7 @@ func RandomIP(cidr string) (net.IP, error) {
 	}
 
 	ipMin := ipNet.IP
-	ipMax, _ := GetLastIP(ipNet)
+	ipMax := GetLastIP(ipNet)
 	ipMinNum := IPToNum(ipMin)
 	ipMaxNum := IPToNum(ipMax)
 
@@ -57,10 +79,10 @@ func RandomIP(cidr string) (net.IP, error) {
 }
 
 // GetLastIP returns the last IP address in the given network.
-func GetLastIP(ipNet *net.IPNet) (net.IP, error) {
+func GetLastIP(ipNet *net.IPNet) net.IP {
 	ip := make(net.IP, len(ipNet.IP.To4()))
 	binary.BigEndian.PutUint32(ip, binary.BigEndian.Uint32(ipNet.IP.To4())|^binary.BigEndian.Uint32(ipNet.Mask))
-	return ip, nil
+	return ip
 }
 
 // IPToNum converts an IPv4 address to its uint32 representation.
@@ -79,27 +101,6 @@ func NumToIP(num uint32) net.IP {
 	ip := make(net.IP, 4)
 	binary.BigEndian.PutUint32(ip, num)
 	return ip
-}
-
-// ParseIPv4ToNum converts an IPv4 string to its uint32 representation,
-// returning an error for IPv6 or invalid input.
-func ParseIPv4ToNum(s string) (uint32, error) {
-	ip := net.ParseIP(s)
-	if ip == nil {
-		return 0, fmt.Errorf("invalid IP address: %s", s)
-	}
-	if len(ip) == 16 {
-		// IPv6
-		ipv4 := ip.To4()
-		if ipv4 != nil {
-			return binary.BigEndian.Uint32(ipv4), nil
-		}
-		return 0, fmt.Errorf("pure IPv6 not supported: %s", s)
-	}
-	if len(ip) == 4 {
-		return binary.BigEndian.Uint32(ip), nil
-	}
-	return 0, fmt.Errorf("unrecognized IP format: %s", s)
 }
 
 // IsIPv6CIDR detects whether a CIDR string represents an IPv6 network.

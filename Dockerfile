@@ -22,8 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags "-s -w" -o /
 # ---------------------------------------------------------------------------
 FROM alpine:3.21
 
-RUN apk add --no-cache tzdata && \
-    addgroup -S flowgre && \
+RUN addgroup -S flowgre && \
     adduser -S -g flowgre flowgre
 
 WORKDIR /opt/app

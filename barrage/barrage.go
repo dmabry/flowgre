@@ -27,13 +27,29 @@ const (
 	sourceIDMax = 10000
 )
 
+// workerConfig holds all parameters for a worker goroutine.
+type workerConfig struct {
+	id               int
+	ctx              context.Context
+	server           string
+	port             int
+	srcRange         string
+	dstRange         string
+	sourceID         int
+	delay            int
+	templateInterval int
+	wg               *sync.WaitGroup
+	statsChan        chan<- models.WorkerStat
+	gen              FlowGenerator
+}
+
 // worker is the generic goroutine used to create workers for any FlowGenerator.
-func worker(id int, ctx context.Context, server string, port int, srcRange string, dstRange string, sourceID int, delay int, templateInterval int, wg *sync.WaitGroup, statsChan chan<- models.WorkerStat, gen FlowGenerator) {
-	defer wg.Done()
-	label := gen.Label()
+func worker(cfg *workerConfig) {
+	defer cfg.wg.Done()
+	label := cfg.gen.Label()
 	wStats := models.WorkerStat{
-		WorkerID:  id,
-		SourceID:  sourceID,
+		WorkerID:  cfg.id,
+		SourceID:  cfg.sourceID,
 		FlowsSent: 0,
 		Cycles:    0,
 		BytesSent: 0,
@@ -44,70 +60,70 @@ func worker(id int, ctx context.Context, server string, port int, srcRange strin
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
-		log.Printf("%s [%2d] Listen failed: %v", label, id, err)
+		log.Printf("%s [%2d] Listen failed: %v", label, cfg.id, err)
 		return
 	}
 	defer conn.Close()
 
 	// Convert given IP String to net.IP type
-	destIP := net.ParseIP(server)
+	destIP := net.ParseIP(cfg.server)
 	// start new Session for this worker
 	session := netflow.NewSession()
 
 	// Generate and send first Template Flow(s)
-	tBuf := gen.GenerateTemplate(sourceID, session)
-	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
+	tBuf := cfg.gen.GenerateTemplate(cfg.sourceID, session)
+	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: cfg.port}, tBuf, false)
 	if err != nil {
-		log.Printf("%s [%2d] Issue sending initial packet: %v", label, id, err)
+		log.Printf("%s [%2d] Issue sending initial packet: %v", label, cfg.id, err)
 		return
 	}
 
 	// Generate and send Options Data (IPFIX only; returns nil for NetFlow)
-	oBuf := gen.GenerateOptionsData(sourceID, session)
+	oBuf := cfg.gen.GenerateOptionsData(cfg.sourceID, session)
 	if oBuf != nil {
-		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, oBuf, false)
+		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: cfg.port}, oBuf, false)
 		if err != nil {
-			log.Printf("%s [%2d] Issue sending options data packet: %v", label, id, err)
+			log.Printf("%s [%2d] Issue sending options data packet: %v", label, cfg.id, err)
 			return
 		}
 	}
 
 	log.Printf("%s [%2d] Slinging packets at %s:%d with Source ID: %5d and delay of %dms\n",
-		label, id, server, port, sourceID, delay)
+		label, cfg.id, cfg.server, cfg.port, cfg.sourceID, cfg.delay)
 
 	// Data limiter throttles flow packet generation.
-	dataLimiter := time.NewTicker(time.Millisecond * time.Duration(delay))
+	dataLimiter := time.NewTicker(time.Millisecond * time.Duration(cfg.delay))
 	defer dataLimiter.Stop()
 
 	// Template retransmission ticker — fires every templateInterval seconds.
 	// When templateInterval is 0, no ticker is created so templates are never retransmitted.
 	var tmplTicker *time.Ticker
-	if templateInterval > 0 {
-		tmplTicker = time.NewTicker(time.Duration(templateInterval) * time.Second)
+	if cfg.templateInterval > 0 {
+		tmplTicker = time.NewTicker(time.Duration(cfg.templateInterval) * time.Second)
 		defer tmplTicker.Stop()
 	}
 
 	for {
 		select {
-		case <-ctx.Done():
-			log.Printf("%s [%2d] Exiting due to signal\n", label, id)
+		case <-cfg.ctx.Done():
+			log.Printf("%s [%2d] Exiting due to signal\n", label, cfg.id)
 			return
 		case <-tmplTicker.C:
 			// Retransmit template every templateInterval seconds
-			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, tBuf, false)
+			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: cfg.port}, tBuf, false)
 			if err != nil {
-				log.Printf("%s [%2d] Issue sending template packet: %v", label, id, err)
+				log.Printf("%s [%2d] Issue sending template packet: %v", label, cfg.id, err)
 				return
 			}
 			wStats.FlowsSent++
 			wStats.BytesSent += uint64(bytes)
-			statsChan <- wStats
+			cfg.statsChan <- wStats
 		case <-dataLimiter.C:
 			flowCount := utils.RandomNum(5, 25)
-			buf := gen.GenerateData(flowCount, sourceID, srcRange, dstRange, session)
-			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: port}, buf, false)
+			buf := cfg.gen.GenerateData(flowCount, cfg.sourceID, cfg.srcRange, cfg.dstRange, session)
+			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: cfg.port}, buf, false)
 			if err != nil {
-				log.Printf("%s [%2d] Issue sending data packet: %v", label, id, err)
+				log.Printf("%s [%2d] Issue sending data packet: %v", label, cfg.id, err)
 				return
 			}
 			wStats.FlowsSent += uint64(flowCount)
@@ -158,7 +174,20 @@ func StartCtx(ctx context.Context, config *models.Config, gen FlowGenerator) *Ru
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(sourceIDMin, sourceIDMax)
-		go worker(w, ctx, config.Server, config.DstPort, config.SrcRange, config.DstRange, sourceID, config.Delay, templateInterval, wg, sc.StatsChan, gen)
+		go worker(&workerConfig{
+			id:               w,
+			ctx:              ctx,
+			server:           config.Server,
+			port:             config.DstPort,
+			srcRange:         config.SrcRange,
+			dstRange:         config.DstRange,
+			sourceID:         sourceID,
+			delay:            config.Delay,
+			templateInterval: templateInterval,
+			wg:               wg,
+			statsChan:        sc.StatsChan,
+			gen:              gen,
+		})
 	}
 
 	return &RunOpts{
