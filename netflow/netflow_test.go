@@ -193,7 +193,7 @@ func TestToBytes(t *testing.T) {
 		t.Errorf("Failed to parse Netflow Data Length! Got: %v", err)
 	}
 	// I know the field count from the template generated above.  Going to use that
-	dataItems := make([]DataAny, flowcount)
+	dataItems := make([]any, flowcount)
 	for i := range flowcount {
 		dataItem := GenericFlow{}
 		err := binary.Read(dreader, binary.BigEndian, &dataItem)

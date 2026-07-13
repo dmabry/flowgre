@@ -22,6 +22,7 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: '1.26'
+        cache: true
 
     - name: Ensure go.mod is tidy
       run: go mod tidy

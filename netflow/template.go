@@ -146,18 +146,3 @@ func (t *TemplateFlowSet) rawSize() int {
 	}
 	return size
 }
-
-// Get the size of the TemplateFlowSet in bytes
-func (t *TemplateFlowSet) size() int {
-	size := binary.Size(t.FlowSetID)
-	size += binary.Size(t.Length)
-	for _, i := range t.Templates {
-		size += binary.Size(i.TemplateID)
-		size += binary.Size(i.FieldCount)
-		for _, f := range i.Fields {
-			size += binary.Size(f.Type)
-			size += binary.Size(f.Length)
-		}
-	}
-	return size
-}

@@ -64,7 +64,7 @@ func TestTemplateFlowSet_Size(t *testing.T) {
 	session := NewSession()
 	tfs := new(TemplateFlowSet).Generate(session)
 
-	size := tfs.size()
+	size := tfs.rawSize()
 	if size <= 0 {
 		t.Errorf("TemplateFlowSet size should be positive, got %d", size)
 	}

@@ -103,7 +103,7 @@ func GetNetFlowSizes(netFlow Netflow) string {
 	output := fmt.Sprintf("Header Size: %d bytes\n", netFlow.Header.size())
 	tSize := 0
 	for _, tFlow := range netFlow.TemplateFlowSets {
-		tSize += tFlow.size()
+		tSize += tFlow.rawSize()
 	}
 	output += fmt.Sprintf("Template Size: %d bytes\n", tSize)
 	dSize := 0

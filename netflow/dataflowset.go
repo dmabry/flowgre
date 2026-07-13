@@ -11,17 +11,11 @@ import (
 	"github.com/dmabry/flowgre/utils"
 )
 
-type DataItem struct {
-	Fields []uint32
-}
-
-type DataAny any
-
 // DataFlowSet for Netflow
 type DataFlowSet struct {
 	FlowSetID uint16
 	Length    uint16
-	Items     []DataAny
+	Items     []any
 	Padding   int
 }
 
@@ -39,7 +33,7 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 	dataFlowSet := new(DataFlowSet)
 	dataFlowSet.FlowSetID = 256
 	protoPorts := utils.ProtoPorts
-	items := make([]DataAny, flowCount)
+	items := make([]any, flowCount)
 	for i := range flowCount {
 		srcIP, err := utils.RandomIPCIDR(srcRange)
 		if err != nil {
@@ -58,12 +52,16 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 		items[i] = generateFlow(p, srcIP, dstIP, flowPort, session)
 	}
 	dataFlowSet.Items = items
-	dataFlowSet.Length = uint16(dataFlowSet.size())
+	size := dataFlowSet.size()
+	if size > 0xFFFF {
+		return DataFlowSet{}, fmt.Errorf("DataFlowSet size %d exceeds uint16 max (65535)", size)
+	}
+	dataFlowSet.Length = uint16(size)
 	return *dataFlowSet, nil
 }
 
 // generateFlow creates a flow record appropriate for the given profile.
-func generateFlow(p FlowProfile, srcIP, dstIP net.IP, flowPort int, session *Session) DataAny {
+func generateFlow(p FlowProfile, srcIP, dstIP net.IP, flowPort int, session *Session) any {
 	switch prof := p.(type) {
 	case *MinimalProfile:
 		_ = prof

@@ -7,6 +7,7 @@ package web
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"log"
@@ -69,15 +70,7 @@ func BasicAuthMiddleware(username, hashedPassword string, realm string) func(htt
 
 // constantTimeCompare provides constant-time string comparison to prevent timing attacks.
 func constantTimeCompare(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 // RunWebServer is used to start the web server goroutine.
@@ -125,10 +118,9 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 		Status:  "OK",
 		Message: "Everything is OK!",
 	}
-	err := json.NewEncoder(w).Encode(health)
-	if err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(health); err != nil {
 		log.Printf("Web server had an issue: %v\n", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
 
@@ -138,9 +130,8 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 		Status:  "OK",
 		Message: "Flowgre is flinging packets!",
 	}
-	err := json.NewEncoder(w).Encode(health)
-	if err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(health); err != nil {
 		log.Printf("Web server had an issue: %v\n", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
