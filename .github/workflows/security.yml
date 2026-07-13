@@ -27,7 +27,7 @@ jobs:
 
     - name: Install and run gosec
       run: |
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
+        go install github.com/securego/gosec/v2/cmd/gosec@v2.22.2
         gosec -exclude=G115 ./...
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@bfa4b33a029b9aa80ddb784b45574c30e072c59e

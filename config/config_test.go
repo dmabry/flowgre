@@ -6,10 +6,13 @@ package config
 import (
 	"os"
 	"testing"
+
+	"github.com/spf13/viper"
 )
 
 // TestInitViper tests that InitViper successfully loads a valid config file.
 func TestInitViper(t *testing.T) {
+	viper.Reset()
 	// Create a temporary config file
 	tmpFile, err := os.CreateTemp("", "config-*.yaml")
 	if err != nil {
@@ -40,6 +43,7 @@ targets:
 
 // TestInitViperMissingFile tests that InitViper returns error for missing file.
 func TestInitViperMissingFile(t *testing.T) {
+	viper.Reset()
 	err := InitViper("/nonexistent/config.yaml")
 	if err == nil {
 		t.Error("Expected error for missing file, got nil")
@@ -48,6 +52,7 @@ func TestInitViperMissingFile(t *testing.T) {
 
 // TestLoadBarrageConfigValid tests loading a valid config.
 func TestLoadBarrageConfigValid(t *testing.T) {
+	viper.Reset()
 	// Create a temporary config file
 	tmpFile, err := os.CreateTemp("", "config-*.yaml")
 	if err != nil {
@@ -115,6 +120,7 @@ targets:
 
 // TestLoadBarrageConfigMissingTargets tests that missing targets section returns error.
 func TestLoadBarrageConfigMissingTargets(t *testing.T) {
+	viper.Reset()
 	tmpFile, err := os.CreateTemp("", "config-*.yaml")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
@@ -142,6 +148,7 @@ other:
 
 // TestLoadBarrageConfigMultipleTargets tests that multiple targets return error.
 func TestLoadBarrageConfigMultipleTargets(t *testing.T) {
+	viper.Reset()
 	tmpFile, err := os.CreateTemp("", "config-*.yaml")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
@@ -178,6 +185,7 @@ targets:
 
 // TestLoadBarrageConfigDefaults tests that missing fields get defaults.
 func TestLoadBarrageConfigDefaults(t *testing.T) {
+	viper.Reset()
 	tmpFile, err := os.CreateTemp("", "config-*.yaml")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
@@ -226,6 +234,7 @@ targets:
 
 // TestLoadBarrageConfigValidation tests config validation with various inputs.
 func TestLoadBarrageConfigValidation(t *testing.T) {
+	viper.Reset()
 	tests := []struct {
 		name    string
 		config  string
@@ -254,6 +263,7 @@ targets: {}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
 			tmpFile, err := os.CreateTemp("", "config-*.yaml")
 			if err != nil {
 				t.Fatalf("Failed to create temp file: %v", err)
