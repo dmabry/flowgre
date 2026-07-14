@@ -98,9 +98,11 @@ func worker(cfg *workerConfig) {
 	// Template retransmission ticker — fires every templateInterval seconds.
 	// When templateInterval is 0, no ticker is created so templates are never retransmitted.
 	var tmplTicker *time.Ticker
+	var tmplChan <-chan time.Time
 	if cfg.templateInterval > 0 {
 		tmplTicker = time.NewTicker(time.Duration(cfg.templateInterval) * time.Second)
 		defer tmplTicker.Stop()
+		tmplChan = tmplTicker.C
 	}
 
 	for {
@@ -108,7 +110,7 @@ func worker(cfg *workerConfig) {
 		case <-cfg.ctx.Done():
 			log.Printf("%s [%2d] Exiting due to signal\n", label, cfg.id)
 			return
-		case <-tmplTicker.C:
+		case <-tmplChan:
 			// Retransmit template every templateInterval seconds
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: cfg.port}, tBuf, false)
 			if err != nil {
@@ -169,12 +171,6 @@ func StartCtx(ctx context.Context, config *models.Config, gen FlowGenerator) *Ru
 	wg.Add(1)
 	go sc.Run(wg, ctx)
 
-	// Default template retransmission interval is 30 seconds if not set
-	templateInterval := config.TemplateInterval
-	if templateInterval <= 0 {
-		templateInterval = 30
-	}
-
 	// Start up the workers
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
@@ -188,7 +184,7 @@ func StartCtx(ctx context.Context, config *models.Config, gen FlowGenerator) *Ru
 			dstRange:         config.DstRange,
 			sourceID:         sourceID,
 			delay:            config.Delay,
-			templateInterval: templateInterval,
+			templateInterval: config.TemplateInterval,
 			wg:               wg,
 			statsChan:        sc.StatsChan,
 			gen:              gen,

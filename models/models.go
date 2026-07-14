@@ -19,6 +19,8 @@ type Config struct {
 	WebPort          int    `json:"web_port,omitempty"`
 	Web              bool   `json:"web,omitempty"`
 	Protocol         string `json:"protocol,omitempty"` // "netflow" or "ipfix"
+	WebUsername      string `json:"web_username,omitempty"`
+	WebPassword      string `json:"web_password,omitempty"`
 }
 
 type WorkerStat struct {

@@ -4,7 +4,10 @@
 package cmd
 
 import (
+	"os"
 	"testing"
+
+	"github.com/dmabry/flowgre/web"
 )
 
 // =============================================================================
@@ -745,5 +748,232 @@ func TestRunProxy(t *testing.T) {
 	}
 	if *c.ip != "127.0.0.1" || *c.port != 9995 {
 		t.Error("flags not parsed correctly")
+	}
+}
+
+// =============================================================================
+// Validation tests
+// =============================================================================
+
+func TestValidateProtocol(t *testing.T) {
+	tests := []struct {
+		name    string
+		proto   string
+		wantErr bool
+	}{
+		{"netflow", "netflow", false},
+		{"ipfix", "ipfix", false},
+		{"invalid", "sflow", true},
+		{"empty", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateProtocol(tt.proto)
+			if tt.wantErr && err == nil {
+				t.Error("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateWebBinding(t *testing.T) {
+	tests := []struct {
+		name    string
+		webIP   string
+		cliUser string
+		cliPass string
+		envUser string
+		envPass string
+		wantErr bool
+	}{
+		{"loopback safe", "127.0.0.1", "", "", "", "", false},
+		{"ipv6 loopback safe", "::1", "", "", "", "", false},
+		{"non-loopback with cli creds", "0.0.0.0", "admin", "secret", "", "", false},
+		{"non-loopback with env creds", "0.0.0.0", "", "", "admin", "secret", false},
+		{"non-loopback no creds", "0.0.0.0", "", "", "", "", true},
+		{"non-loopback cli user only", "192.168.1.1", "admin", "", "", "", false},
+		{"non-loopback cli pass only", "192.168.1.1", "", "secret", "", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.envUser != "" {
+				os.Setenv("FLOWGRE_WEB_USERNAME", tt.envUser)
+				defer os.Unsetenv("FLOWGRE_WEB_USERNAME")
+			}
+			if tt.envPass != "" {
+				os.Setenv("FLOWGRE_WEB_PASSWORD", tt.envPass)
+				defer os.Unsetenv("FLOWGRE_WEB_PASSWORD")
+			}
+			err := validateWebBinding(tt.webIP, tt.cliUser, tt.cliPass)
+			if tt.wantErr && err == nil {
+				t.Error("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestResolveCredentials(t *testing.T) {
+	// Test CLI credentials
+	username, hashed, err := resolveCredentials("myuser", "mypass")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if username != "myuser" {
+		t.Errorf("expected username 'myuser', got %q", username)
+	}
+	if hashed == "" {
+		t.Error("expected non-empty hashed password for CLI credentials")
+	}
+
+	// Test environment variable credentials
+	os.Setenv("FLOWGRE_WEB_USERNAME", "envuser")
+	os.Setenv("FLOWGRE_WEB_PASSWORD", "envpass")
+	envUsername, envHashed, err := resolveCredentials("", "")
+	if err != nil {
+		os.Unsetenv("FLOWGRE_WEB_USERNAME")
+		os.Unsetenv("FLOWGRE_WEB_PASSWORD")
+		t.Fatalf("unexpected error: %v", err)
+	}
+	os.Unsetenv("FLOWGRE_WEB_USERNAME")
+	os.Unsetenv("FLOWGRE_WEB_PASSWORD")
+	if envUsername != "envuser" {
+		t.Errorf("expected username 'envuser', got %q", envUsername)
+	}
+	if envHashed == "" {
+		t.Error("expected non-empty hashed password for env credentials")
+	}
+
+	// Test default credentials (random password generated)
+	defUsername, defHashed, err := resolveCredentials("", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if defUsername != "admin" {
+		t.Errorf("expected default username 'admin', got %q", defUsername)
+	}
+	if defHashed == "" {
+		t.Error("expected non-empty hashed password for default credentials")
+	}
+}
+
+func TestResolveProfile(t *testing.T) {
+	tests := []struct {
+		name     string
+		profile  string
+		expected string
+	}{
+		{"generic", "generic", "generic"},
+		{"minimal", "minimal", "minimal"},
+		{"extended", "extended", "extended"},
+		{"unknown", "unknown", "generic"},
+		{"empty", "", "generic"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			profile := resolveProfile(tt.profile)
+			name := profile.Name()
+			if name != tt.expected {
+				t.Errorf("expected name %q, got %q", tt.expected, name)
+			}
+		})
+	}
+}
+
+func TestGenerateRandomPassword(t *testing.T) {
+	password, err := web.GenerateRandomPassword(16)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(password) != 16 {
+		t.Errorf("expected length 16, got %d", len(password))
+	}
+
+	// Generate two passwords and verify they differ (probabilistic)
+	p1, err := web.GenerateRandomPassword(32)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	p2, err := web.GenerateRandomPassword(32)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p1 == p2 {
+		t.Log("Warning: two random passwords are identical (extremely unlikely)")
+	}
+}
+
+func TestEffectiveWebIP(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"empty defaults to loopback", "", "127.0.0.1"},
+		{"loopback unchanged", "127.0.0.1", "127.0.0.1"},
+		{"non-loopback unchanged", "0.0.0.0", "0.0.0.0"},
+		{"ipv6 loopback unchanged", "::1", "::1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := effectiveWebIP(tt.input)
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestValidateWebBindingEmptyIP(t *testing.T) {
+	// Empty web-ip should be treated as loopback (safe)
+	err := validateWebBinding("", "", "")
+	if err != nil {
+		t.Errorf("empty web-ip should be safe (defaults to loopback), got error: %v", err)
+	}
+}
+
+func TestValidateTemplateInterval(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   int
+		wantErr bool
+	}{
+		{"zero disabled", 0, false},
+		{"positive", 30, false},
+		{"negative", -1, true},
+		{"large negative", -100, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateTemplateInterval(tt.value)
+			if tt.wantErr && err == nil {
+				t.Error("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestBarrageCommandNegativeTemplateInterval(t *testing.T) {
+	c := &BarrageCommand{}
+	args := []string{"-template-interval", "-1"}
+	if err := c.ParseFlags(args); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err := c.Execute()
+	if err == nil {
+		t.Error("expected error for negative template-interval")
 	}
 }
