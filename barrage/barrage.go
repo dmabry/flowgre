@@ -120,7 +120,11 @@ func worker(cfg *workerConfig) {
 			cfg.statsChan <- wStats
 		case <-dataLimiter.C:
 			flowCount := utils.RandomNum(5, 25)
-			buf := cfg.gen.GenerateData(flowCount, cfg.sourceID, cfg.srcRange, cfg.dstRange, session)
+			buf, err := cfg.gen.GenerateData(flowCount, cfg.sourceID, cfg.srcRange, cfg.dstRange, session)
+			if err != nil {
+				log.Printf("%s [%2d] GenerateData failed: %v", label, cfg.id, err)
+				return
+			}
 			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: cfg.port}, buf, false)
 			if err != nil {
 				log.Printf("%s [%2d] Issue sending data packet: %v", label, cfg.id, err)
@@ -129,6 +133,7 @@ func worker(cfg *workerConfig) {
 			wStats.FlowsSent += uint64(flowCount)
 			wStats.Cycles++
 			wStats.BytesSent += uint64(bytes)
+			cfg.statsChan <- wStats
 		}
 	}
 }

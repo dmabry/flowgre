@@ -9,11 +9,13 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"net"
+	"os"
+
 	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/utils"
-	"log"
-	"net"
 )
 
 const (
@@ -29,7 +31,7 @@ const (
 // Template, for a Single run with an external context. Cancelling ctx stops
 // packet generation cleanly. Use Run() for CLI usage where OS signal handling
 // is desired.
-func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, count int, srcRange string, dstRange string, hexDump bool) {
+func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, count int, srcRange string, dstRange string, hexDump bool) error {
 	// Configure connection to use. It looks like a listener, but it will be used to send packet. Allows setting the source port.
 	if srcPort == 0 {
 		// Pick random source port between 10000 and 15000
@@ -40,13 +42,13 @@ func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, 
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
-		log.Fatal("Listen:", err)
+		return fmt.Errorf("listen: %w", err)
 	}
 	defer conn.Close()
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(collectorIP)
 	if destIP == nil {
-		log.Fatalf("Failed to parse destination IP %s", collectorIP)
+		return fmt.Errorf("failed to parse destination IP %s", collectorIP)
 	}
 	// Create new session for flow generation
 	session := netflow.NewSession()
@@ -61,7 +63,7 @@ func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, 
 	}
 	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, tBuf.Bytes(), true)
 	if err != nil {
-		log.Fatalf("Flowgre had an issue sending packet %v\n", err)
+		return fmt.Errorf("flowgre had an issue sending packet: %w", err)
 	}
 
 	// Generate and send Data Flow(s)
@@ -70,12 +72,12 @@ func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, 
 		select {
 		case <-ctx.Done():
 			log.Printf("Single run cancelled after %d/%d packets\n", i-1, count)
-			return
+			return nil
 		default:
 		}
 		flow, err := netflow.GenerateDataNetflow(10, sourceID, srcRange, dstRange, 0, session)
 		if err != nil {
-			log.Fatalf("GenerateDataNetflow failed: %v", err)
+			return fmt.Errorf("GenerateDataNetflow failed: %w", err)
 		}
 		buf := flow.ToBytes()
 		fmt.Println(netflow.GetNetFlowSizes(flow))
@@ -84,9 +86,10 @@ func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, 
 		}
 		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: destPort}, buf.Bytes(), true)
 		if err != nil {
-			log.Fatalf("Flowgre had an issue sending packet %v\n", err)
+			return fmt.Errorf("flowgre had an issue sending packet: %w", err)
 		}
 	}
+	return nil
 }
 
 // Run Creates the given number of Netflow packets, including the required
@@ -104,6 +107,9 @@ func Run(collectorIP string, destPort int, srcPort int, count int, srcRange stri
 		mgr.Cancel()
 	}()
 
-	RunCtx(mgr.Context(), collectorIP, destPort, srcPort, count, srcRange, dstRange, hexDump)
+	if err := RunCtx(mgr.Context(), collectorIP, destPort, srcPort, count, srcRange, dstRange, hexDump); err != nil {
+		fmt.Fprintf(os.Stderr, "single error: %v\n", err)
+		os.Exit(1)
+	}
 	mgr.Wait()
 }

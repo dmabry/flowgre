@@ -91,7 +91,10 @@ func TestNetFlow_Profile_DataGeneration(t *testing.T) {
 			ng := gen.(netflowGenerator)
 
 			session := netflow.NewSession()
-			dataBytes := ng.GenerateData(5, 1, "10.0.0.0/8", "10.0.0.0/8", session)
+			dataBytes, err := ng.GenerateData(5, 1, "10.0.0.0/8", "10.0.0.0/8", session)
+			if err != nil {
+				t.Fatalf("GenerateData error: %v", err)
+			}
 
 			if len(dataBytes) == 0 {
 				t.Fatal("expected non-empty data bytes")

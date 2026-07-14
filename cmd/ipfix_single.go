@@ -6,7 +6,7 @@ package cmd
 
 import (
 	"flag"
-	"log"
+	"fmt"
 	"net"
 	"os"
 
@@ -47,7 +47,7 @@ func (c *IPFIXCommand) ParseFlags(args []string) error {
 }
 
 // Execute runs the ipfix mode with parsed flags.
-func (c *IPFIXCommand) Execute() {
+func (c *IPFIXCommand) Execute() error {
 	if *c.srcPort == 0 {
 		*c.srcPort = utils.RandomNum(ipfixSourcePortMin, ipfixSourcePortMax)
 	}
@@ -55,13 +55,13 @@ func (c *IPFIXCommand) Execute() {
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: *c.srcPort})
 	if err != nil {
-		log.Fatal("Listen:", err)
+		return fmt.Errorf("listen: %w", err)
 	}
 	defer conn.Close()
 
 	destIP := net.ParseIP(*c.server)
 	if destIP == nil {
-		log.Fatalf("Failed to parse destination IP %s", *c.server)
+		return fmt.Errorf("failed to parse destination IP %s", *c.server)
 	}
 
 	session := netflow.NewSession()
@@ -71,21 +71,22 @@ func (c *IPFIXCommand) Execute() {
 	tBuf := tFlow.ToBytes()
 	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: *c.port}, tBuf.Bytes(), *c.hexDump)
 	if err != nil {
-		log.Fatalf("Issue sending IPFIX template: %v", err)
+		return fmt.Errorf("issue sending IPFIX template: %w", err)
 	}
 
 	// Generate and send Data Flows
 	for i := 1; i <= *c.count; i++ {
 		flow, err := ipfix.GenerateDataIPFIX(10, sourceID, *c.srcRange, *c.dstRange, 0, session)
 		if err != nil {
-			log.Fatalf("GenerateDataIPFIX failed: %v", err)
+			return fmt.Errorf("GenerateDataIPFIX failed: %w", err)
 		}
 		buf := flow.ToBytes()
 		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: *c.port}, buf.Bytes(), *c.hexDump)
 		if err != nil {
-			log.Fatalf("Issue sending IPFIX data: %v", err)
+			return fmt.Errorf("issue sending IPFIX data: %w", err)
 		}
 	}
+	return nil
 }
 
 // RunIPFIX is the entry point for the ipfix subcommand.
@@ -94,5 +95,8 @@ func RunIPFIX(args []string) {
 	if err := c.ParseFlags(args); err != nil {
 		os.Exit(1)
 	}
-	c.Execute()
+	if err := c.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "ipfix error: %v\n", err)
+		os.Exit(1)
+	}
 }
