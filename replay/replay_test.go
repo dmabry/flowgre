@@ -19,8 +19,6 @@ import (
 
 // TestWorker tests that workers can send packets to a target.
 func TestWorker(t *testing.T) {
-	t.Parallel()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -28,12 +26,20 @@ func TestWorker(t *testing.T) {
 	receiverReady := make(chan struct{})
 	var wg sync.WaitGroup
 
+	// Bind to port 0 to get a free port
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	probe.Close()
+
 	// Start a receiver on the target port
 	received := make(chan struct{}, 1)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 39995})
+		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 		if err != nil {
 			t.Errorf("Failed to listen: %v", err)
 			return
@@ -61,7 +67,7 @@ func TestWorker(t *testing.T) {
 
 	// Start worker
 	wg.Add(1)
-	go worker(1, ctx, "127.0.0.1", 39995, 100, &wg, false, dataChan)
+	go worker(1, ctx, "127.0.0.1", port, 100, &wg, false, dataChan)
 
 	// Send test payload
 	dataChan <- []byte("worker test")
@@ -146,12 +152,17 @@ func TestWorkerContextCancellation(t *testing.T) {
 	dataChan := make(chan []byte, 1024)
 	var wg sync.WaitGroup
 
+	// Bind to port 0 to get a free port
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	probe.Close()
+
 	// Start worker
 	wg.Add(1)
-	go worker(1, ctx, "127.0.0.1", 39996, 100, &wg, false, dataChan)
-
-	// Give worker time to start
-	time.Sleep(100 * time.Millisecond)
+	go worker(1, ctx, "127.0.0.1", port, 100, &wg, false, dataChan)
 
 	// Cancel context
 	cancel()
@@ -175,7 +186,6 @@ func TestWorkerContextCancellation(t *testing.T) {
 
 // TestRunIntegration tests the full replay flow.
 func TestRunIntegration(t *testing.T) {
-	t.Parallel()
 	origStdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull) // hide logs
 	defer func() { os.Stdout = origStdout }()
@@ -205,13 +215,21 @@ func TestRunIntegration(t *testing.T) {
 	}
 	db.Close()
 
+	// Bind to port 0 to get a free port
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	probe.Close()
+
 	// Start a receiver on target port
 	received := make(chan struct{}, 1)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 39997})
+		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 		if err != nil {
 			t.Errorf("Failed to listen: %v", err)
 			return
@@ -232,7 +250,7 @@ func TestRunIntegration(t *testing.T) {
 	replayDone := make(chan struct{})
 	go func() {
 		defer close(replayDone)
-		Run("127.0.0.1", 39997, 100, tmpDir, false, 1, false, false)
+		Run("127.0.0.1", port, 100, tmpDir, false, 1, false, false)
 	}()
 
 	// Wait for packet to be received
@@ -249,16 +267,23 @@ func TestRunIntegration(t *testing.T) {
 
 // TestSendPacket verifies that SendPacket works correctly.
 func TestSendPacket(t *testing.T) {
-	t.Parallel()
-
 	// Start a receiver
 	received := make(chan []byte, 1)
 	receiverReady := make(chan struct{})
 	var wg sync.WaitGroup
+
+	// Bind to port 0 to get a free port
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	probe.Close()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 39998})
+		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 		if err != nil {
 			t.Errorf("Failed to listen: %v", err)
 			return
@@ -290,7 +315,7 @@ func TestSendPacket(t *testing.T) {
 
 	testPayload := []byte("test send packet")
 
-	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 39998}, testPayload, false)
+	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port}, testPayload, false)
 	if err != nil {
 		t.Fatalf("Failed to send: %v", err)
 	}

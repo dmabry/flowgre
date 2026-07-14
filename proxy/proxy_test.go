@@ -146,13 +146,19 @@ func TestReplicator(t *testing.T) {
 
 // TestWorker tests that workers can send packets to a target.
 func TestWorker(t *testing.T) {
-	t.Parallel()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	workerChan := make(chan []byte, bufferSize)
 	var wg sync.WaitGroup
+
+	// Bind to port 0 to get a free port
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	probe.Close()
 
 	// Start a receiver on the target port
 	receiverDone := make(chan struct{})
@@ -162,7 +168,7 @@ func TestWorker(t *testing.T) {
 		defer wg.Done()
 		defer close(receiverDone)
 
-		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 19996})
+		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 		if err != nil {
 			t.Errorf("Failed to listen: %v", err)
 			return
@@ -189,7 +195,7 @@ func TestWorker(t *testing.T) {
 
 	// Start worker
 	wg.Add(1)
-	go worker(1, ctx, "127.0.0.1", 19996, &wg, workerChan)
+	go worker(1, ctx, "127.0.0.1", port, &wg, workerChan)
 
 	// Send test payload
 	workerChan <- []byte("worker test")
@@ -283,14 +289,28 @@ func TestStatsPrinter(t *testing.T) {
 
 // TestRunIntegration tests the full proxy flow with a single target.
 func TestRunIntegration(t *testing.T) {
-	t.Parallel()
 	origStdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull) // hide logs
 	defer func() { os.Stdout = origStdout }()
 
+	// Bind to ports 0 to get free ports
+	probe1, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	targetPort := probe1.LocalAddr().(*net.UDPAddr).Port
+	probe1.Close()
+
+	probe2, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	proxyPort := probe2.LocalAddr().(*net.UDPAddr).Port
+	probe2.Close()
+
 	// Start a receiver on target port
-	targetPort := 19997
 	received := make(chan struct{}, 1)
+	receiverReady := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -302,6 +322,8 @@ func TestRunIntegration(t *testing.T) {
 		}
 		defer conn.Close()
 
+		close(receiverReady) // signal that the receiver is listening
+
 		payload := make([]byte, udpMaxBufferSize)
 		conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 		_, _, err = conn.ReadFromUDP(payload)
@@ -312,18 +334,44 @@ func TestRunIntegration(t *testing.T) {
 		received <- struct{}{}
 	}()
 
+	// Wait for receiver to be ready
+	select {
+	case <-receiverReady:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for receiver to start")
+	}
+
 	// Start proxy in a goroutine
 	proxyDone := make(chan struct{})
 	go func() {
 		defer close(proxyDone)
-		Run("127.0.0.1", 19998, false, []string{"127.0.0.1:19997"})
+		Run("127.0.0.1", proxyPort, false, []string{"127.0.0.1:" + strconv.Itoa(targetPort)})
 	}()
 
-	// Give proxy time to start
-	time.Sleep(1 * time.Second)
+	// Wait for proxy to be ready
+	proxyReady := make(chan struct{})
+	go func() {
+		for {
+			c, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: proxyPort})
+			if err == nil {
+				c.Close()
+				close(proxyReady)
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	select {
+	case <-proxyReady:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for proxy to start")
+	}
+
+	// Allow proxy goroutines to fully initialize after port is bound
+	time.Sleep(100 * time.Millisecond)
 
 	// Send a test packet to the proxy
-	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 19998})
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: proxyPort})
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
 	}
