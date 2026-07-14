@@ -7,12 +7,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/dmabry/flowgre/netflow"
 	"net"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dmabry/flowgre/netflow"
 )
 
 const udpMaxBufferSize = 65507
@@ -98,18 +99,26 @@ func receiver(ctx context.Context, wg *sync.WaitGroup, ip string, port int, t *t
 
 // TestRun runs a test to verify functionality.
 func TestRun(t *testing.T) {
-	t.Parallel()
 	origStdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull) // hide all stdout from single
 	defer func() { os.Stdout = origStdout }()
+
+	// Bind to port 0 to get a free port
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	probe.Close()
+
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 	sleep := 2 * time.Second
 	// Start receiver
 	wg.Add(1)
-	go receiver(ctx, wg, "127.0.0.1", 9997, t)
+	go receiver(ctx, wg, "127.0.0.1", port, t)
 	// Run single
-	Run("127.0.0.1", 9997, 9999, 10, "10.10.10.0/28", "10.11.11.0/28", false)
+	Run("127.0.0.1", port, 9999, 10, "10.10.10.0/28", "10.11.11.0/28", false)
 	// Sleep for longer than expected duration
 	time.Sleep(sleep)
 	cancel()

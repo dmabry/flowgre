@@ -160,6 +160,7 @@ func TestGenerateIPFIX_Concurrent_Safe(t *testing.T) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	sequences := make([]uint32, 0, numGoroutines)
+	errCh := make(chan error, numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
@@ -167,7 +168,8 @@ func TestGenerateIPFIX_Concurrent_Safe(t *testing.T) {
 			defer wg.Done()
 			ipfix, err := GenerateIPFIX(1, 618, "10.0.0.0/8", "10.0.0.0/8", session)
 			if err != nil {
-				t.Fatal(err)
+				errCh <- err
+				return
 			}
 
 			mu.Lock()
@@ -177,6 +179,11 @@ func TestGenerateIPFIX_Concurrent_Safe(t *testing.T) {
 	}
 
 	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Fatal(err)
+	}
 
 	// Verify all sequences are unique
 	seen := make(map[uint32]bool)

@@ -17,23 +17,44 @@ import (
 
 // TestNetIngest tests that the network listener can receive UDP packets.
 func TestNetIngest(t *testing.T) {
-	t.Parallel()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	dataChan := make(chan []byte, 1024)
 	var wg sync.WaitGroup
 
-	// Start netIngest
-	wg.Add(1)
-	go netIngest(ctx, &wg, "127.0.0.1", 29995, dataChan, false)
+	// Bind to port 0 to get a free port, then pass it to netIngest
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	probe.Close()
 
-	// Give listener time to start
-	time.Sleep(100 * time.Millisecond)
+	wg.Add(1)
+	go netIngest(ctx, &wg, "127.0.0.1", port, dataChan, false)
+
+	// Wait for the listener to be ready by probing the port
+	ready := make(chan struct{})
+	go func() {
+		for {
+			c, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
+			if err == nil {
+				c.Close()
+				close(ready)
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	select {
+	case <-ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for listener to start")
+	}
 
 	// Send a test packet
-	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 29995})
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
 	}
@@ -72,14 +93,15 @@ func TestDbIngest(t *testing.T) {
 	tmpDir := t.TempDir()
 	dataChan := make(chan []byte, 1024)
 
+	done := make(chan struct{})
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go dbIngest(ctx, &wg, tmpDir, dataChan, false)
+	go func() {
+		defer close(done)
+		dbIngest(ctx, &wg, tmpDir, dataChan, false)
+	}()
 
-	// Give DB time to open
-	time.Sleep(200 * time.Millisecond)
-
-	// Send test payload
+	// Send test payload; dbIngest will process it once the DB is open
 	testPayload := []byte("test db ingest payload")
 	dataChan <- testPayload
 
@@ -89,6 +111,7 @@ func TestDbIngest(t *testing.T) {
 	// Cleanup
 	cancel()
 	wg.Wait()
+	<-done
 	close(dataChan)
 }
 
@@ -135,7 +158,6 @@ func TestParseFlow(t *testing.T) {
 
 // TestRunIntegration tests the full record flow.
 func TestRunIntegration(t *testing.T) {
-	t.Parallel()
 	origStdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull) // hide logs
 	defer func() { os.Stdout = origStdout }()
@@ -151,9 +173,17 @@ func TestRunIntegration(t *testing.T) {
 	parseChan := make(chan []byte, 1024)
 	var wg sync.WaitGroup
 
+	// Bind to port 0 to get a free port
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	probe.Close()
+
 	// Start netIngest
 	wg.Add(1)
-	go netIngest(ctx, &wg, "127.0.0.1", 29996, parseChan, false)
+	go netIngest(ctx, &wg, "127.0.0.1", port, parseChan, false)
 
 	// Start parseFlow
 	wg.Add(1)
@@ -163,11 +193,27 @@ func TestRunIntegration(t *testing.T) {
 	wg.Add(1)
 	go dbIngest(ctx, &wg, tmpDir, dataChan, false)
 
-	// Give components time to start
-	time.Sleep(1 * time.Second)
+	// Wait for the listener to be ready
+	ready := make(chan struct{})
+	go func() {
+		for {
+			c, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
+			if err == nil {
+				c.Close()
+				close(ready)
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	select {
+	case <-ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timeout waiting for listener to start")
+	}
 
 	// Send a valid NetFlow packet to the recorder
-	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 29996})
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
 	}
@@ -200,12 +246,17 @@ func TestNetIngestContextCancellation(t *testing.T) {
 	dataChan := make(chan []byte, 1024)
 	var wg sync.WaitGroup
 
+	// Bind to port 0 to get a free port
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to find free port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	probe.Close()
+
 	// Start netIngest
 	wg.Add(1)
-	go netIngest(ctx, &wg, "127.0.0.1", 29997, dataChan, false)
-
-	// Give listener time to start
-	time.Sleep(100 * time.Millisecond)
+	go netIngest(ctx, &wg, "127.0.0.1", port, dataChan, false)
 
 	// Cancel context
 	cancel()
@@ -239,9 +290,6 @@ func TestDbIngestContextCancellation(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go dbIngest(ctx, &wg, tmpDir, dataChan, false)
-
-	// Give DB time to open
-	time.Sleep(200 * time.Millisecond)
 
 	// Cancel context
 	cancel()
