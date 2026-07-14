@@ -7,10 +7,13 @@ package web
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,6 +24,21 @@ import (
 	"github.com/dmabry/flowgre/stats"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const passwordCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+
+// GenerateRandomPassword generates a cryptographically secure random password of the given length.
+func GenerateRandomPassword(length int) (string, error) {
+	result := make([]byte, length)
+	for i := range result {
+		idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(passwordCharset))))
+		if err != nil {
+			return "", fmt.Errorf("generate random byte: %w", err)
+		}
+		result[i] = passwordCharset[idx.Int64()]
+	}
+	return string(result), nil
+}
 
 // BasicAuthMiddleware provides HTTP Basic Authentication for web endpoints.
 func BasicAuthMiddleware(username, hashedPassword string, realm string) func(http.Handler) http.Handler {

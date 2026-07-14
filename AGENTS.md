@@ -2,6 +2,8 @@
 
 ## Build / Lint / Test Commands
 - `go build` – compile the binary.
+- `gofmt -l .` – list files with formatting issues (run after every code change).
+- `gofmt -w .` – auto-format all Go files.
 - `go test -v ./... -count 1` – run all tests once, verbose output.
 - `go test -race ./...` – run tests with race detector.
 - `GOEXPERIMENT=goroutineleakprofile go test ./...` – verify no goroutine leaks (Go 1.26+).
@@ -16,7 +18,7 @@
 - Constants: UpperCamelCase or UPPERCASE if global.
 - Errors returned as `fmt.Errorf("...")`; wrap errors with context.
 - Use `go vet`, `staticcheck`, `golangci‑lint` for static analysis.
-- Formatting: run `gofmt -w .` before commit.
+- Formatting: run `gofmt -l .` after every code change to verify formatting, then `gofmt -w .` to fix any issues.
 - Documentation: comment every exported function and type.
 
 ## CI / GitHub Actions

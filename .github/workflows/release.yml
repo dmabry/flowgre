@@ -11,6 +11,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+      VERSION: "${{ github.ref_name }}"
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -27,15 +28,30 @@ jobs:
 
     - name: Build multi-platform
       run: |
-        bash ./scripts/build-multiplatform.sh ${GITHUB_REF#refs/tags/v}
+        bash ./scripts/build-multiplatform.sh "${{ env.VERSION }}"
 
     - name: List built files
       run: |
         ls -l flowgre_*
 
+    - name: Verify expected binaries
+      run: |
+        for bin in \
+          flowgre_linux_amd64_${{ env.VERSION }} \
+          flowgre_linux_arm64_${{ env.VERSION }} \
+          flowgre_darwin_amd64_${{ env.VERSION }} \
+          flowgre_darwin_arm64_${{ env.VERSION }} \
+          flowgre_windows_amd64_${{ env.VERSION }} \
+          flowgre_windows_arm64_${{ env.VERSION }}; do
+          if [ ! -f "$bin" ]; then
+            echo "ERROR: Expected binary not found: $bin"
+            exit 1
+          fi
+        done
+
     - name: Build musl version
       run: |
-        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags '-s -w -X main.version=${GITHUB_REF#refs/tags/v}' -o flowgre_linux_amd64_musl_${GITHUB_REF#refs/tags/v}
+        CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.version=${{ env.VERSION }}" -o flowgre_linux_amd64_musl_${{ env.VERSION }}
 
     - name: Install nfpm
       run: |
@@ -46,16 +62,14 @@ jobs:
 
     - name: Package RPM and DEB
       env:
-        VERSION: "${{ github.ref_name }}"
-        BINARY: "./flowgre_linux_amd64_${{ github.ref_name }}"
+        BINARY: "./flowgre_linux_amd64_${{ env.VERSION }}"
       run: |
         nfpm package -p rpm -f ./.nfpm/nfpm-linux-amd64.yaml
         nfpm package -p deb -f ./.nfpm/nfpm-linux-amd64.yaml
 
     - name: Package APK
       env:
-        VERSION: "${{ github.ref_name }}"
-        BINARY: "./flowgre_linux_amd64_musl_${{ github.ref_name }}"
+        BINARY: "./flowgre_linux_amd64_musl_${{ env.VERSION }}"
       run: |
         nfpm package -p apk -f ./.nfpm/nfpm-alpine-amd64.yaml
 
@@ -64,7 +78,7 @@ jobs:
         mkdir -p ./bin
         TRIVY_VERSION="v0.70.0"
         curl -sSfL https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.tar.gz | tar xz && mv trivy ./bin/
-        ./bin/trivy fs --format cyclonedx --output sbom_${GITHUB_REF#refs/tags/v}.json .
+        ./bin/trivy fs --format cyclonedx --output sbom_${{ env.VERSION }}.json .
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@26994186c0ac3ef5cae75ac16aa32e8153525f77
@@ -74,6 +88,6 @@ jobs:
           flowgre_*
           flowgre-*
           sbom_*
-        body: "Flowgre, version ${{ github.ref_name }}"
-        name: "${{ github.ref_name }}"
+        body: "Flowgre, version ${{ env.VERSION }}"
+        name: "${{ env.VERSION }}"
         prerelease: true

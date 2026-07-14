@@ -65,10 +65,12 @@ func LoadBarrageConfig() (*models.Config, error) {
 	srcRange := getString(targetValues, "src-range", "10.0.0.0/8")
 	dstRange := getString(targetValues, "dst-range", "10.0.0.0/8")
 	templateInterval := getInt(targetValues, "template-interval", 30)
-	webIP := getString(targetValues, "web-ip", "0.0.0.0")
+	webIP := getString(targetValues, "web-ip", "127.0.0.1")
 	webPort := getInt(targetValues, "web-port", 8080)
 	web := getBool(targetValues, "web", false)
 	protocol := getString(targetValues, "protocol", "netflow")
+	webUsername := getString(targetValues, "web-username", "")
+	webPassword := getString(targetValues, "web-password", "")
 
 	log.Printf("target: %s ip: %s port: %d workers: %d delay: %d template-interval: %d src-range: %s dst-range: %s web: %v web-ip: %s web-port: %d protocol: %s\n",
 		targetName, ip, port, workers, delay, templateInterval, srcRange, dstRange, web, webIP, webPort, protocol)
@@ -85,6 +87,8 @@ func LoadBarrageConfig() (*models.Config, error) {
 		WebPort:          webPort,
 		Web:              web,
 		Protocol:         protocol,
+		WebUsername:      webUsername,
+		WebPassword:      webPassword,
 	}, nil
 }
 

@@ -1,4 +1,3 @@
-
 # Flowgre
 
 Slinging packets since 2022!
@@ -7,9 +6,9 @@ Slinging packets since 2022!
     ___ _
   / __\ | _____      ____ _ _ __ ___
  / _\ | |/ _ \ \ /\ / / _` | '__/ _ \
-/ /   | | (_) \ V  V / (_| | | |  __/
-\/    |_|\___/ \_/\_/ \__, |_|  \___|
-                      |___/
+ / /   | | (_) \ V  V / (_| | | |  __/
+ \/    |_|\___/ \_/\_/ \__, |_|  \___|
+                       |___/
 ```
 
 For sending fabricated NetFlow v9 and IPFIX (RFC 7011) traffic to a collector for testing. Supports both IPv4 and IPv6 flow records with auto-detection from CIDR ranges.
@@ -72,8 +71,10 @@ Source: [`cmd/barrage.go`](cmd/barrage.go)
 | `-template-interval` | int | `30` | Seconds between template retransmissions (`0` to disable) |
 | `-config` | string | *(empty)* | Path to a YAML config file. Supersedes all other flags when provided |
 | `-web` | bool | `false` | Enable the web dashboard server |
-| `-web-ip` | string | `0.0.0.0` | IP address the web server listens on (IPv4 or IPv6) |
+| `-web-ip` | string | `127.0.0.1` | IP address the web server listens on (IPv4 or IPv6) |
 | `-web-port` | int | `8080` | Port to bind the web server on |
+| `-web-username` | string | *(empty)* | Web server username (falls back to `FLOWGRE_WEB_USERNAME` env var, then `admin`) |
+| `-web-password` | string | *(empty)* | Web server password (falls back to `FLOWGRE_WEB_PASSWORD` env var) |
 | `-protocol` | string | `netflow` | Protocol to use: `netflow` or `ipfix` |
 | `-profile` | string | `generic` | NetFlow flow profile: `generic`, `minimal`, or `extended` |
 
@@ -168,8 +169,10 @@ targets:
     src-range: "10.0.0.0/8"      # CIDR range for source IPs
     dst-range: "10.0.0.0/8"      # CIDR range for destination IPs
     web: false                    # Enable web dashboard
-    web-ip: "0.0.0.0"            # Web server listen address
+    web-ip: "127.0.0.1"          # Web server listen address (default: loopback)
     web-port: 8080               # Web server port
+    web-username: ""             # Web server username (or use FLOWGRE_WEB_USERNAME env var)
+    web-password: ""             # Web server password (or use FLOWGRE_WEB_PASSWORD env var)
     protocol: "netflow"          # Protocol: "netflow" or "ipfix"
 ```
 
@@ -185,191 +188,19 @@ targets:
 | `src-range` | string | `10.0.0.0/8` | `-src-range` | CIDR notation for source IP pool (auto-detects IPv4 vs IPv6) |
 | `dst-range` | string | `10.0.0.0/8` | `-dst-range` | CIDR notation for destination IP pool (auto-detects IPv4 vs IPv6) |
 | `web` | bool | `false` | `-web` | Enable the built-in web dashboard |
-| `web-ip` | string | `0.0.0.0` | `-web-ip` | Bind address for the web dashboard (IPv4/IPv6) |
+| `web-ip` | string | `127.0.0.1` | `-web-ip` | Bind address for the web dashboard (IPv4/IPv6). Defaults to loopback for safety |
 | `web-port` | int | `8080` | `-web-port` | Listening port for the web dashboard |
+| `web-username` | string | *(empty)* | `-web-username` | Web dashboard username. Falls back to `FLOWGRE_WEB_USERNAME` env var. Defaults to `admin` |
+| `web-password` | string | *(empty)* | `-web-password` | Web dashboard password. Falls back to `FLOWGRE_WEB_PASSWORD` env var. If omitted, a random password is generated and printed at startup |
 | `protocol` | string | `netflow` | `-protocol` | Export protocol: `netflow` (NetFlow v9) or `ipfix` (IPFIX/RFC 7011) |
 
 Note: The `profile` flag (`-profile`) has **no config file equivalent** — it is only available via the CLI for the `barrage` subcommand and controls the NetFlow field set (`generic`, `minimal`, `extended`).
 
 Note: The `updatets` flag (`-updatets`) has **no config file equivalent** — it is only available via the CLI for the `replay` subcommand.
 
+Note: When binding the web dashboard to a non-loopback address (e.g., `0.0.0.0`), explicit credentials are required via CLI flags, YAML config, or environment variables. Startup will fail otherwise.
+
 ---
-
-## Single Mode
-
-## Build / Lint / Test Commands
-- `go build` – compile the binary.
-- `go test -v ./... -count 1` – run all tests once, verbose output.
-- `go test -race ./...` – run tests with race detector.
-- `GOEXPERIMENT=goroutineleakprofile go test ./...` – verify no goroutine leaks (Go 1.26+).
-- `golangci-lint run` – linting (requires golangci‑lint installed).
-- `gosec ./...` – security scan.
-- `trivy fs .` – container image scanning.
-
-## Code Style Guidelines
-- Imports sorted alphabetically; group standard library first.
-- Use `context.Context` for cancellation and timeouts.
-- Exported names: PascalCase; unexported: lowerCamelCase.
-- Constants: UpperCamelCase or UPPERCASE if global.
-- Errors returned as `fmt.Errorf("...")`; wrap errors with context.
-- Use `go vet`, `staticcheck`, `golangci-lint` for static analysis.
-- Formatting: run `gofmt -w .` before commit.
-- Documentation: comment every exported function and type.
-
-## CI / GitHub Actions
-The project uses the following GitHub actions:
-- **Go Tests** (`.github/workflows/go-test.yml`) – runs tests on push to main and pull requests.
-  - Steps include checkout, Go setup, `go mod tidy`, test run (`go test -v ./... -count 1`), and build.
-- **Auto‑Merge Dependabot** (`.github/workflows/auto-merge-dependabot.yml`) – merges Dependabot PRs automatically.
-- **Release** (`.github/workflows/release.yml`) – builds release artifacts for multiple platforms.
-  - Triggered on tag pushes matching `v*` pattern.
-  - Automatically updates nfpm configs at runtime using `sed`.
-  - Creates packages for RPM, DEB, APK, and standalone binaries.
-  - Generates SBOM using Trivy v0.70.0.
-- **Security Scan** (`.github/workflows/security.yml`) – runs `trivy` to scan images.
-
-Ensure that any new CI configuration follows the pattern above and includes relevant steps.
-
-## Environment Variables & Configuration
-The project uses Viper for configuration handling (`https://github.com/spf13/viper`).
-Command‑line arguments, YAML config files, and environment variables are supported.
-If you need to supply environment variables, create a `.env` file in the repository root (e.g., `export FLOWGRE_DEBUG=1`) or set them directly when running commands.
-
-Dependencies which read environment variables include `github.com/subosito/gotenv`. Use `gotenv.Load()` in your code as needed.
-
-## Go Version Requirement
-- **Required:** Go 1.26 or later (latest stable).
-- Install from https://go.dev/dl/ or use `go env -w GOTOOLCHAIN=auto`.
-- Experimental features available: `goroutineleakprofile`, `simd`, `runtimesecret`.
-
-## Dependency Management
-- Keep dependencies minimal and use standard library packages where possible.
-- Run `go mod tidy` before building/testing to remove unused modules.
-- Use `go get -u` for updating dependencies when necessary, but always check the changelog.
-- **Security:** Address Dependabot alerts promptly by updating vulnerable dependencies.
-- Current known issues: None (all alerts resolved as of v0.5.14).
-
-## Testing Practices
-- Write tests in `_test.go` files.
-- Run tests with race detector: `go test -race ./...`.
-- Ensure coverage is adequate; run `go test -coverprofile=coverage.out` and generate reports if required.
-- Include integration tests where applicable (e.g., `netflow_test.go`, `record_test.go`, etc.).
-- All tests must pass before merging PRs or creating releases.
-
-## Branching Strategy
-
-### Main Branch
-- `main` is the primary development branch.
-- All features should be developed in feature branches off `main`.
-- PRs must pass all CI checks before merging.
-
-### Feature Branches
-- Naming: `feature/<description>` or `fix/<description>`
-- Created from: `main`
-- Target: Merge back to `main` via PR
-- Example: `git checkout -b feature/my-feature main`
-
-### Release Branches
-- Naming: `release/<major>.<minor>` (e.g., `release/0.5`)
-- Created from: `main` when starting a new release cycle
-- Purpose: Long-lived branch for patch releases (e.g., v0.5.1, v0.5.2)
-- Hotfixes can be applied to this branch and merged back to `main`
-- Example: `git checkout -b release/0.5 main`
-
-### Release Tags
-- Naming: `v<major>.<minor>.<patch>` (e.g., `v0.5.15`)
-- Created from: Release branch (e.g., `release/0.5`)
-- Pushing a tag triggers the Release workflow automatically
-- Example:
-  ```bash
-  git checkout release/0.5
-  git tag v0.5.15
-  git push origin v0.5.15
-  ```
-
-## PR Template / Commit Messages
-Use the provided pull request template in `.github/ISSUE_TEMPLATE/feature_request.md`. Commit messages should be concise, describing *why* the change was made:
-```
-Add: [Feature] – brief description of new feature
-Fix: [Bug] – description of bug fixed
-Update: [Enhancement] – details of improvement
-```
-
-## Release Workflow Details
-The Release workflow (`.github/workflows/release.yml`) performs the following steps:
-1. **Checkout code** – Pull the repository at the tagged commit.
-2. **Set up Go** – Install Go 1.26.
-3. **Install build dependencies** – Install build-essential.
-4. **Build multi-platform** – Run `scripts/build-multiplatform.sh` with the version.
-5. **List built files** – Verify all binaries were created.
-6. **Update nfpm configs** – Dynamically update version and binary paths using `sed`.
-7. **Build musl version** – Build Alpine-compatible binary.
-8. **Install nfpm** – Install package manager tool.
-9. **Package RPM and DEB** – Create Linux packages.
-10. **Package APK** – Create Alpine package.
-11. **Generate SBOM** – Create Software Bill of Materials using Trivy.
-12. **Create GitHub Release** – Upload all artifacts to GitHub.
-
-**Important:** The nfpm config update step is critical. It ensures the config files match the actual binary names generated during the build.
-
-### Common Workflows
-
-### Creating a Feature Branch
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature/my-feature
-# Make changes, commit, push
-git push -u origin feature/my-feature
-```
-
-### Creating a Release
-```bash
-# Create release branch if not exists
-git checkout main
-git pull origin main
-git checkout -b release/0.5  # Or use existing branch
-
-# Create and push tag
-git tag v0.5.15
-git push origin v0.5.15
-
-# Monitor CI at https://github.com/dmabry/flowgre/actions
-```
-
-### Hotfixing a Release
-```bash
-# Make changes on release branch
-git checkout release/0.5
-# Fix issue, commit
-git commit -m "Fix: Critical bug fix"
-
-# Create new patch tag
-git tag v0.5.16
-git push origin v0.5.16
-
-# Merge fix back to main
-git checkout main
-git merge release/0.5
-git push origin main
-```
-
-### Addressing Dependabot Alerts
-```bash
-# Create branch for security fix
-git checkout -b security/fix-vulnerability main
-
-# Update vulnerable dependency
-go get <package>@<new-version>
-go mod tidy
-
-# Test thoroughly
-go test -v ./... -count 1
-
-# Create PR and merge
-git push -u origin security/fix-vulnerability
-# Create PR on GitHub
-```
 
 ## Single Mode
 
@@ -430,12 +261,18 @@ Usage of flowgre barrage:
         protocol to use: netflow or ipfix (default "netflow")
   -profile string
         flow profile for netflow: generic, minimal, extended (default "generic")
+  -template-interval int
+        seconds between template retransmissions (default 30, 0 to disable)
   -web
         Whether to use the web server or not
   -web-ip string
-        IP address the web server will listen on (default "0.0.0.0")
+        IP address the web server will listen on (default "127.0.0.1")
   -web-port int
         Port to bind the web server on (default 8080)
+  -web-username string
+        Web server username (default: env FLOWGRE_WEB_USERNAME or "admin")
+  -web-password string
+        Web server password (default: env FLOWGRE_WEB_PASSWORD or generated)
   -workers int
         number of workers to create. Unique sources per worker (default 4)
 ```
@@ -578,6 +415,10 @@ Usage of flowgre proxy:
 ## Web Dashboard
 
 Flowgre provides a basic web dashboard that will display the number of workers, how much work they've done and the config used to start Flowgre. The stats shown all come from the stats collector and should match the stdout worker stats.
+
+The web dashboard defaults to binding on `127.0.0.1` (loopback) for security. When binding to a non-loopback address, explicit credentials are required via CLI flags, YAML config, or environment variables (`FLOWGRE_WEB_USERNAME`/`FLOWGRE_WEB_PASSWORD`).
+
+If no credentials are provided, a random password is generated and printed at startup. Basic Authentication should be placed behind TLS when used across an untrusted network.
 
 ![Dashboard Image](https://github.com/dmabry/flowgre/blob/main/docs/images/dashboard.png?raw=true)
 
