@@ -21,7 +21,7 @@ type FlowGenerator interface {
 	// Returns nil if the protocol does not support options templates.
 	GenerateOptionsData(sourceID int, session *netflow.Session) []byte
 	// GenerateData creates a data packet with the given number of flows.
-	GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) []byte
+	GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) ([]byte, error)
 }
 
 // netflowGenerator implements FlowGenerator for NetFlow v9.
@@ -42,13 +42,13 @@ func (g netflowGenerator) GenerateOptionsData(sourceID int, session *netflow.Ses
 	return nil
 }
 
-func (g netflowGenerator) GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) []byte {
+func (g netflowGenerator) GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) ([]byte, error) {
 	flow, err := netflow.GenerateDataNetflow(flowCount, sourceID, srcRange, dstRange, 0, session, g.profile)
 	if err != nil {
-		panic(fmt.Sprintf("GenerateDataNetflow failed: %v", err))
+		return nil, fmt.Errorf("GenerateDataNetflow failed: %w", err)
 	}
 	buf := flow.ToBytes()
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // ipfixGenerator implements FlowGenerator for IPFIX (RFC 7011).
@@ -68,13 +68,13 @@ func (g ipfixGenerator) GenerateOptionsData(sourceID int, session *netflow.Sessi
 	return buf.Bytes()
 }
 
-func (g ipfixGenerator) GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) []byte {
+func (g ipfixGenerator) GenerateData(flowCount int, sourceID int, srcRange, dstRange string, session *netflow.Session) ([]byte, error) {
 	flow, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
 	if err != nil {
-		panic(fmt.Sprintf("GenerateDataIPFIX failed: %v", err))
+		return nil, fmt.Errorf("GenerateDataIPFIX failed: %w", err)
 	}
 	buf := flow.ToBytes()
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // NetFlow returns a FlowGenerator for NetFlow v9.

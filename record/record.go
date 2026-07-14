@@ -63,7 +63,11 @@ func netIngest(ctx context.Context, wg *sync.WaitGroup, ip string, port int, dat
 				log.Printf("Packet Received from %s with size of %d", fromIP.String(), length)
 			}
 			// Send payload to the data channel
-			data <- payload
+			select {
+			case data <- payload:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
 }
@@ -141,7 +145,11 @@ func parseFlow(ctx context.Context, wg *sync.WaitGroup, parseChan <-chan []byte,
 			if ok {
 				// Valid NetFlow v9 or IPFIX v10 Packet send it on
 				rStats.IncrValid()
-				dataChan <- payload
+				select {
+				case dataChan <- payload:
+				case <-ctx.Done():
+					return
+				}
 			} else {
 				// Not a valid flow Packet... skip
 				rStats.IncrInvalid()

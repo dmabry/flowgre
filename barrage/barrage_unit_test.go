@@ -35,7 +35,10 @@ func TestNetFlowGenerator(t *testing.T) {
 		t.Errorf("GenerateTemplate produced invalid NetFlow: %v", err)
 	}
 
-	dBuf := gen.GenerateData(10, 42, "10.0.0.0/8", "10.0.0.0/8", session)
+	dBuf, err := gen.GenerateData(10, 42, "10.0.0.0/8", "10.0.0.0/8", session)
+	if err != nil {
+		t.Fatalf("GenerateData error: %v", err)
+	}
 	if len(dBuf) == 0 {
 		t.Fatal("GenerateData returned empty buffer")
 	}
@@ -64,7 +67,7 @@ func TestIPFIXGenerator(t *testing.T) {
 		t.Errorf("GenerateTemplate produced invalid IPFIX: %v", err)
 	}
 
-	dBuf := gen.GenerateData(10, 42, "10.0.0.0/8", "10.0.0.0/8", session)
+	dBuf, err := gen.GenerateData(10, 42, "10.0.0.0/8", "10.0.0.0/8", session)
 	if len(dBuf) == 0 {
 		t.Fatal("GenerateData returned empty buffer")
 	}

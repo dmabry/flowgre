@@ -32,6 +32,7 @@ func worker(id int, ctx context.Context, server string, port int, delay int, wg 
 		log.Printf("Listen: %v\n", err)
 		return
 	}
+	defer conn.Close()
 	// Convert given IP String to net.IP type
 	destIP := net.ParseIP(server)
 
