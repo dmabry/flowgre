@@ -403,6 +403,13 @@ func (f *IPFIX) estimatedSize() int {
 	return size
 }
 
+// mustWriteBinary writes data to a bytes.Buffer using binary.Write.
+// bytes.Buffer.Write never fails, so errors are silently ignored.
+// This helper satisfies gosec G104 (unhandled errors).
+func mustWriteBinary(buf *bytes.Buffer, data any) {
+	_ = binary.Write(buf, binary.BigEndian, data)
+}
+
 // ToBytes serializes the IPFIX structure to a byte buffer for wire transmission.
 // The Header.Length is set to the total encoded message size.
 // Returns an error if the message exceeds the 65535-byte IPFIX limit.
@@ -411,14 +418,14 @@ func (f *IPFIX) ToBytes() (bytes.Buffer, error) {
 
 	// Serialize all FlowSets
 	for _, tFlow := range f.TemplateFlowSets {
-		binary.Write(&setsBuf, binary.BigEndian, tFlow.FlowSetID)
-		binary.Write(&setsBuf, binary.BigEndian, tFlow.Length)
+		mustWriteBinary(&setsBuf, tFlow.FlowSetID)
+		mustWriteBinary(&setsBuf, tFlow.Length)
 		for _, template := range tFlow.Templates {
-			binary.Write(&setsBuf, binary.BigEndian, template.TemplateID)
-			binary.Write(&setsBuf, binary.BigEndian, template.FieldCount)
+			mustWriteBinary(&setsBuf, template.TemplateID)
+			mustWriteBinary(&setsBuf, template.FieldCount)
 			for _, field := range template.Fields {
-				binary.Write(&setsBuf, binary.BigEndian, field.Type)
-				binary.Write(&setsBuf, binary.BigEndian, field.Length)
+				mustWriteBinary(&setsBuf, field.Type)
+				mustWriteBinary(&setsBuf, field.Length)
 			}
 		}
 		if tFlow.Padding > 0 {
@@ -427,15 +434,15 @@ func (f *IPFIX) ToBytes() (bytes.Buffer, error) {
 	}
 
 	for _, oFlow := range f.OptionsTemplateFlowSets {
-		binary.Write(&setsBuf, binary.BigEndian, oFlow.FlowSetID)
-		binary.Write(&setsBuf, binary.BigEndian, oFlow.Length)
+		mustWriteBinary(&setsBuf, oFlow.FlowSetID)
+		mustWriteBinary(&setsBuf, oFlow.Length)
 		t := oFlow.Template
-		binary.Write(&setsBuf, binary.BigEndian, t.TemplateID)
-		binary.Write(&setsBuf, binary.BigEndian, t.FieldCount)
-		binary.Write(&setsBuf, binary.BigEndian, t.ScopeFieldCount)
+		mustWriteBinary(&setsBuf, t.TemplateID)
+		mustWriteBinary(&setsBuf, t.FieldCount)
+		mustWriteBinary(&setsBuf, t.ScopeFieldCount)
 		for _, field := range t.Fields {
-			binary.Write(&setsBuf, binary.BigEndian, field.Type)
-			binary.Write(&setsBuf, binary.BigEndian, field.Length)
+			mustWriteBinary(&setsBuf, field.Type)
+			mustWriteBinary(&setsBuf, field.Length)
 		}
 		if oFlow.Padding > 0 {
 			setsBuf.Write(bytes.Repeat([]byte{0}, oFlow.Padding))
@@ -443,10 +450,10 @@ func (f *IPFIX) ToBytes() (bytes.Buffer, error) {
 	}
 
 	for _, dFlow := range f.DataFlowSets {
-		binary.Write(&setsBuf, binary.BigEndian, dFlow.FlowSetID)
-		binary.Write(&setsBuf, binary.BigEndian, dFlow.Length)
+		mustWriteBinary(&setsBuf, dFlow.FlowSetID)
+		mustWriteBinary(&setsBuf, dFlow.Length)
 		for _, item := range dFlow.Items {
-			binary.Write(&setsBuf, binary.BigEndian, item)
+			mustWriteBinary(&setsBuf, item)
 		}
 		if dFlow.Padding > 0 {
 			setsBuf.Write(bytes.Repeat([]byte{0}, dFlow.Padding))
@@ -454,10 +461,10 @@ func (f *IPFIX) ToBytes() (bytes.Buffer, error) {
 	}
 
 	for _, oData := range f.OptionsDataFlowSets {
-		binary.Write(&setsBuf, binary.BigEndian, oData.FlowSetID)
-		binary.Write(&setsBuf, binary.BigEndian, oData.Length)
+		mustWriteBinary(&setsBuf, oData.FlowSetID)
+		mustWriteBinary(&setsBuf, oData.Length)
 		for _, rec := range oData.Records {
-			binary.Write(&setsBuf, binary.BigEndian, rec.ObservationDomainId)
+			mustWriteBinary(&setsBuf, rec.ObservationDomainId)
 		}
 		if oData.Padding > 0 {
 			setsBuf.Write(bytes.Repeat([]byte{0}, oData.Padding))
@@ -479,11 +486,11 @@ func (f *IPFIX) ToBytes() (bytes.Buffer, error) {
 	// Write header with correct Length
 	h := f.Header
 	h.Length = uint16(totalLength)
-	binary.Write(&result, binary.BigEndian, h.Version)
-	binary.Write(&result, binary.BigEndian, h.Length)
-	binary.Write(&result, binary.BigEndian, h.ExportTime)
-	binary.Write(&result, binary.BigEndian, h.SequenceNumber)
-	binary.Write(&result, binary.BigEndian, h.ObservationDomainId)
+	mustWriteBinary(&result, h.Version)
+	mustWriteBinary(&result, h.Length)
+	mustWriteBinary(&result, h.ExportTime)
+	mustWriteBinary(&result, h.SequenceNumber)
+	mustWriteBinary(&result, h.ObservationDomainId)
 
 	// Write sets
 	result.Write(setsBytes)
