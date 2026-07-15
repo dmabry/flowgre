@@ -7,7 +7,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/utils"
 )
 
@@ -17,7 +16,6 @@ import (
 
 func TestTemplateFlowSet_Padding_Alignment(t *testing.T) {
 	t.Parallel()
-	session := netflow.NewSession()
 
 	cases := []struct {
 		name    string
@@ -30,8 +28,7 @@ func TestTemplateFlowSet_Padding_Alignment(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			tfs := new(TemplateFlowSet).Generate(session, tc.profile)
-			// Total length should be aligned to 4-byte boundary per RFC 7011
+			tfs := new(TemplateFlowSet).Generate(nil, tc.profile)
 			if tfs.Length%4 != 0 {
 				t.Errorf("%s: TemplateFlowSet length %d should be 4-byte aligned",
 					tc.name, tfs.Length)
@@ -42,10 +39,8 @@ func TestTemplateFlowSet_Padding_Alignment(t *testing.T) {
 
 func TestOptionsTemplateFlowSet_Padding_Alignment(t *testing.T) {
 	t.Parallel()
-	session := netflow.NewSession()
-	otfs := new(OptionsTemplateFlowSet).Generate(session)
+	otfs := new(OptionsTemplateFlowSet).Generate(nil)
 
-	// Total length should be aligned to 4-byte boundary per RFC 7011
 	if otfs.Length%4 != 0 {
 		t.Errorf("OptionsTemplateFlowSet length %d should be 4-byte aligned", otfs.Length)
 	}
@@ -53,9 +48,8 @@ func TestOptionsTemplateFlowSet_Padding_Alignment(t *testing.T) {
 
 func TestOptionsDataFlowSet_Padding_Alignment(t *testing.T) {
 	t.Parallel()
-	ods := new(OptionsDataFlowSet).Generate(618, "flowgre", 12345)
+	ods := new(OptionsDataFlowSet).Generate(618)
 
-	// Total length should be aligned to 4-byte boundary per RFC 7011
 	if ods.Length%4 != 0 {
 		t.Errorf("OptionsDataFlowSet length %d should be 4-byte aligned", ods.Length)
 	}
@@ -63,7 +57,6 @@ func TestOptionsDataFlowSet_Padding_Alignment(t *testing.T) {
 
 func TestDataFlowSet_Padding_Alignment(t *testing.T) {
 	t.Parallel()
-	session := netflow.NewSession()
 
 	cases := []struct {
 		name    string
@@ -76,7 +69,8 @@ func TestDataFlowSet_Padding_Alignment(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			dfs, err := new(DataFlowSet).Generate(1, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session, tc.profile)
+			seq := NewIPFIXSequence()
+			dfs, err := new(DataFlowSet).Generate(1, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, nil, tc.profile)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -85,16 +79,14 @@ func TestDataFlowSet_Padding_Alignment(t *testing.T) {
 				t.Errorf("%s: DataFlowSet length %d should be 4-byte aligned",
 					tc.name, dfs.Length)
 			}
+			_ = seq
 		})
 	}
 }
 
 func TestPadding_VariesByProfile(t *testing.T) {
 	t.Parallel()
-	session := netflow.NewSession()
 
-	// Different profiles have different field counts and sizes,
-	// so padding requirements vary. Verify each aligns independently.
 	type result struct {
 		length  uint16
 		padding int
@@ -107,7 +99,7 @@ func TestPadding_VariesByProfile(t *testing.T) {
 		&ExtendedIPFIXProfile{},
 		&GenericIPFIXProfile{},
 	} {
-		tfs := new(TemplateFlowSet).Generate(session, profile)
+		tfs := new(TemplateFlowSet).Generate(nil, profile)
 		results[profile.Name()] = result{length: tfs.Length, padding: tfs.Padding}
 	}
 
@@ -124,9 +116,9 @@ func TestPadding_VariesByProfile(t *testing.T) {
 // Concurrent safety tests
 // ---------------------------------------------------------------------------
 
-func TestSession_NextSeq_Concurrent(t *testing.T) {
+func TestIPFIXSequence_Reserve_Concurrent(t *testing.T) {
 	t.Parallel()
-	s := netflow.NewSession()
+	s := NewIPFIXSequence()
 	const numGoroutines = 100
 	var wg sync.WaitGroup
 	seen := make(map[uint32]bool)
@@ -136,7 +128,7 @@ func TestSession_NextSeq_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			seq := s.NextSeq()
+			seq := s.Reserve(1)
 			mu.Lock()
 			if seen[seq] {
 				t.Errorf("duplicate sequence number: %d", seq)
@@ -155,7 +147,7 @@ func TestSession_NextSeq_Concurrent(t *testing.T) {
 
 func TestGenerateIPFIX_Concurrent_Safe(t *testing.T) {
 	t.Parallel()
-	session := netflow.NewSession()
+	seq := NewIPFIXSequence()
 	const numGoroutines = 50
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -166,14 +158,14 @@ func TestGenerateIPFIX_Concurrent_Safe(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ipfix, err := GenerateIPFIX(1, 618, "10.0.0.0/8", "10.0.0.0/8", session)
+			ipfix, err := GenerateIPFIX(1, 618, "10.0.0.0/8", "10.0.0.0/8", seq)
 			if err != nil {
 				errCh <- err
 				return
 			}
 
 			mu.Lock()
-			sequences = append(sequences, ipfix.Header.FlowSequence)
+			sequences = append(sequences, ipfix.Header.SequenceNumber)
 			mu.Unlock()
 		}()
 	}
@@ -197,34 +189,23 @@ func TestGenerateIPFIX_Concurrent_Safe(t *testing.T) {
 
 func TestGenerateTemplateIPFIX_Concurrent_Safe(t *testing.T) {
 	t.Parallel()
-	session := netflow.NewSession()
+	seq := NewIPFIXSequence()
 	const numGoroutines = 50
 	var wg sync.WaitGroup
-	var mu sync.Mutex
-	sequences := make([]uint32, 0, numGoroutines)
 
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ipfix := GenerateTemplateIPFIX(618, session)
-
-			mu.Lock()
-			sequences = append(sequences, ipfix.Header.FlowSequence)
-			mu.Unlock()
+			ipfix := GenerateTemplateIPFIX(618, seq)
+			// Template-only messages always have sequence 0 (no data records sent yet)
+			if ipfix.Header.SequenceNumber != 0 {
+				t.Errorf("Template message should have sequence 0, got %d", ipfix.Header.SequenceNumber)
+			}
 		}()
 	}
 
 	wg.Wait()
-
-	// Verify all sequences are unique
-	seen := make(map[uint32]bool)
-	for _, seq := range sequences {
-		if seen[seq] {
-			t.Errorf("duplicate sequence number from concurrent template generation: %d", seq)
-		}
-		seen[seq] = true
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -243,7 +224,7 @@ func TestProfileFieldDataAlignment_Minimal(t *testing.T) {
 
 	// Verify field types match MinimalIPFIXFlow struct
 	expectedTypes := []uint16{
-		InOctets, InPackets,
+		OctetDeltaCount, PacketDeltaCount,
 		SourceIPv4Address, DestinationIPv4Address,
 		SourceTransportPort, DestinationTransportPort,
 		ProtocolIdentifier,
@@ -267,8 +248,8 @@ func TestProfileFieldDataAlignment_Extended(t *testing.T) {
 
 	// Verify field types match ExtendedIPFIXProfile struct
 	expectedTypes := []uint16{
-		InOctets, OutOctets,
-		InPackets, OutPackets,
+		OctetDeltaCount, PostOctetDeltaCount,
+		PacketDeltaCount, PostPacketDeltaCount,
 		SourceIPv4Address, DestinationIPv4Address,
 		SourceTransportPort, DestinationTransportPort,
 		ProtocolIdentifier,
@@ -297,8 +278,8 @@ func TestProfileFieldDataAlignment_Generic(t *testing.T) {
 	}
 
 	// Verify first and last fields match expectations
-	if fields[0].Type != InOctets {
-		t.Errorf("first field type: got %d, want %d", fields[0].Type, InOctets)
+	if fields[0].Type != OctetDeltaCount {
+		t.Errorf("first field type: got %d, want %d", fields[0].Type, OctetDeltaCount)
 	}
 	if fields[len(fields)-1].Type != FlowEndReason {
 		t.Errorf("last field type: got %d, want %d", fields[len(fields)-1].Type, FlowEndReason)
@@ -311,9 +292,8 @@ func TestProfileFieldDataAlignment_Generic(t *testing.T) {
 
 func TestDataFlowSet_Padding_ZeroFlowCount(t *testing.T) {
 	t.Parallel()
-	session := netflow.NewSession()
 
-	dfs, err := new(DataFlowSet).Generate(0, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, session)
+	dfs, err := new(DataFlowSet).Generate(0, "10.0.0.0/8", "10.0.0.0/8", utils.HTTPSPort, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,30 +304,24 @@ func TestDataFlowSet_Padding_ZeroFlowCount(t *testing.T) {
 	}
 }
 
-func TestOptionsDataFlowSet_Padding_ProcessName(t *testing.T) {
+func TestOptionsDataFlowSet_Padding(t *testing.T) {
 	t.Parallel()
-
-	// Test with various process name lengths to exercise padding calculations
-	testCases := []struct {
-		name string
-		len  int
-	}{
-		{"short", 5},
-		{"medium", 20},
-		{"long", 50},
+	ods := new(OptionsDataFlowSet).Generate(618)
+	if ods.Length%4 != 0 {
+		t.Errorf("OptionsDataFlowSet length %d not 4-byte aligned", ods.Length)
 	}
+}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			processName := make([]byte, tc.len)
-			for i := range processName {
-				processName[i] = byte('a' + i%26)
-			}
-			ods := new(OptionsDataFlowSet).Generate(618, string(processName), 12345)
-			if ods.Length%4 != 0 {
-				t.Errorf("OptionsDataFlowSet length %d not 4-byte aligned with %d-char process name",
-					ods.Length, tc.len)
-			}
-		})
+// ---------------------------------------------------------------------------
+// Set ID constants
+// ---------------------------------------------------------------------------
+
+func TestSetID_Constants(t *testing.T) {
+	t.Parallel()
+	if SetIDTemplate != 2 {
+		t.Errorf("SetIDTemplate should be 2, got %d", SetIDTemplate)
+	}
+	if SetIDOptionsTemplate != 3 {
+		t.Errorf("SetIDOptionsTemplate should be 3, got %d", SetIDOptionsTemplate)
 	}
 }

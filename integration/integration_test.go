@@ -375,7 +375,16 @@ func mustTempDir(t *testing.T) string {
 func makeFakeHeader(version uint16, size int) []byte {
 	buf := make([]byte, size)
 	binary.BigEndian.PutUint16(buf[:2], version)
-	binary.BigEndian.PutUint32(buf[4:8], 1)
+	// IPFIX has 16-byte header; set Length field for IPFIX
+	if version == 10 && size >= 16 {
+		binary.BigEndian.PutUint16(buf[2:4], uint16(size))
+		binary.BigEndian.PutUint32(buf[4:8], 1)
+		binary.BigEndian.PutUint32(buf[8:12], 1)
+		binary.BigEndian.PutUint32(buf[12:16], 1)
+	} else {
+		// NetFlow v9 has 20-byte header
+		binary.BigEndian.PutUint32(buf[4:8], 1)
+	}
 	return buf
 }
 
