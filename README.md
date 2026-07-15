@@ -334,24 +334,25 @@ The IPFIX field types used follow the [IANA IPFIX Information Model](https://www
 
 | IPFIX Field Type | Value | Description |
 |---|---|---|
-| inOctets | 1026 | Input bytes |
-| outOctets | 1028 | Output bytes |
-| inPackets | 1025 | Input packets |
-| outPackets | 1027 | Output packets |
+| octetDeltaCount | 1 | Input bytes |
+| postOctetDeltaCount | 23 | Output bytes |
+| packetDeltaCount | 2 | Input packets |
+| postPacketDeltaCount | 24 | Output packets |
 | sourceIPv4Address | 8 | Source IPv4 address |
 | destinationIPv4Address | 12 | Destination IPv4 address |
-| sourceIPv6Address | 25 | Source IPv6 address |
-| destinationIPv6Address | 26 | Destination IPv6 address |
-| sourceIPv6PrefixLength | 47 | Source IPv6 prefix length |
-| destinationIPv6PrefixLength | 48 | Destination IPv6 prefix length |
+| sourceIPv6Address | 27 | Source IPv6 address |
+| destinationIPv6Address | 28 | Destination IPv6 address |
+| sourceIPv6PrefixLength | 29 | Source IPv6 prefix length |
+| destinationIPv6PrefixLength | 30 | Destination IPv6 prefix length |
 | sourceTransportPort | 7 | Source port |
 | destinationTransportPort | 11 | Destination port |
 | protocolIdentifier | 4 | IP protocol number |
-| tcpFlags | 6 | TCP flags |
+| tcpControlBits | 6 | TCP flags |
 | flowStartMilliseconds | 152 | Flow start time |
 | flowEndMilliseconds | 153 | Flow end time |
-| flowDirection | 1024 | Flow direction |
-| ipClassOfService | 3 | IP ToS/CoS value |
+| flowDirection | 61 | Flow direction |
+| ipClassOfService | 5 | IP ToS/CoS value |
+| flowEndReason | 136 | Flow end reason |
 
 ## Record Mode
 

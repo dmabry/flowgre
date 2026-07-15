@@ -30,10 +30,10 @@ func (p *GenericIPFIXProfile) Name() string {
 // TemplateFields returns the 19-field IPFIX template that matches GenericFlow struct layout.
 func (p *GenericIPFIXProfile) TemplateFields() []Field {
 	return []Field{
-		{Type: InOctets, Length: 4},
-		{Type: OutOctets, Length: 4},
-		{Type: InPackets, Length: 4},
-		{Type: OutPackets, Length: 4},
+		{Type: OctetDeltaCount, Length: 4},
+		{Type: PostOctetDeltaCount, Length: 4},
+		{Type: PacketDeltaCount, Length: 4},
+		{Type: PostPacketDeltaCount, Length: 4},
 		{Type: SourceIPv4Address, Length: 4},
 		{Type: DestinationIPv4Address, Length: 4},
 		{Type: SourceIPv6Address, Length: 16},
@@ -44,8 +44,8 @@ func (p *GenericIPFIXProfile) TemplateFields() []Field {
 		{Type: DestinationTransportPort, Length: 2},
 		{Type: ProtocolIdentifier, Length: 1},
 		{Type: TCPFlags, Length: 1},
-		{Type: FlowStartMilliseconds, Length: 4},
-		{Type: FlowEndMilliseconds, Length: 4},
+		{Type: FlowStartMilliseconds, Length: 8},
+		{Type: FlowEndMilliseconds, Length: 8},
 		{Type: FlowDirection, Length: 1},
 		{Type: IPClassOfService, Length: 1},
 		{Type: FlowEndReason, Length: 1},
@@ -61,8 +61,8 @@ func (p *MinimalIPFIXProfile) Name() string { return "minimal" }
 // TemplateFields returns the 7-field minimal IPFIX template.
 func (p *MinimalIPFIXProfile) TemplateFields() []Field {
 	return []Field{
-		{Type: InOctets, Length: 4},
-		{Type: InPackets, Length: 4},
+		{Type: OctetDeltaCount, Length: 4},
+		{Type: PacketDeltaCount, Length: 4},
 		{Type: SourceIPv4Address, Length: 4},
 		{Type: DestinationIPv4Address, Length: 4},
 		{Type: SourceTransportPort, Length: 2},
@@ -73,8 +73,8 @@ func (p *MinimalIPFIXProfile) TemplateFields() []Field {
 
 // MinimalIPFIXFlow is a minimal IPFIX flow record with 7 essential fields.
 type MinimalIPFIXFlow struct {
-	InOctets           uint32
-	InPackets          uint32
+	OctetDeltaCount    uint32
+	PacketDeltaCount   uint32
 	SourceIPv4Addr     uint32
 	DestIPv4Addr       uint32
 	SourcePort         uint16
@@ -84,8 +84,8 @@ type MinimalIPFIXFlow struct {
 
 // Generate creates a MinimalIPFIXFlow with randomly generated data.
 func (mf *MinimalIPFIXFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *netflow.Session) MinimalIPFIXFlow {
-	mf.InOctets = utils.GenerateRand32(10000)
-	mf.InPackets = utils.GenerateRand32(10000)
+	mf.OctetDeltaCount = utils.GenerateRand32(10000)
+	mf.PacketDeltaCount = utils.GenerateRand32(10000)
 
 	if srcIP.To4() != nil {
 		mf.SourceIPv4Addr = utils.IPToNum(srcIP)
@@ -131,18 +131,18 @@ func (p *ExtendedIPFIXProfile) Name() string { return "extended" }
 // TemplateFields returns the extended IPFIX template with additional fields.
 func (p *ExtendedIPFIXProfile) TemplateFields() []Field {
 	return []Field{
-		{Type: InOctets, Length: 4},
-		{Type: OutOctets, Length: 4},
-		{Type: InPackets, Length: 4},
-		{Type: OutPackets, Length: 4},
+		{Type: OctetDeltaCount, Length: 4},
+		{Type: PostOctetDeltaCount, Length: 4},
+		{Type: PacketDeltaCount, Length: 4},
+		{Type: PostPacketDeltaCount, Length: 4},
 		{Type: SourceIPv4Address, Length: 4},
 		{Type: DestinationIPv4Address, Length: 4},
 		{Type: SourceTransportPort, Length: 2},
 		{Type: DestinationTransportPort, Length: 2},
 		{Type: ProtocolIdentifier, Length: 1},
 		{Type: TCPFlags, Length: 1},
-		{Type: FlowStartMilliseconds, Length: 4},
-		{Type: FlowEndMilliseconds, Length: 4},
+		{Type: FlowStartMilliseconds, Length: 8},
+		{Type: FlowEndMilliseconds, Length: 8},
 		{Type: FlowDirection, Length: 1},
 		{Type: IPClassOfService, Length: 1},
 		{Type: FlowEndReason, Length: 1},

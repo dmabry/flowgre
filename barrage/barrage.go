@@ -111,8 +111,9 @@ func worker(cfg *workerConfig) {
 			log.Printf("%s [%2d] Exiting due to signal\n", label, cfg.id)
 			return
 		case <-tmplChan:
-			// Retransmit template every templateInterval seconds
-			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: cfg.port}, tBuf, false)
+			// Regenerate template with current sequence number and export time
+			tmplBuf := cfg.gen.GenerateTemplateWithSeq(cfg.sourceID, session)
+			bytes, err := utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: cfg.port}, tmplBuf, false)
 			if err != nil {
 				log.Printf("%s [%2d] Issue sending template packet: %v", label, cfg.id, err)
 				return
@@ -175,6 +176,8 @@ func StartCtx(ctx context.Context, config *models.Config, gen FlowGenerator) *Ru
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
 		sourceID := utils.RandomNum(sourceIDMin, sourceIDMax)
+		// Each worker gets its own generator with independent sequence counter
+		workerGen := gen.ForWorker()
 		go worker(&workerConfig{
 			id:               w,
 			ctx:              ctx,
@@ -187,7 +190,7 @@ func StartCtx(ctx context.Context, config *models.Config, gen FlowGenerator) *Ru
 			templateInterval: config.TemplateInterval,
 			wg:               wg,
 			statsChan:        sc.StatsChan,
-			gen:              gen,
+			gen:              workerGen,
 		})
 	}
 

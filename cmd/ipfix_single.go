@@ -11,7 +11,6 @@ import (
 	"os"
 
 	"github.com/dmabry/flowgre/ipfix"
-	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/utils"
 )
 
@@ -64,11 +63,14 @@ func (c *IPFIXCommand) Execute() error {
 		return fmt.Errorf("failed to parse destination IP %s", *c.server)
 	}
 
-	session := netflow.NewSession()
+	seq := ipfix.NewIPFIXSequence()
 
 	// Generate and send Template Flow
-	tFlow := ipfix.GenerateTemplateIPFIX(sourceID, session)
-	tBuf := tFlow.ToBytes()
+	tFlow := ipfix.GenerateTemplateIPFIX(sourceID, seq)
+	tBuf, err := tFlow.ToBytes()
+	if err != nil {
+		return fmt.Errorf("IPFIX template ToBytes: %w", err)
+	}
 	_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: *c.port}, tBuf.Bytes(), *c.hexDump)
 	if err != nil {
 		return fmt.Errorf("issue sending IPFIX template: %w", err)
@@ -76,11 +78,14 @@ func (c *IPFIXCommand) Execute() error {
 
 	// Generate and send Data Flows
 	for i := 1; i <= *c.count; i++ {
-		flow, err := ipfix.GenerateDataIPFIX(10, sourceID, *c.srcRange, *c.dstRange, 0, session)
+		flow, err := ipfix.GenerateDataIPFIX(10, sourceID, *c.srcRange, *c.dstRange, 0, seq)
 		if err != nil {
 			return fmt.Errorf("GenerateDataIPFIX failed: %w", err)
 		}
-		buf := flow.ToBytes()
+		buf, err := flow.ToBytes()
+		if err != nil {
+			return fmt.Errorf("IPFIX data ToBytes: %w", err)
+		}
 		_, err = utils.SendPacket(conn, &net.UDPAddr{IP: destIP, Port: *c.port}, buf.Bytes(), *c.hexDump)
 		if err != nil {
 			return fmt.Errorf("issue sending IPFIX data: %w", err)
