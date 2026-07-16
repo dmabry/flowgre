@@ -6,6 +6,7 @@ package record
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"net"
 	"os"
 	"sync"
@@ -142,6 +143,75 @@ func TestParseFlow(t *testing.T) {
 	parseChan <- buf.Bytes()
 
 	// Wait for processing
+	select {
+	case <-dataChan:
+		// Good, valid packet was forwarded
+	case <-time.After(2 * time.Second):
+		t.Error("Timeout waiting for valid packet to be forwarded")
+	}
+
+	// Cleanup
+	cancel()
+	wg.Wait()
+	close(parseChan)
+	close(dataChan)
+}
+
+// TestParseFlow_MalformedNetFlow verifies that packets with a valid version-9
+// header but malformed FlowSets are rejected and not stored.
+func TestParseFlow_MalformedNetFlow(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var wg sync.WaitGroup
+
+	parseChan := make(chan []byte, 1024)
+	dataChan := make(chan []byte, 1024)
+
+	done := make(chan struct{})
+	wg.Add(1)
+	go func() {
+		parseFlow(ctx, &wg, parseChan, dataChan, false)
+		close(done)
+	}()
+
+	// Build a packet with a valid v9 header but a FlowSet with reserved ID (2)
+	var buf bytes.Buffer
+	binary.Write(&buf, binary.BigEndian, uint16(9))   // version
+	binary.Write(&buf, binary.BigEndian, uint16(1))   // flowCount
+	binary.Write(&buf, binary.BigEndian, uint32(1000)) // SysUptime
+	binary.Write(&buf, binary.BigEndian, uint32(1000000)) // UnixSec
+	binary.Write(&buf, binary.BigEndian, uint32(1))    // FlowSequence
+	binary.Write(&buf, binary.BigEndian, uint32(618))  // SourceID
+	// Reserved FlowSet ID 2 (must be rejected)
+	binary.Write(&buf, binary.BigEndian, uint16(2))    // FlowSetID (reserved)
+	binary.Write(&buf, binary.BigEndian, uint16(8))    // Length
+	binary.Write(&buf, binary.BigEndian, uint32(0))    // padding
+
+	malformed := buf.Bytes()
+	valid, _ := netflow.IsValidNetFlow(malformed, 9)
+	if valid {
+		t.Fatal("malformed packet should not pass validation")
+	}
+
+	// Send malformed packet — it should not appear on dataChan
+	parseChan <- malformed
+
+	select {
+	case <-dataChan:
+		t.Error("malformed NetFlow packet with reserved FlowSet ID should not be forwarded")
+	case <-time.After(200 * time.Millisecond):
+		// Expected: packet was rejected
+	}
+
+	// Send a valid packet to confirm the parser still works
+	session := netflow.NewSession()
+	flow := netflow.GenerateTemplateNetflow(100, session)
+	flowBuf := flow.ToBytes()
+	parseChan <- flowBuf.Bytes()
+
 	select {
 	case <-dataChan:
 		// Good, valid packet was forwarded

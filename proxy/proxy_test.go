@@ -263,6 +263,86 @@ func TestParseNetflow(t *testing.T) {
 	close(dataChan)
 }
 
+// TestParseNetflow_MalformedNetFlow verifies that packets with a valid version-9
+// header but malformed FlowSets are rejected and not forwarded.
+func TestParseNetflow_MalformedNetFlow(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var wg sync.WaitGroup
+
+	proxyChan := make(chan []byte, bufferSize)
+	dataChan := make(chan []byte, bufferSize)
+	rStats := &stats.RecordStat{}
+
+	done := make(chan struct{})
+	wg.Add(1)
+	go func() {
+		parseNetflow(ctx, &wg, proxyChan, dataChan, rStats, false)
+		close(done)
+	}()
+
+	// Build a packet with a valid v9 header but a FlowSet with reserved ID (2)
+	var buf bytes.Buffer
+	// Header: version=9, flowCount=1
+	buf.Write([]byte{0x00, 0x09, 0x00, 0x01})
+	buf.Write([]byte{0x00, 0x00, 0x03, 0xE8}) // SysUptime
+	buf.Write([]byte{0x00, 0x00, 0x3B, 0x9A}) // UnixSec
+	buf.Write([]byte{0x00, 0x00, 0x00, 0x01}) // FlowSequence
+	buf.Write([]byte{0x00, 0x00, 0x02, 0x6A}) // SourceID
+	// Reserved FlowSet ID 2 (must be rejected)
+	buf.Write([]byte{0x00, 0x02}) // FlowSetID (reserved)
+	buf.Write([]byte{0x00, 0x08}) // Length
+	buf.Write([]byte{0x00, 0x00, 0x00, 0x00})
+
+	malformed := buf.Bytes()
+	valid, _ := netflow.IsValidNetFlow(malformed, 9)
+	if valid {
+		t.Fatal("malformed packet should not pass validation")
+	}
+
+	// Send malformed packet — it should be counted as invalid and not forwarded
+	proxyChan <- malformed
+
+	time.Sleep(100 * time.Millisecond)
+
+	if rStats.LoadInvalid() != 1 {
+		t.Errorf("Expected 1 invalid packet for malformed NetFlow, got %d", rStats.LoadInvalid())
+	}
+
+	// Verify it was not forwarded
+	select {
+	case <-dataChan:
+		t.Error("malformed NetFlow packet with reserved FlowSet ID should not be forwarded")
+	case <-time.After(200 * time.Millisecond):
+		// Expected: packet was rejected
+	}
+
+	// Send a valid packet to confirm the parser still works
+	session := netflow.NewSession()
+	flow := netflow.GenerateTemplateNetflow(100, session)
+	flowBuf := flow.ToBytes()
+	proxyChan <- flowBuf.Bytes()
+
+	select {
+	case <-dataChan:
+		// Good, valid packet was forwarded
+	case <-time.After(2 * time.Second):
+		t.Error("Timeout waiting for valid packet to be forwarded")
+	}
+
+	if rStats.LoadValid() != 1 {
+		t.Errorf("Expected 1 valid packet, got %d", rStats.LoadValid())
+	}
+
+	cancel()
+	wg.Wait()
+	close(proxyChan)
+	close(dataChan)
+}
+
 // TestStatsPrinter tests that stats are printed periodically.
 func TestStatsPrinter(t *testing.T) {
 	t.Parallel()
