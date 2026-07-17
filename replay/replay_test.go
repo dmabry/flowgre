@@ -6,13 +6,14 @@ package replay
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"net"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v3"
+	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/utils"
 )
@@ -24,7 +25,6 @@ func TestWorker(t *testing.T) {
 
 	dataChan := make(chan []byte, 1024)
 	receiverReady := make(chan struct{})
-	var wg sync.WaitGroup
 
 	// Bind to port 0 to get a free port
 	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
@@ -36,9 +36,7 @@ func TestWorker(t *testing.T) {
 
 	// Start a receiver on the target port
 	received := make(chan struct{}, 1)
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 		if err != nil {
 			t.Errorf("Failed to listen: %v", err)
@@ -66,8 +64,11 @@ func TestWorker(t *testing.T) {
 	<-receiverReady
 
 	// Start worker
-	wg.Add(1)
-	go worker(1, ctx, "127.0.0.1", port, 100, &wg, false, dataChan)
+	done := make(chan struct{})
+	go func() {
+		worker(1, ctx, "127.0.0.1", port, 100, false, dataChan)
+		close(done)
+	}()
 
 	// Send test payload
 	dataChan <- []byte("worker test")
@@ -83,7 +84,7 @@ func TestWorker(t *testing.T) {
 	// Cleanup
 	cancel()
 	close(dataChan)
-	wg.Wait()
+	<-done
 }
 
 // TestDbReader tests that the database reader can read payloads from BadgerDB.
@@ -116,9 +117,11 @@ func TestDbReader(t *testing.T) {
 	db.Close()
 
 	// Now read from the DB
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go dbReader(ctx, &wg, tmpDir, dataChan, false, false, false)
+	done := make(chan struct{})
+	go func() {
+		dbReader(ctx, tmpDir, dataChan, false, false, false)
+		close(done)
+	}()
 
 	// Wait for data to be read
 	select {
@@ -132,15 +135,37 @@ func TestDbReader(t *testing.T) {
 
 	// Cleanup
 	cancel()
-	wg.Wait()
-	close(dataChan)
+	<-done
+	// dataChan is closed by dbReader in non-loop mode
 }
 
 // TestDbReaderContextCancellation tests that dbReader responds to context cancellation.
-// Note: This test is skipped due to timing issues with BadgerDB iterator.
 func TestDbReaderContextCancellation(t *testing.T) {
 	t.Parallel()
-	t.Skip("Skipping due to timing issues with BadgerDB iterator in test environment")
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	tmpDir := t.TempDir()
+	dataChan := make(chan []byte, 1024)
+
+	done := make(chan struct{})
+	go func() {
+		dbReader(ctx, tmpDir, dataChan, false, false, false)
+		close(done)
+	}()
+
+	// Cancel context
+	cancel()
+
+	// Wait for goroutine to exit
+	select {
+	case <-done:
+		// Good, goroutine exited
+	case <-time.After(5 * time.Second):
+		t.Error("Timeout waiting for goroutine to exit")
+	}
+
+	// dataChan is closed by dbReader in non-loop mode, so don't close it again
 }
 
 // TestWorkerContextCancellation tests that worker responds to context cancellation.
@@ -150,7 +175,6 @@ func TestWorkerContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	dataChan := make(chan []byte, 1024)
-	var wg sync.WaitGroup
 
 	// Bind to port 0 to get a free port
 	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
@@ -161,19 +185,16 @@ func TestWorkerContextCancellation(t *testing.T) {
 	probe.Close()
 
 	// Start worker
-	wg.Add(1)
-	go worker(1, ctx, "127.0.0.1", port, 100, &wg, false, dataChan)
+	done := make(chan struct{})
+	go func() {
+		worker(1, ctx, "127.0.0.1", port, 100, false, dataChan)
+		close(done)
+	}()
 
 	// Cancel context
 	cancel()
 
 	// Wait for goroutine to exit
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
 	select {
 	case <-done:
 		// Good, goroutine exited
@@ -182,6 +203,29 @@ func TestWorkerContextCancellation(t *testing.T) {
 	}
 
 	close(dataChan)
+}
+
+func TestWorkerCancellationInterruptsRateLimitWait(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	dataChan := make(chan []byte, 1)
+	dataChan <- []byte("payload")
+
+	done := make(chan error, 1)
+	go func() {
+		done <- worker(1, ctx, "127.0.0.1", 9995, 10_000, false, dataChan)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("worker returned error: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("worker did not interrupt rate limit wait after cancellation")
+	}
 }
 
 // TestRunIntegration tests the full replay flow.
@@ -225,10 +269,7 @@ func TestRunIntegration(t *testing.T) {
 
 	// Start a receiver on target port
 	received := make(chan struct{}, 1)
-	var wg sync.WaitGroup
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 		if err != nil {
 			t.Errorf("Failed to listen: %v", err)
@@ -270,7 +311,6 @@ func TestSendPacket(t *testing.T) {
 	// Start a receiver
 	received := make(chan []byte, 1)
 	receiverReady := make(chan struct{})
-	var wg sync.WaitGroup
 
 	// Bind to port 0 to get a free port
 	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
@@ -280,9 +320,7 @@ func TestSendPacket(t *testing.T) {
 	port := probe.LocalAddr().(*net.UDPAddr).Port
 	probe.Close()
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 		if err != nil {
 			t.Errorf("Failed to listen: %v", err)
@@ -329,6 +367,65 @@ func TestSendPacket(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Error("Timeout waiting for receiver")
 	}
+}
 
-	wg.Wait()
+// TestUpdateTimestampNetFlow tests that updateTimestamp correctly updates NetFlow v9 timestamps.
+func TestUpdateTimestampNetFlow(t *testing.T) {
+	t.Parallel()
+
+	session := netflow.NewSession()
+	flow := netflow.GenerateTemplateNetflow(100, session)
+	buf := flow.ToBytes()
+	payload := buf.Bytes()
+
+	before := uint32(time.Now().Unix())
+	result, err := updateTimestamp(payload)
+	if err != nil {
+		t.Fatalf("updateTimestamp failed: %v", err)
+	}
+	after := uint32(time.Now().Unix())
+
+	// Verify the timestamp was updated (bytes 8-11 for NetFlow v9)
+	newTS := binary.BigEndian.Uint32(result[8:12])
+	if newTS < before || newTS > after {
+		t.Errorf("NetFlow timestamp not updated: got %d, expected in [%d, %d]", newTS, before, after)
+	}
+
+	// Verify other fields preserved
+	if binary.BigEndian.Uint16(result[0:2]) != 9 {
+		t.Error("Version field corrupted")
+	}
+}
+
+// TestUpdateTimestampIPFIX tests that updateTimestamp correctly updates IPFIX timestamps.
+func TestUpdateTimestampIPFIX(t *testing.T) {
+	t.Parallel()
+
+	seq := ipfix.NewIPFIXSequence()
+	ipfixPkt := ipfix.GenerateTemplateIPFIX(100, seq)
+	payload, err := ipfixPkt.ToBytes()
+	if err != nil {
+		t.Fatalf("ToBytes failed: %v", err)
+	}
+	payloadBytes := payload.Bytes()
+
+	before := uint32(time.Now().Unix())
+	result, err := updateTimestamp(payloadBytes)
+	if err != nil {
+		t.Fatalf("updateTimestamp failed: %v", err)
+	}
+	after := uint32(time.Now().Unix())
+
+	// Verify the Export Time was updated (bytes 4-7 for IPFIX)
+	newTS := binary.BigEndian.Uint32(result[4:8])
+	if newTS < before || newTS > after {
+		t.Errorf("IPFIX Export Time not updated: got %d, expected in [%d, %d]", newTS, before, after)
+	}
+
+	// Verify Sequence Number preserved (bytes 8-11)
+	origSeqNum := binary.BigEndian.Uint32(payloadBytes[8:12])
+	newSeqNum := binary.BigEndian.Uint32(result[8:12])
+	if origSeqNum != newSeqNum {
+		t.Errorf("IPFIX Sequence Number corrupted: got %d, want %d", newSeqNum, origSeqNum)
+	}
 }

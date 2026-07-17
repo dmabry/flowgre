@@ -9,12 +9,15 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -91,11 +94,58 @@ func constantTimeCompare(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
+// isLoopback returns true if the IP is a loopback address (127.0.0.1, ::1).
+// Wildcard addresses (0.0.0.0, ::) are NOT considered loopback.
+func isLoopback(ip string) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	return parsed.IsLoopback()
+}
+
+// ValidateWebBinding checks that the web server binding is safe.
+// Non-loopback addresses require TLS certificate and key files.
+func ValidateWebBinding(ip, tlsCert, tlsKey string) error {
+	if (tlsCert == "") != (tlsKey == "") {
+		return fmt.Errorf("TLS certificate and key must be provided together")
+	}
+	useTLS := tlsCert != "" && tlsKey != ""
+	if !useTLS && !isLoopback(ip) {
+		return fmt.Errorf("binding web server to non-loopback address %s requires TLS (--tls-cert and --tls-key)", ip)
+	}
+	if useTLS {
+		if _, err := os.Stat(tlsCert); err != nil {
+			return fmt.Errorf("TLS certificate file: %w", err)
+		}
+		if _, err := os.Stat(tlsKey); err != nil {
+			return fmt.Errorf("TLS key file: %w", err)
+		}
+	}
+	return nil
+}
+
 // RunWebServer is used to start the web server goroutine.
-func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, sc *stats.Collector, username, hashedPassword string) {
+// If tlsCert and tlsKey are empty, the server uses plain HTTP and requires
+// a loopback bind address. Non-loopback addresses require TLS to protect
+// credentials in transit.
+func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, sc *stats.Collector, username, hashedPassword, tlsCert, tlsKey string) {
 	defer wg.Done()
+
+	// Enforce loopback-only for non-TLS to protect credentials
+	useTLS := tlsCert != "" && tlsKey != ""
+	if !useTLS && !isLoopback(ip) {
+		log.Printf("Refusing to start web server on non-loopback address %s without TLS. "+
+			"Provide --tls-cert and --tls-key, or bind to 127.0.0.1.\n", ip)
+		return
+	}
+
 	listenAddr := ip + ":" + strconv.Itoa(port)
-	log.Printf("Starting Web server %s\n", listenAddr)
+	if useTLS {
+		log.Printf("Starting Web server with TLS on %s\n", listenAddr)
+	} else {
+		log.Printf("Starting Web server on %s\n", listenAddr)
+	}
 
 	router := http.NewServeMux()
 
@@ -116,15 +166,29 @@ func RunWebServer(ip string, port int, wg *sync.WaitGroup, ctx context.Context, 
 		WriteTimeout:      time.Second * 5,
 		IdleTimeout:       time.Second * 5,
 	}
+
+	serverErr := make(chan error, 1)
 	go func() {
-		err := srv.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			log.Printf("Issue starting web server! %v\n", err)
-			return
+		if useTLS {
+			srv.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
+			serverErr <- srv.ListenAndServeTLS(tlsCert, tlsKey)
+		} else {
+			serverErr <- srv.ListenAndServe()
 		}
 	}()
-	<-ctx.Done() // Block until context is cancelled
-	log.Printf("Web server Exiting due to signal\n")
+
+	// Wait for context cancellation or server error
+	select {
+	case <-ctx.Done():
+		log.Printf("Web server Exiting due to signal\n")
+	case err := <-serverErr:
+		if err != nil && err != http.ErrServerClosed {
+			log.Printf("Web server error: %v\n", err)
+		}
+	}
+
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 	_ = srv.Shutdown(shutdownCtx)

@@ -6,8 +6,11 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
+	"github.com/dmabry/flowgre/config"
+	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/replay"
 )
 
@@ -38,8 +41,17 @@ func (c *ReplayCommand) ParseFlags(args []string) error {
 }
 
 // Execute runs the replay mode with parsed flags.
-func (c *ReplayCommand) Execute() {
-	replay.Run(*c.server, *c.port, *c.delay, *c.dbDir, *c.loop, *c.workers, *c.updateTS, *c.verbose)
+func (c *ReplayCommand) Execute() error {
+	if err := config.ValidateReplay(*c.server, *c.port, *c.delay, *c.dbDir, *c.workers); err != nil {
+		return fmt.Errorf("validate replay config: %w", err)
+	}
+	mgr := lifecycle.New()
+	defer mgr.Cancel()
+	_ = mgr.SetupSignalHandler()
+	if err := replay.RunCtx(mgr.Context(), *c.server, *c.port, *c.delay, *c.dbDir, *c.loop, *c.workers, *c.updateTS, *c.verbose); err != nil {
+		return fmt.Errorf("replay: %w", err)
+	}
+	return nil
 }
 
 // RunReplay is the entry point for the replay subcommand.
@@ -48,5 +60,8 @@ func RunReplay(args []string) {
 	if err := c.ParseFlags(args); err != nil {
 		os.Exit(1)
 	}
-	c.Execute()
+	if err := c.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "replay: %v\n", err)
+		os.Exit(1)
+	}
 }

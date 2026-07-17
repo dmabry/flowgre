@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -549,6 +550,23 @@ func TestTargetValidation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRunCtxReturnsListenerError(t *testing.T) {
+	blocker, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("reserve listener port: %v", err)
+	}
+	defer blocker.Close()
+
+	port := blocker.LocalAddr().(*net.UDPAddr).Port
+	err = RunCtx(context.Background(), "127.0.0.1", port, false, []string{"127.0.0.1:9995"})
+	if err == nil {
+		t.Fatal("expected listener error")
+	}
+	if !strings.Contains(err.Error(), "listen on") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

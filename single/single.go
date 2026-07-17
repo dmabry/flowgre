@@ -98,14 +98,10 @@ func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, 
 // shutdown. Use RunCtx() when you need to control the lifecycle via context.
 func Run(collectorIP string, destPort int, srcPort int, count int, srcRange string, dstRange string, hexDump bool) {
 	mgr := lifecycle.New()
+	defer mgr.Cancel()
 
 	// Setup signal handling via lifecycle manager
-	cleanupDone := mgr.SetupSignalHandler()
-	go func() {
-		<-cleanupDone
-		log.Printf("Received signal, shutting down...\n")
-		mgr.Cancel()
-	}()
+	_ = mgr.SetupSignalHandler()
 
 	if err := RunCtx(mgr.Context(), collectorIP, destPort, srcPort, count, srcRange, dstRange, hexDump); err != nil {
 		fmt.Fprintf(os.Stderr, "single error: %v\n", err)

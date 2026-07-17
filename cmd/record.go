@@ -6,8 +6,11 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
+	"github.com/dmabry/flowgre/config"
+	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/record"
 )
 
@@ -30,8 +33,17 @@ func (c *RecordCommand) ParseFlags(args []string) error {
 }
 
 // Execute runs the record mode with parsed flags.
-func (c *RecordCommand) Execute() {
-	record.Run(*c.ip, *c.port, *c.dbDir, *c.verbose)
+func (c *RecordCommand) Execute() error {
+	if err := config.ValidateRecord(*c.ip, *c.port, *c.dbDir); err != nil {
+		return fmt.Errorf("validate record config: %w", err)
+	}
+	mgr := lifecycle.New()
+	_ = mgr.SetupSignalHandler()
+	defer mgr.Cancel()
+	if err := record.RunCtx(mgr.Context(), *c.ip, *c.port, *c.dbDir, *c.verbose); err != nil {
+		return fmt.Errorf("record: %w", err)
+	}
+	return nil
 }
 
 // RunRecord is the entry point for the record subcommand.
@@ -40,5 +52,8 @@ func RunRecord(args []string) {
 	if err := c.ParseFlags(args); err != nil {
 		os.Exit(1)
 	}
-	c.Execute()
+	if err := c.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "record: %v\n", err)
+		os.Exit(1)
+	}
 }

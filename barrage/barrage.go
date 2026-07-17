@@ -219,15 +219,10 @@ func RunCtx(ctx context.Context, config *models.Config, gen FlowGenerator) {
 // Use RunCtx() when you need to control the lifecycle via context.
 func Run(config *models.Config, gen FlowGenerator) {
 	mgr := lifecycle.New()
+	defer mgr.Cancel()
 
 	// Setup signal handling via lifecycle manager
-	cleanupDone := mgr.SetupSignalHandler()
-
-	go func() {
-		<-cleanupDone
-		log.Printf("Received signal, shutting down...\n")
-		mgr.Cancel()
-	}()
+	_ = mgr.SetupSignalHandler()
 
 	RunCtx(mgr.Context(), config, gen)
 	mgr.Wait()

@@ -6,8 +6,11 @@ package cmd
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
+	"github.com/dmabry/flowgre/config"
+	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/proxy"
 )
 
@@ -42,8 +45,18 @@ func (c *ProxyCommand) ParseFlags(args []string) error {
 }
 
 // Execute runs the proxy mode with parsed flags.
-func (c *ProxyCommand) Execute() {
-	proxy.Run(*c.ip, *c.port, *c.verbose, []string(c.targets))
+func (c *ProxyCommand) Execute() error {
+	targets := []string(c.targets)
+	if err := config.ValidateProxy(*c.ip, *c.port, targets); err != nil {
+		return fmt.Errorf("validate proxy config: %w", err)
+	}
+	mgr := lifecycle.New()
+	defer mgr.Cancel()
+	_ = mgr.SetupSignalHandler()
+	if err := proxy.RunCtx(mgr.Context(), *c.ip, *c.port, *c.verbose, targets); err != nil {
+		return fmt.Errorf("proxy: %w", err)
+	}
+	return nil
 }
 
 // RunProxy is the entry point for the proxy subcommand.
@@ -52,5 +65,8 @@ func RunProxy(args []string) {
 	if err := c.ParseFlags(args); err != nil {
 		os.Exit(1)
 	}
-	c.Execute()
+	if err := c.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "proxy: %v\n", err)
+		os.Exit(1)
+	}
 }

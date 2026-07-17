@@ -66,7 +66,7 @@ func TestRun(t *testing.T) {
 	// run web server
 	wg.Add(1)
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("testpass"), bcrypt.DefaultCost)
-	go RunWebServer(webIP, webPort, wg, ctx, sc, "admin", string(hashedPassword))
+	go RunWebServer(webIP, webPort, wg, ctx, sc, "admin", string(hashedPassword), "", "")
 	// check that it is serving up status page
 	time.Sleep(time.Second * 2)
 	// do check with auth
@@ -322,7 +322,7 @@ func TestRunWithMockedCollector(t *testing.T) {
 	wg.Add(2)
 	go sc.Run(&wg, ctx)
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("testpass"), bcrypt.DefaultCost)
-	go RunWebServer(webIP, webPort, &wg, ctx, sc, "admin", string(hashedPassword))
+	go RunWebServer(webIP, webPort, &wg, ctx, sc, "admin", string(hashedPassword), "", "")
 
 	// Allow server to start
 	time.Sleep(2 * time.Second)
@@ -413,5 +413,14 @@ func TestBasicAuthMiddleware(t *testing.T) {
 				t.Errorf("wanted %d, got %d", tt.wantStatus, rec.Code)
 			}
 		})
+	}
+}
+
+func TestValidateWebBindingRejectsPartialTLSConfig(t *testing.T) {
+	if err := ValidateWebBinding("127.0.0.1", "cert.pem", ""); err == nil {
+		t.Fatal("expected error when TLS key is missing")
+	}
+	if err := ValidateWebBinding("127.0.0.1", "", "key.pem"); err == nil {
+		t.Fatal("expected error when TLS certificate is missing")
 	}
 }

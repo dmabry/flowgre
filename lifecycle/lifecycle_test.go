@@ -246,6 +246,7 @@ func TestWaitGroupConcurrentAccess(t *testing.T) {
 
 func TestSetupSignalHandlerCreatesChannels(t *testing.T) {
 	m := New()
+	defer m.Cancel()
 
 	cleanupDone := m.SetupSignalHandler()
 
@@ -283,6 +284,21 @@ func TestSetupSignalHandlerReceivesSignal(t *testing.T) {
 	// cleanupDone may or may not have a value (depends on whether
 	// a signal was received), but it should exist
 	_ = cleanupDone
+}
+
+func TestSetupSignalHandlerStopsAfterCancel(t *testing.T) {
+	m := New()
+	cleanupDone := m.SetupSignalHandler()
+	m.Cancel()
+
+	select {
+	case _, ok := <-cleanupDone:
+		if ok {
+			t.Fatal("cleanup channel should close without a signal value")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("signal handler did not stop after cancellation")
+	}
 }
 
 func TestContextValuePropagation(t *testing.T) {

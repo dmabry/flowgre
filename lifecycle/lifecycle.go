@@ -46,18 +46,23 @@ func (m *Manager) WaitGroup() *sync.WaitGroup {
 	return m.wg
 }
 
-// SetupSignalHandler registers SIGINT and SIGTERM handlers that call cancel().
-// Returns a cleanup channel that signals when shutdown is complete.
+// SetupSignalHandler registers a one-shot SIGINT/SIGTERM handler that calls
+// Cancel. Cancelling the manager also unregisters the signal notification and
+// stops the handler goroutine.
 func (m *Manager) SetupSignalHandler() <-chan bool {
 	sigChan := make(chan os.Signal, 1)
 	cleanupDone := make(chan bool, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		for range sigChan {
+		defer signal.Stop(sigChan)
+		defer close(cleanupDone)
+		select {
+		case <-sigChan:
 			log.Printf("\rReceived signal, shutting down...\n\n")
 			m.Cancel()
 			cleanupDone <- true
+		case <-m.ctx.Done():
 		}
 	}()
 	return cleanupDone

@@ -59,14 +59,29 @@ func LoadBarrageConfig() (*models.Config, error) {
 
 	// Extract values with defaults
 	ip := getString(targetValues, "ip", "127.0.0.1")
-	port := getInt(targetValues, "port", 9995)
-	workers := getInt(targetValues, "workers", 4)
-	delay := getInt(targetValues, "delay", 100)
+	port, err := getInt(targetValues, "port", 9995)
+	if err != nil {
+		return nil, err
+	}
+	workers, err := getInt(targetValues, "workers", 4)
+	if err != nil {
+		return nil, err
+	}
+	delay, err := getInt(targetValues, "delay", 100)
+	if err != nil {
+		return nil, err
+	}
 	srcRange := getString(targetValues, "src-range", "10.0.0.0/8")
 	dstRange := getString(targetValues, "dst-range", "10.0.0.0/8")
-	templateInterval := getInt(targetValues, "template-interval", 30)
+	templateInterval, err := getInt(targetValues, "template-interval", 30)
+	if err != nil {
+		return nil, err
+	}
 	webIP := getString(targetValues, "web-ip", "127.0.0.1")
-	webPort := getInt(targetValues, "web-port", 8080)
+	webPort, err := getInt(targetValues, "web-port", 8080)
+	if err != nil {
+		return nil, err
+	}
 	web := getBool(targetValues, "web", false)
 	protocol := getString(targetValues, "protocol", "netflow")
 	webUsername := getString(targetValues, "web-username", "")
@@ -104,25 +119,31 @@ func getString(m map[string]any, key, def string) string {
 
 // getInt safely gets an int value from a map with a default.
 // Viper returns float64 for numbers, so we handle that.
-func getInt(m map[string]any, key string, def int) int {
+// Returns an error if the value is a fractional number or invalid type.
+func getInt(m map[string]any, key string, def int) (int, error) {
 	if v, ok := m[key]; ok {
 		switch val := v.(type) {
 		case int:
-			return val
+			return val, nil
 		case int64:
-			return int(val)
+			return int(val), nil
 		case float64:
-			return int(val)
+			// Check for fractional value
+			if val != float64(int(val)) {
+				return 0, fmt.Errorf("config value %q is fractional: %v", key, val)
+			}
+			return int(val), nil
 		case string:
-			// Try to parse as int
 			result, err := strconv.Atoi(val)
 			if err != nil {
-				return def
+				return 0, fmt.Errorf("config value %q is not a valid integer: %q", key, val)
 			}
-			return result
+			return result, nil
+		default:
+			return 0, fmt.Errorf("config value %q has unexpected type: %T", key, val)
 		}
 	}
-	return def
+	return def, nil
 }
 
 // getBool safely gets a bool value from a map with a default.

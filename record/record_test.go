@@ -9,10 +9,12 @@ import (
 	"encoding/binary"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	badger "github.com/dgraph-io/badger/v3"
 	"github.com/dmabry/flowgre/netflow"
 )
 
@@ -179,16 +181,16 @@ func TestParseFlow_MalformedNetFlow(t *testing.T) {
 
 	// Build a packet with a valid v9 header but a FlowSet with reserved ID (2)
 	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, uint16(9))   // version
-	binary.Write(&buf, binary.BigEndian, uint16(1))   // flowCount
-	binary.Write(&buf, binary.BigEndian, uint32(1000)) // SysUptime
+	binary.Write(&buf, binary.BigEndian, uint16(9))       // version
+	binary.Write(&buf, binary.BigEndian, uint16(1))       // flowCount
+	binary.Write(&buf, binary.BigEndian, uint32(1000))    // SysUptime
 	binary.Write(&buf, binary.BigEndian, uint32(1000000)) // UnixSec
-	binary.Write(&buf, binary.BigEndian, uint32(1))    // FlowSequence
-	binary.Write(&buf, binary.BigEndian, uint32(618))  // SourceID
+	binary.Write(&buf, binary.BigEndian, uint32(1))       // FlowSequence
+	binary.Write(&buf, binary.BigEndian, uint32(618))     // SourceID
 	// Reserved FlowSet ID 2 (must be rejected)
-	binary.Write(&buf, binary.BigEndian, uint16(2))    // FlowSetID (reserved)
-	binary.Write(&buf, binary.BigEndian, uint16(8))    // Length
-	binary.Write(&buf, binary.BigEndian, uint32(0))    // padding
+	binary.Write(&buf, binary.BigEndian, uint16(2)) // FlowSetID (reserved)
+	binary.Write(&buf, binary.BigEndian, uint16(8)) // Length
+	binary.Write(&buf, binary.BigEndian, uint32(0)) // padding
 
 	malformed := buf.Bytes()
 	valid, _ := netflow.IsValidNetFlow(malformed, 9)
@@ -379,4 +381,46 @@ func TestDbIngestContextCancellation(t *testing.T) {
 	}
 
 	close(dataChan)
+}
+
+func TestRunCtxReturnsListenerError(t *testing.T) {
+	blocker, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("reserve listener port: %v", err)
+	}
+	defer blocker.Close()
+
+	port := blocker.LocalAddr().(*net.UDPAddr).Port
+	err = RunCtx(context.Background(), "127.0.0.1", port, t.TempDir(), false)
+	if err == nil {
+		t.Fatal("expected listener error")
+	}
+	if !strings.Contains(err.Error(), "listen on") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNextRecordIDAppendsAfterExistingRecords(t *testing.T) {
+	opts := badger.DefaultOptions(t.TempDir()).WithLogger(nil)
+	db, err := badger.Open(opts)
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer db.Close()
+
+	key := make([]byte, 4)
+	binary.BigEndian.PutUint32(key, 7)
+	if err := db.Update(func(txn *badger.Txn) error {
+		return txn.Set(key, []byte("existing"))
+	}); err != nil {
+		t.Fatalf("seed database: %v", err)
+	}
+
+	next, err := nextRecordID(db)
+	if err != nil {
+		t.Fatalf("next record ID: %v", err)
+	}
+	if next != 8 {
+		t.Fatalf("next record ID = %d, want 8", next)
+	}
 }

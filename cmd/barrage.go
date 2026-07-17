@@ -12,7 +12,7 @@ import (
 	"os"
 
 	"github.com/dmabry/flowgre/barrage"
-	"github.com/dmabry/flowgre/config"
+	flowgreconfig "github.com/dmabry/flowgre/config"
 	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/netflow"
@@ -37,6 +37,8 @@ type BarrageCommand struct {
 	profile          *string
 	webUsername      *string
 	webPassword      *string
+	tlsCert          *string
+	tlsKey           *string
 }
 
 // ParseFlags parses command-line flags for the barrage mode.
@@ -57,6 +59,8 @@ func (c *BarrageCommand) ParseFlags(args []string) error {
 	c.profile = fs.String("profile", "generic", "flow profile: generic, minimal, extended")
 	c.webUsername = fs.String("web-username", "", "Web server username (default: env FLOWGRE_WEB_USERNAME or generated)")
 	c.webPassword = fs.String("web-password", "", "Web server password (default: env FLOWGRE_WEB_PASSWORD or generated)")
+	c.tlsCert = fs.String("tls-cert", "", "TLS certificate file for web server (required for non-loopback binding)")
+	c.tlsKey = fs.String("tls-key", "", "TLS key file for web server (required for non-loopback binding)")
 	return fs.Parse(args)
 }
 
@@ -164,11 +168,11 @@ func (c *BarrageCommand) Execute() error {
 	// Load configuration from file or CLI flags
 	if *c.configFile != "" {
 		fmt.Println("Reading config file... ignoring any other given arguments")
-		if err := config.InitViper(*c.configFile); err != nil {
+		if err := flowgreconfig.InitViper(*c.configFile); err != nil {
 			return fmt.Errorf("error reading config file: %w", err)
 		}
 		var err error
-		cfg, err = config.LoadBarrageConfig()
+		cfg, err = flowgreconfig.LoadBarrageConfig()
 		if err != nil {
 			return fmt.Errorf("error loading barrage config: %w", err)
 		}
@@ -200,10 +204,22 @@ func (c *BarrageCommand) Execute() error {
 		return err
 	}
 
+	// Validate barrage configuration before starting any goroutines
+	if err := flowgreconfig.ValidateBarrage(cfg.Server, cfg.DstPort, cfg.SrcRange, cfg.DstRange, cfg.Workers, cfg.Delay, cfg.TemplateInterval); err != nil {
+		return fmt.Errorf("validate barrage config: %w", err)
+	}
+
 	// Validate web binding safety
 	if cfg.Web {
 		if err := validateWebBinding(cfg.WebIP, cfg.WebUsername, cfg.WebPassword); err != nil {
 			return err
+		}
+		if err := flowgreconfig.ValidateWeb(effectiveWebIP(cfg.WebIP), cfg.WebPort); err != nil {
+			return fmt.Errorf("validate web config: %w", err)
+		}
+		// Validate TLS binding before starting workers
+		if err := web.ValidateWebBinding(effectiveWebIP(cfg.WebIP), *c.tlsCert, *c.tlsKey); err != nil {
+			return fmt.Errorf("validate web TLS: %w", err)
 		}
 	}
 
@@ -228,13 +244,8 @@ func (c *BarrageCommand) Execute() error {
 
 	// Setup lifecycle and signal handling
 	mgr := lifecycle.New()
-	cleanupDone := mgr.SetupSignalHandler()
-
-	go func() {
-		<-cleanupDone
-		log.Printf("Received signal, shutting down...\n")
-		mgr.Cancel()
-	}()
+	defer mgr.Cancel()
+	_ = mgr.SetupSignalHandler()
 
 	// Start barrage workers
 	opts := barrage.StartCtx(mgr.Context(), cfg, gen)
@@ -243,7 +254,7 @@ func (c *BarrageCommand) Execute() error {
 	if cfg.Web {
 		opts.Wg.Add(1)
 		effectiveIP := effectiveWebIP(cfg.WebIP)
-		go web.RunWebServer(effectiveIP, cfg.WebPort, opts.Wg, mgr.Context(), opts.Stats, webUsername, webHashedPassword)
+		go web.RunWebServer(effectiveIP, cfg.WebPort, opts.Wg, mgr.Context(), opts.Stats, webUsername, webHashedPassword, *c.tlsCert, *c.tlsKey)
 	}
 
 	opts.Wg.Wait()
