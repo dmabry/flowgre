@@ -29,9 +29,20 @@ jobs:
       run: |
         go install github.com/securego/gosec/v2/cmd/gosec@v2.22.2
         gosec -exclude=G115 ./...
-    - name: Run Trivy vulnerability scanner
+    - name: Run Trivy vulnerability scanner (filesystem)
       uses: aquasecurity/trivy-action@bfa4b33a029b9aa80ddb784b45574c30e072c59e # 0.24.0
       with:
         scan-type: 'fs'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '1'
+
+    - name: Build Docker image
+      run: |
+        docker build -t flowgre:scan --build-arg VERSION=scan .
+
+    - name: Run Trivy vulnerability scanner (Docker image)
+      uses: aquasecurity/trivy-action@bfa4b33a029b9aa80ddb784b45574c30e072c59e # 0.24.0
+      with:
+        image-ref: 'flowgre:scan'
         severity: 'CRITICAL,HIGH'
         exit-code: '1'

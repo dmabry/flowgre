@@ -1,0 +1,18 @@
+services:
+  flowgre:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: dev
+    image: flowgre:dev
+    container_name: flowgre
+    network_mode: "host"
+    # Override command - examples:
+    # single mode:
+    # command: ["single", "-server", "127.0.0.1", "-port", "9995", "-count", "10"]
+    # barrage mode:
+    # command: ["barrage", "-server", "127.0.0.1", "-port", "9995", "-workers", "2", "-delay", "100"]
+    # ipfix mode:
+    # command: ["ipfix", "-server", "127.0.0.1", "-port", "9995", "-count", "10"]
+    command: ["--help"]
