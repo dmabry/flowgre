@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags "-s -w" -o /
 # ---------------------------------------------------------------------------
 # Runtime stage — minimal Alpine image, non-root user
 # ---------------------------------------------------------------------------
-FROM alpine:3.21
+FROM alpine:3.24
 
 RUN addgroup -S flowgre && \
     adduser -S -g flowgre flowgre
