@@ -40,7 +40,7 @@ LABEL org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.source="https://github.com/dmabry/flowgre" \
       org.opencontainers.image.description="NetFlow v9 / IPFIX packet generator for collector stress testing" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.vendor="dmabry"
+      org.opencontainers.image.vendor="Flowgre Team"
 
 # No HEALTHCHECK — flowgre is a CLI tool, not a daemon.
 # The /health endpoint only exists in barrage mode with -web flag.
