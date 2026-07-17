@@ -1,10 +1,12 @@
 name: Security
 
 on:
-  pull_request: {}
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  pull_request: {}
 
 jobs:
   security:
@@ -13,10 +15,10 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@0c52d547c9bc32b1aa3d3115734e3b125f11e2e1 # v5.0.0
       with:
         go-version: '1.26'
 
@@ -30,7 +32,7 @@ jobs:
         go install github.com/securego/gosec/v2/cmd/gosec@v2.22.2
         gosec -exclude=G115 ./...
     - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@bfa4b33a029b9aa80ddb784b45574c30e072c59e
+      uses: aquasecurity/trivy-action@bfa4b33a029b9aa80ddb784b45574c30e072c59e # 0.24.0
       with:
         scan-type: 'fs'
         severity: 'CRITICAL,HIGH'

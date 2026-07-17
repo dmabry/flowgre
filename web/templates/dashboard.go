@@ -13,8 +13,8 @@ const DashboardTpl = `
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Raleway">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontawesome/free@6.5.1/css/all.min.css" integrity="sha384-+0mG0CSBW8WrlbJ3FlRuG4Wp7Io7d9p8rQ75XrVZtP3vM8cBfZz8Y8Y8Y8Y8Y8Y8" crossorigin="anonymous">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-HgyBrqJxjRUZOv6HlKBv1z2zhzYIhqBvmdgynJ1C5ovwUhVzoC7pGFCjw5F7m1x0" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g" crossorigin="anonymous"></script>
 <style>
 :root {
   --bg-primary: #1a1a2e;
