@@ -236,7 +236,10 @@ func TestGenericFlowIPv6(t *testing.T) {
 	session := NewSession()
 
 	gf := new(GenericFlow)
-	result := gf.Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	result, err := gf.Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("GenericFlow.Generate error: %v", err)
+	}
 
 	// IPv4 fields should be zeroed
 	if result.Ipv4SrcAddr != 0 {
@@ -275,7 +278,10 @@ func TestGenericFlowIPv4BackwardCompat(t *testing.T) {
 	session := NewSession()
 
 	gf := new(GenericFlow)
-	result := gf.Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	result, err := gf.Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("GenericFlow.Generate error: %v", err)
+	}
 
 	// IPv4 fields should be populated
 	if result.Ipv4SrcAddr != utils.IPToNum(srcIP) {

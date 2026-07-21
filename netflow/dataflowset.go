@@ -45,11 +45,19 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 		}
 		var flowPort int
 		if flowSrcPort == 0 {
-			flowPort = protoPorts[utils.RandomNum(0, len(protoPorts))]
+			idx, err := utils.RandomNum(0, len(protoPorts))
+			if err != nil {
+				return DataFlowSet{}, fmt.Errorf("select random port for flow %d: %w", i, err)
+			}
+			flowPort = protoPorts[idx]
 		} else {
 			flowPort = flowSrcPort
 		}
-		items[i] = generateFlow(p, srcIP, dstIP, flowPort, session)
+		flow, err := generateFlow(p, srcIP, dstIP, flowPort, session)
+		if err != nil {
+			return DataFlowSet{}, fmt.Errorf("generate flow %d: %w", i, err)
+		}
+		items[i] = flow
 	}
 	dataFlowSet.Items = items
 	size := dataFlowSet.size()
@@ -61,7 +69,7 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 }
 
 // generateFlow creates a flow record appropriate for the given profile.
-func generateFlow(p FlowProfile, srcIP, dstIP net.IP, flowPort int, session *Session) any {
+func generateFlow(p FlowProfile, srcIP, dstIP net.IP, flowPort int, session *Session) (any, error) {
 	switch prof := p.(type) {
 	case *MinimalProfile:
 		_ = prof

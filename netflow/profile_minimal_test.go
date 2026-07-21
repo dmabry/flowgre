@@ -167,7 +167,10 @@ func TestMinimalFlow_Generate(t *testing.T) {
 	srcIP := net.ParseIP("10.0.0.1")
 	dstIP := net.ParseIP("10.0.0.2")
 
-	mf := new(MinimalFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	mf, err := new(MinimalFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("MinimalFlow.Generate error: %v", err)
+	}
 
 	if mf.SrcAddr == 0 {
 		t.Error("expected non-zero src addr")
@@ -190,7 +193,10 @@ func TestExtendedFlow_Generate(t *testing.T) {
 	srcIP := net.ParseIP("10.0.0.1")
 	dstIP := net.ParseIP("10.0.0.2")
 
-	ef := new(ExtendedFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	ef, err := new(ExtendedFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("ExtendedFlow.Generate error: %v", err)
+	}
 
 	if ef.SrcAddr == 0 {
 		t.Error("expected non-zero src addr")

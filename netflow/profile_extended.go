@@ -4,6 +4,7 @@
 package netflow
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -58,13 +59,20 @@ type ExtendedFlow struct {
 }
 
 // Generate creates an ExtendedFlow with randomly generated data.
-func (ef *ExtendedFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *Session) ExtendedFlow {
+func (ef *ExtendedFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *Session) (ExtendedFlow, error) {
 	now := time.Now().UnixNano()
 	startTime := session.StartTime()
 	uptime := uint32((now-startTime)/int64(time.Millisecond)) + 1000
 
-	ef.InBytes = utils.GenerateRand32(10000)
-	ef.InPkts = utils.GenerateRand32(10000)
+	var err error
+	ef.InBytes, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return ExtendedFlow{}, fmt.Errorf("generate InBytes: %w", err)
+	}
+	ef.InPkts, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return ExtendedFlow{}, fmt.Errorf("generate InPkts: %w", err)
+	}
 
 	if srcIP.To4() != nil {
 		ef.SrcAddr = utils.IPToNum(srcIP)
@@ -74,31 +82,50 @@ func (ef *ExtendedFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, se
 		ef.DstAddr = 0
 	}
 
-	ef.SrcPort = utils.GenerateRand16(10000)
-	ef.SrcMac = [6]byte{
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
+	ef.SrcPort, err = utils.GenerateRand16(10000)
+	if err != nil {
+		return ExtendedFlow{}, fmt.Errorf("generate SrcPort: %w", err)
 	}
-	ef.DstMac = [6]byte{
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
-		uint8(utils.RandomNum(0, 256)),
+	ef.SrcMac = [6]byte{}
+	for i := range ef.SrcMac {
+		val, err := utils.RandomNum(0, 256)
+		if err != nil {
+			return ExtendedFlow{}, fmt.Errorf("generate SrcMac byte %d: %w", i, err)
+		}
+		ef.SrcMac[i] = uint8(val)
 	}
-	ef.SrcVlan = uint16(utils.RandomNum(1, 4094))
-	ef.DstVlan = uint16(utils.RandomNum(1, 4094))
-	ef.MinTtl = uint8(utils.RandomNum(1, 128))
-	ef.MaxTtl = uint8(utils.RandomNum(1, 128))
+	ef.DstMac = [6]byte{}
+	for i := range ef.DstMac {
+		val, err := utils.RandomNum(0, 256)
+		if err != nil {
+			return ExtendedFlow{}, fmt.Errorf("generate DstMac byte %d: %w", i, err)
+		}
+		ef.DstMac[i] = uint8(val)
+	}
+	srcVlan, err := utils.RandomNum(1, 4094)
+	if err != nil {
+		return ExtendedFlow{}, fmt.Errorf("generate SrcVlan: %w", err)
+	}
+	ef.SrcVlan = uint16(srcVlan)
+	dstVlan, err := utils.RandomNum(1, 4094)
+	if err != nil {
+		return ExtendedFlow{}, fmt.Errorf("generate DstVlan: %w", err)
+	}
+	ef.DstVlan = uint16(dstVlan)
+	minTtl, err := utils.RandomNum(1, 128)
+	if err != nil {
+		return ExtendedFlow{}, fmt.Errorf("generate MinTtl: %w", err)
+	}
+	ef.MinTtl = uint8(minTtl)
+	maxTtl, err := utils.RandomNum(1, 128)
+	if err != nil {
+		return ExtendedFlow{}, fmt.Errorf("generate MaxTtl: %w", err)
+	}
+	ef.MaxTtl = uint8(maxTtl)
 	ef.FirstSwitched = uptime - 100
 	ef.LastSwitched = uptime - 10
 
 	ef.DstPort, ef.Protocol = utils.ResolvePortProtocol(flowSrcPort)
 
-	return *ef
+	return *ef, nil
 }

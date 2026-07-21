@@ -19,7 +19,10 @@ import (
 func TestRandStringBytes(t *testing.T) {
 	t.Parallel()
 	n := 16
-	result := RandStringBytes(n)
+	result, err := RandStringBytes(n)
+	if err != nil {
+		t.Fatalf("RandStringBytes(%d) error: %v", n, err)
+	}
 	if len(result) != n {
 		t.Errorf("Result was improper length. Got: %d Want: %d", len(result), n)
 	}
@@ -32,7 +35,10 @@ func TestRandStringBytes(t *testing.T) {
 func TestGenerateRand16(t *testing.T) {
 	t.Parallel()
 	n := 16
-	result := GenerateRand16(n)
+	result, err := GenerateRand16(n)
+	if err != nil {
+		t.Fatalf("GenerateRand16(%d) error: %v", n, err)
+	}
 	if result > uint16(n) {
 		t.Errorf("Result was larger than expected max! Got: %d Want less than: %d", result, n)
 	}
@@ -41,7 +47,10 @@ func TestGenerateRand16(t *testing.T) {
 func TestGenerateRand32(t *testing.T) {
 	t.Parallel()
 	n := 16
-	result := GenerateRand32(n)
+	result, err := GenerateRand32(n)
+	if err != nil {
+		t.Fatalf("GenerateRand32(%d) error: %v", n, err)
+	}
 	if result > uint32(n) {
 		t.Errorf("Result was larger than expected max! Got: %d Want less than: %d", result, n)
 	}
@@ -81,7 +90,10 @@ func TestRandomNum(t *testing.T) {
 	for range count {
 		min := 10
 		max := 250
-		result := RandomNum(min, max)
+		result, err := RandomNum(min, max)
+		if err != nil {
+			t.Fatalf("RandomNum(%d, %d) error: %v", min, max, err)
+		}
 		if result > max {
 			t.Errorf("Result is greater than max! Got: %d Want: %d", result, max)
 		}

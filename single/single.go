@@ -35,10 +35,17 @@ func RunCtx(ctx context.Context, collectorIP string, destPort int, srcPort int, 
 	// Configure connection to use. It looks like a listener, but it will be used to send packet. Allows setting the source port.
 	if srcPort == 0 {
 		// Pick random source port between 10000 and 15000
-		srcPort = utils.RandomNum(sourcePortMin, sourcePortMax)
+		var err error
+		srcPort, err = utils.RandomNum(sourcePortMin, sourcePortMax)
+		if err != nil {
+			return fmt.Errorf("generate source port: %w", err)
+		}
 	} // else use the given srcPort number
 	// Generate random sourceID for all Netflow headers. This is essentially a virtual ID.
-	sourceID := utils.RandomNum(sourceIDMin, sourceIDMax)
+	sourceID, err := utils.RandomNum(sourceIDMin, sourceIDMax)
+	if err != nil {
+		return fmt.Errorf("generate source ID: %w", err)
+	}
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {

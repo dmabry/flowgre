@@ -44,7 +44,10 @@ func worker(id int, ctx context.Context, server string, port int, wg *sync.WaitG
 func runWorker(id int, ctx context.Context, server string, port int, workerChan <-chan []byte) error {
 	// Sent limiter to given delay
 	// Configure connection to use.  It looks like a listener, but it will be used to send packet.  Allows me to set the source port
-	srcPort := utils.RandomNum(sourcePortMin, sourcePortMax)
+	srcPort, err := utils.RandomNum(sourcePortMin, sourcePortMax)
+	if err != nil {
+		return fmt.Errorf("generate source port: %w", err)
+	}
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
 		return fmt.Errorf("listen on source port %d: %w", srcPort, err)

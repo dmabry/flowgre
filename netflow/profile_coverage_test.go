@@ -38,7 +38,10 @@ func TestMinimalFlow_Generate_AllProtocols(t *testing.T) {
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
 			session := NewSession()
-			mf := new(MinimalFlow).Generate(srcIP, dstIP, tc.port, session)
+			mf, err := new(MinimalFlow).Generate(srcIP, dstIP, tc.port, session)
+				if err != nil {
+					t.Fatalf("MinimalFlow.Generate error: %v", err)
+				}
 			if mf.DstPort != tc.wantPort {
 				t.Errorf("DstPort: got %d, want %d", mf.DstPort, tc.wantPort)
 			}
@@ -77,7 +80,10 @@ func TestExtendedFlow_Generate_AllProtocols(t *testing.T) {
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
 			session := NewSession()
-			ef := new(ExtendedFlow).Generate(srcIP, dstIP, tc.port, session)
+			ef, err := new(ExtendedFlow).Generate(srcIP, dstIP, tc.port, session)
+				if err != nil {
+					t.Fatalf("ExtendedFlow.Generate error: %v", err)
+				}
 			if ef.DstPort != tc.wantPort {
 				t.Errorf("DstPort: got %d, want %d", ef.DstPort, tc.wantPort)
 			}
@@ -95,7 +101,10 @@ func TestMinimalFlow_Generate_IPv6(t *testing.T) {
 	srcIP := net.ParseIP("2001:db8::1")
 	dstIP := net.ParseIP("2001:db8::2")
 
-	mf := new(MinimalFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	mf, err := new(MinimalFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("MinimalFlow.Generate error: %v", err)
+	}
 
 	// IPv4 fields should be zeroed for IPv6
 	if mf.SrcAddr != 0 {
@@ -113,7 +122,10 @@ func TestExtendedFlow_Generate_IPv6(t *testing.T) {
 	srcIP := net.ParseIP("2001:db8::1")
 	dstIP := net.ParseIP("2001:db8::2")
 
-	ef := new(ExtendedFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	ef, err := new(ExtendedFlow).Generate(srcIP, dstIP, utils.HTTPSPort, session)
+	if err != nil {
+		t.Fatalf("ExtendedFlow.Generate error: %v", err)
+	}
 
 	// IPv4 fields should be zeroed for IPv6
 	if ef.SrcAddr != 0 {
