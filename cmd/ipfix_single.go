@@ -48,9 +48,16 @@ func (c *IPFIXCommand) ParseFlags(args []string) error {
 // Execute runs the ipfix mode with parsed flags.
 func (c *IPFIXCommand) Execute() error {
 	if *c.srcPort == 0 {
-		*c.srcPort = utils.RandomNum(ipfixSourcePortMin, ipfixSourcePortMax)
+		var err error
+		*c.srcPort, err = utils.RandomNum(ipfixSourcePortMin, ipfixSourcePortMax)
+		if err != nil {
+			return fmt.Errorf("generate source port: %w", err)
+		}
 	}
-	sourceID := utils.RandomNum(ipfixSourceIDMin, ipfixSourceIDMax)
+	sourceID, err := utils.RandomNum(ipfixSourceIDMin, ipfixSourceIDMax)
+	if err != nil {
+		return fmt.Errorf("generate source ID: %w", err)
+	}
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: *c.srcPort})
 	if err != nil {

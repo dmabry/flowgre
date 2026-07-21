@@ -344,7 +344,10 @@ func TestSendPacket(t *testing.T) {
 	<-receiverReady
 
 	// Send a packet
-	srcPort := utils.RandomNum(10000, 15000)
+	srcPort, err := utils.RandomNum(10000, 15000)
+	if err != nil {
+		t.Fatalf("RandomNum error: %v", err)
+	}
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
 		t.Fatalf("Failed to listen: %v", err)

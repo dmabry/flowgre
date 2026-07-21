@@ -529,7 +529,10 @@ func TestGenericFlowIPv6(t *testing.T) {
 	srcIP := net.ParseIP("2001:db8::1")
 	dstIP := net.ParseIP("2001:db8::2")
 
-	result := new(GenericFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	result, err := new(GenericFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	if err != nil {
+		t.Fatalf("GenericFlow.Generate error: %v", err)
+	}
 
 	if result.SourceIPv4Addr != 0 {
 		t.Errorf("expected zeroed IPv4 src, got %d", result.SourceIPv4Addr)
@@ -563,7 +566,10 @@ func TestGenericFlowIPv4_ZerosIPv6(t *testing.T) {
 	srcIP := net.ParseIP("10.0.0.1")
 	dstIP := net.ParseIP("10.0.0.2")
 
-	result := new(GenericFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	result, err := new(GenericFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	if err != nil {
+		t.Fatalf("GenericFlow.Generate error: %v", err)
+	}
 
 	if result.SourceIPv4Addr == 0 {
 		t.Error("expected non-zero IPv4 src")

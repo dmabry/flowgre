@@ -264,14 +264,27 @@ func (gf *GenericFlow) GetTemplateFields() []Field {
 }
 
 // Generate creates a GenericFlow with randomly generated data.
-func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *netflow.Session) GenericFlow {
+func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *netflow.Session) (GenericFlow, error) {
 	now := time.Now()
 	epochMillis := uint64(now.UnixMilli())
 
-	gf.OctetDeltaCount = utils.GenerateRand32(10000)
-	gf.PostOctetDeltaCount = utils.GenerateRand32(10000)
-	gf.PacketDeltaCount = utils.GenerateRand32(10000)
-	gf.PostPacketDeltaCount = utils.GenerateRand32(10000)
+	var err error
+	gf.OctetDeltaCount, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate OctetDeltaCount: %w", err)
+	}
+	gf.PostOctetDeltaCount, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate PostOctetDeltaCount: %w", err)
+	}
+	gf.PacketDeltaCount, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate PacketDeltaCount: %w", err)
+	}
+	gf.PostPacketDeltaCount, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate PostPacketDeltaCount: %w", err)
+	}
 
 	if srcIP.To4() != nil {
 		gf.SourceIPv4Addr = utils.IPToNum(srcIP)
@@ -289,17 +302,28 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 		gf.DestIPv6Prefix = 64
 	}
 
-	gf.SourcePort = utils.GenerateRand16(10000)
-	gf.TCPFlags = uint8(utils.RandomNum(0, 32))
+	gf.SourcePort, err = utils.GenerateRand16(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate SourcePort: %w", err)
+	}
+	tcpFlags, err := utils.RandomNum(0, 32)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate TCPFlags: %w", err)
+	}
+	gf.TCPFlags = uint8(tcpFlags)
 	gf.FlowStartMillis = epochMillis - 100
 	gf.FlowEndMillis = epochMillis - 10
 	gf.FlowDirection = 0
 	gf.IPClassOfService = 0
-	gf.FlowEndReason = uint8(utils.RandomNum(0, 4))
+	flowEndReason, err := utils.RandomNum(0, 4)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate FlowEndReason: %w", err)
+	}
+	gf.FlowEndReason = uint8(flowEndReason)
 
 	gf.DestPort, gf.ProtocolIdentifier = utils.ResolvePortProtocol(flowSrcPort)
 
-	return *gf
+	return *gf, nil
 }
 
 // DataAny holds a data record of any type.
@@ -331,9 +355,17 @@ func (d *DataFlowSet) Generate(flowCount int, srcRange string, dstRange string, 
 		}
 		port := flowSrcPort
 		if port == 0 {
-			port = protoPorts[utils.RandomNum(0, len(protoPorts))]
+			idx, err := utils.RandomNum(0, len(protoPorts))
+			if err != nil {
+				return DataFlowSet{}, fmt.Errorf("select random port for flow %d: %w", i, err)
+			}
+			port = protoPorts[idx]
 		}
-		items[i] = new(GenericFlow).Generate(srcIP, dstIP, port, session)
+		flow, err := new(GenericFlow).Generate(srcIP, dstIP, port, session)
+		if err != nil {
+			return DataFlowSet{}, fmt.Errorf("generate flow %d: %w", i, err)
+		}
+		items[i] = flow
 	}
 
 	// Calculate length: FlowSetID(2) + Length(2) + records + padding

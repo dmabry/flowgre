@@ -4,6 +4,7 @@
 package netflow
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -158,14 +159,27 @@ func (gf *GenericFlow) GetTemplateFields() []Field {
 
 // Generate returns a NetFlow v9 Flow with randomly generated payload.
 // Populates both IPv4 and IPv6 fields based on the input IP version.
-func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *Session) GenericFlow {
+func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *Session) (GenericFlow, error) {
 	now := time.Now().UnixNano()
 	startTime := session.StartTime()
 	uptime := uint32((now-startTime)/int64(time.Millisecond)) + 1000
-	gf.InBytes = utils.GenerateRand32(10000)
-	gf.OutBytes = utils.GenerateRand32(10000)
-	gf.InPkts = utils.GenerateRand32(10000)
-	gf.OutPkts = utils.GenerateRand32(10000)
+	var err error
+	gf.InBytes, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate InBytes: %w", err)
+	}
+	gf.OutBytes, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate OutBytes: %w", err)
+	}
+	gf.InPkts, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate InPkts: %w", err)
+	}
+	gf.OutPkts, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate OutPkts: %w", err)
+	}
 
 	// Populate IP addresses based on version
 	if srcIP.To4() != nil {
@@ -184,8 +198,15 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 		gf.Ipv6DstMask = 64 // Default /64 mask
 	}
 
-	gf.L4SrcPort = utils.GenerateRand16(10000)
-	gf.TcpFlags = uint8(utils.RandomNum(0, 32))
+	gf.L4SrcPort, err = utils.GenerateRand16(10000)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate L4SrcPort: %w", err)
+	}
+	tcpFlags, err := utils.RandomNum(0, 32)
+	if err != nil {
+		return GenericFlow{}, fmt.Errorf("generate TcpFlags: %w", err)
+	}
+	gf.TcpFlags = uint8(tcpFlags)
 	gf.FirstSwitched = uptime - 100
 	gf.LastSwitched = uptime - 10
 	gf.EngineType = 0
@@ -193,5 +214,5 @@ func (gf *GenericFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 
 	gf.L4DstPort, gf.Protocol = utils.ResolvePortProtocol(flowSrcPort)
 
-	return *gf
+	return *gf, nil
 }

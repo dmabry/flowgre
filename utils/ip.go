@@ -67,7 +67,10 @@ func RandomIP(cidr string) (net.IP, error) {
 		randIP = NumToIP(ipMinNum)
 	} else {
 		rangeSize := int64(ipMaxNum - ipMinNum)
-		offset := CryptoRandomNumber(rangeSize)
+		offset, err := CryptoRandomNumber(rangeSize)
+		if err != nil {
+			return nil, fmt.Errorf("generate random IP offset: %w", err)
+		}
 		randIPNum := uint32(offset + int64(ipMinNum))
 		randIP = NumToIP(randIPNum)
 	}

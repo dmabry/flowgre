@@ -361,7 +361,10 @@ func TestCryptoRandomNumber_EdgeCases(t *testing.T) {
 	t.Parallel()
 
 	// max=1 should always return 0
-	result := CryptoRandomNumber(1)
+	result, err := CryptoRandomNumber(1)
+	if err != nil {
+		t.Fatalf("CryptoRandomNumber(1) error: %v", err)
+	}
 	if result != 0 {
 		t.Errorf("CryptoRandomNumber(1) = %d, want 0", result)
 	}
@@ -369,7 +372,10 @@ func TestCryptoRandomNumber_EdgeCases(t *testing.T) {
 	// Verify distribution over a range
 	counts := make(map[int64]int)
 	for range 1000 {
-		n := CryptoRandomNumber(10)
+		n, err := CryptoRandomNumber(10)
+		if err != nil {
+			t.Fatalf("CryptoRandomNumber(10) error: %v", err)
+		}
 		counts[n]++
 	}
 	for k, c := range counts {
@@ -390,7 +396,10 @@ func TestRandStringBytes_Variants(t *testing.T) {
 
 	for _, n := range lengths {
 		t.Run(string(rune('0'+n)), func(t *testing.T) {
-			result := RandStringBytes(n)
+			result, err := RandStringBytes(n)
+			if err != nil {
+				t.Fatalf("RandStringBytes(%d) error: %v", n, err)
+			}
 			if len(result) != n {
 				t.Errorf("RandStringBytes(%d) length = %d, want %d", n, len(result), n)
 			}
@@ -415,12 +424,15 @@ func TestRandStringBytes_Variants(t *testing.T) {
 func TestRandomNum_BoundaryConditions(t *testing.T) {
 	t.Parallel()
 
-	// Note: RandomNum(min,min) panics because CryptoRandomNumber(0) panics.
-	// This is existing behavior — skipping that case.
+	// Note: RandomNum(min,min) returns an error because CryptoRandomNumber(0) errors.
+	// This is the updated behavior — skipping that case.
 
 	// Small positive range
 	for range 100 {
-		result := RandomNum(0, 1)
+		result, err := RandomNum(0, 1)
+		if err != nil {
+			t.Fatalf("RandomNum(0,1) error: %v", err)
+		}
 		if result != 0 {
 			t.Errorf("RandomNum(0,1) = %d, want 0", result)
 		}
@@ -428,7 +440,10 @@ func TestRandomNum_BoundaryConditions(t *testing.T) {
 
 	// Negative range
 	for range 100 {
-		result := RandomNum(-10, 0)
+		result, err := RandomNum(-10, 0)
+		if err != nil {
+			t.Fatalf("RandomNum(-10,0) error: %v", err)
+		}
 		if result < -10 || result >= 0 {
 			t.Errorf("RandomNum(-10,0) = %d, out of range [-10, 0)", result)
 		}
@@ -436,7 +451,10 @@ func TestRandomNum_BoundaryConditions(t *testing.T) {
 
 	// Medium range
 	for range 100 {
-		result := RandomNum(10, 100)
+		result, err := RandomNum(10, 100)
+		if err != nil {
+			t.Fatalf("RandomNum(10,100) error: %v", err)
+		}
 		if result < 10 || result >= 100 {
 			t.Errorf("RandomNum(10,100) = %d, out of range [10, 100)", result)
 		}
@@ -448,7 +466,10 @@ func TestGenerateRand16_LargeRange(t *testing.T) {
 	t.Parallel()
 	max := 65535
 	for range 100 {
-		result := GenerateRand16(max)
+		result, err := GenerateRand16(max)
+		if err != nil {
+			t.Fatalf("GenerateRand16(%d) error: %v", max, err)
+		}
 		if result >= uint16(max) {
 			t.Errorf("GenerateRand16(%d) = %d, want < %d", max, result, max)
 		}
@@ -460,7 +481,10 @@ func TestGenerateRand32_LargeRange(t *testing.T) {
 	t.Parallel()
 	max := 100000
 	for range 100 {
-		result := GenerateRand32(max)
+		result, err := GenerateRand32(max)
+		if err != nil {
+			t.Fatalf("GenerateRand32(%d) error: %v", max, err)
+		}
 		if result >= uint32(max) {
 			t.Errorf("GenerateRand32(%d) = %d, want < %d", max, result, max)
 		}

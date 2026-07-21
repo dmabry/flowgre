@@ -56,7 +56,11 @@ func worker(cfg *workerConfig) {
 	}
 
 	// Configure connection to use. It looks like a listener, but it will be used to send packet. Allows setting the source port.
-	srcPort := utils.RandomNum(sourcePortMin, sourcePortMax)
+	srcPort, err := utils.RandomNum(sourcePortMin, sourcePortMax)
+	if err != nil {
+		log.Printf("%s [%2d] RandomNum failed: %v", label, cfg.id, err)
+		return
+	}
 
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
@@ -122,7 +126,11 @@ func worker(cfg *workerConfig) {
 			wStats.BytesSent += uint64(bytes)
 			cfg.statsChan <- wStats
 		case <-dataLimiter.C:
-			flowCount := utils.RandomNum(5, 25)
+			flowCount, err := utils.RandomNum(5, 25)
+				if err != nil {
+					log.Printf("%s [%2d] RandomNum failed: %v", label, cfg.id, err)
+					return
+				}
 			buf, err := cfg.gen.GenerateData(flowCount, cfg.sourceID, cfg.srcRange, cfg.dstRange, session)
 			if err != nil {
 				log.Printf("%s [%2d] GenerateData failed: %v", label, cfg.id, err)
@@ -175,7 +183,11 @@ func StartCtx(ctx context.Context, config *models.Config, gen FlowGenerator) *Ru
 	// Start up the workers
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
-		sourceID := utils.RandomNum(sourceIDMin, sourceIDMax)
+		sourceID, err := utils.RandomNum(sourceIDMin, sourceIDMax)
+			if err != nil {
+				log.Printf("Failed to generate source ID for worker %d: %v", w, err)
+				continue
+			}
 		// Each worker gets its own generator with independent sequence counter
 		workerGen := gen.ForWorker()
 		go worker(&workerConfig{

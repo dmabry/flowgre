@@ -4,6 +4,7 @@
 package ipfix
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/dmabry/flowgre/netflow"
@@ -83,9 +84,16 @@ type MinimalIPFIXFlow struct {
 }
 
 // Generate creates a MinimalIPFIXFlow with randomly generated data.
-func (mf *MinimalIPFIXFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *netflow.Session) MinimalIPFIXFlow {
-	mf.OctetDeltaCount = utils.GenerateRand32(10000)
-	mf.PacketDeltaCount = utils.GenerateRand32(10000)
+func (mf *MinimalIPFIXFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *netflow.Session) (MinimalIPFIXFlow, error) {
+	var err error
+	mf.OctetDeltaCount, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return MinimalIPFIXFlow{}, fmt.Errorf("generate OctetDeltaCount: %w", err)
+	}
+	mf.PacketDeltaCount, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return MinimalIPFIXFlow{}, fmt.Errorf("generate PacketDeltaCount: %w", err)
+	}
 
 	if srcIP.To4() != nil {
 		mf.SourceIPv4Addr = utils.IPToNum(srcIP)
@@ -95,7 +103,10 @@ func (mf *MinimalIPFIXFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int
 		mf.DestIPv4Addr = 0
 	}
 
-	mf.SourcePort = utils.GenerateRand16(10000)
+	mf.SourcePort, err = utils.GenerateRand16(10000)
+	if err != nil {
+		return MinimalIPFIXFlow{}, fmt.Errorf("generate SourcePort: %w", err)
+	}
 	mf.ProtocolIdentifier = utils.TCPProto
 
 	switch flowSrcPort {
@@ -119,7 +130,7 @@ func (mf *MinimalIPFIXFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int
 		mf.ProtocolIdentifier = utils.TCPProto
 	}
 
-	return *mf
+	return *mf, nil
 }
 
 // ExtendedIPFIXProfile generates an extended IPFIX flow with additional fields.

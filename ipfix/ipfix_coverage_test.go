@@ -153,7 +153,10 @@ func TestMinimalIPFIXFlow_Generate(t *testing.T) {
 	srcIP := net.ParseIP("10.0.0.1")
 	dstIP := net.ParseIP("10.0.0.2")
 
-	mf := new(MinimalIPFIXFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	mf, err := new(MinimalIPFIXFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	if err != nil {
+		t.Fatalf("MinimalIPFIXFlow.Generate error: %v", err)
+	}
 
 	if mf.SourceIPv4Addr == 0 {
 		t.Error("SourceIPv4Addr should not be zero")
@@ -180,7 +183,10 @@ func TestMinimalIPFIXFlow_Generate_IPv6(t *testing.T) {
 	srcIP := net.ParseIP("2001:db8::1")
 	dstIP := net.ParseIP("2001:db8::2")
 
-	mf := new(MinimalIPFIXFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	mf, err := new(MinimalIPFIXFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	if err != nil {
+		t.Fatalf("MinimalIPFIXFlow.Generate error: %v", err)
+	}
 
 	if mf.SourceIPv4Addr != 0 {
 		t.Errorf("IPv4 src should be zeroed for IPv6 input, got %d", mf.SourceIPv4Addr)
@@ -210,7 +216,10 @@ func TestMinimalIPFIXFlow_Generate_AllProtocols(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("port_%d", tc.port), func(t *testing.T) {
-			mf := new(MinimalIPFIXFlow).Generate(srcIP, dstIP, tc.port, nil)
+			mf, err := new(MinimalIPFIXFlow).Generate(srcIP, dstIP, tc.port, nil)
+				if err != nil {
+					t.Fatalf("MinimalIPFIXFlow.Generate error: %v", err)
+				}
 			if mf.DestPort != tc.wantPort {
 				t.Errorf("DestPort: got %d, want %d", mf.DestPort, tc.wantPort)
 			}
@@ -640,7 +649,10 @@ func TestGenericFlow_Generate_AllProtocols(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("port_%d", tc.port), func(t *testing.T) {
-			gf := new(GenericFlow).Generate(srcIP, dstIP, tc.port, nil)
+			gf, err := new(GenericFlow).Generate(srcIP, dstIP, tc.port, nil)
+				if err != nil {
+					t.Fatalf("GenericFlow.Generate error: %v", err)
+				}
 			if gf.DestPort != tc.wantPort {
 				t.Errorf("DestPort: got %d, want %d", gf.DestPort, tc.wantPort)
 			}
@@ -671,7 +683,10 @@ func TestGenericFlow_EpochMilliseconds(t *testing.T) {
 	srcIP := net.ParseIP("10.0.0.1")
 	dstIP := net.ParseIP("10.0.0.2")
 
-	gf := new(GenericFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	gf, err := new(GenericFlow).Generate(srcIP, dstIP, utils.HTTPSPort, nil)
+	if err != nil {
+		t.Fatalf("GenericFlow.Generate error: %v", err)
+	}
 
 	nowMillis := uint64(time.Now().UnixMilli())
 	if gf.FlowStartMillis == 0 {

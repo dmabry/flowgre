@@ -4,6 +4,7 @@
 package netflow
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/dmabry/flowgre/utils"
@@ -42,9 +43,16 @@ type MinimalFlow struct {
 }
 
 // Generate creates a MinimalFlow with randomly generated data.
-func (mf *MinimalFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *Session) MinimalFlow {
-	mf.InBytes = utils.GenerateRand32(10000)
-	mf.InPkts = utils.GenerateRand32(10000)
+func (mf *MinimalFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, session *Session) (MinimalFlow, error) {
+	var err error
+	mf.InBytes, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return MinimalFlow{}, fmt.Errorf("generate InBytes: %w", err)
+	}
+	mf.InPkts, err = utils.GenerateRand32(10000)
+	if err != nil {
+		return MinimalFlow{}, fmt.Errorf("generate InPkts: %w", err)
+	}
 
 	if srcIP.To4() != nil {
 		mf.SrcAddr = utils.IPToNum(srcIP)
@@ -54,9 +62,12 @@ func (mf *MinimalFlow) Generate(srcIP net.IP, dstIP net.IP, flowSrcPort int, ses
 		mf.DstAddr = 0
 	}
 
-	mf.SrcPort = utils.GenerateRand16(10000)
+	mf.SrcPort, err = utils.GenerateRand16(10000)
+	if err != nil {
+		return MinimalFlow{}, fmt.Errorf("generate SrcPort: %w", err)
+	}
 
 	mf.DstPort, mf.Protocol = utils.ResolvePortProtocol(flowSrcPort)
 
-	return *mf
+	return *mf, nil
 }

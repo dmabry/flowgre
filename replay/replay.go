@@ -50,7 +50,10 @@ func worker(id int, ctx context.Context, server string, port int, delay int, loo
 	limiter := time.NewTicker(time.Millisecond * time.Duration(delay))
 	defer limiter.Stop()
 
-	srcPort := utils.RandomNum(10000, 15000)
+	srcPort, err := utils.RandomNum(10000, 15000)
+	if err != nil {
+		return fmt.Errorf("replay worker %d generate source port: %w", id, err)
+	}
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: srcPort})
 	if err != nil {
 		return fmt.Errorf("replay worker %d listen: %w", id, err)
