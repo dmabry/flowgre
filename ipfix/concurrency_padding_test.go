@@ -167,7 +167,10 @@ func TestGenerateIPFIX_Concurrent_Safe(t *testing.T) {
 			defer wg.Done()
 			ipfix, err := GenerateIPFIX(1, 618, "10.0.0.0/8", "10.0.0.0/8", session)
 			if err != nil {
-				t.Fatal(err)
+				// t.Fatal is not allowed from a non-test goroutine (it
+				// doesn't stop the test there); use t.Error + return.
+				t.Errorf("GenerateIPFIX error: %v", err)
+				return
 			}
 
 			mu.Lock()

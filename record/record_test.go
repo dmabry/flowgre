@@ -6,9 +6,11 @@ package record
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net"
 	"os"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -25,40 +27,71 @@ func TestNetIngest(t *testing.T) {
 	dataChan := make(chan []byte, 1024)
 	var wg sync.WaitGroup
 
+	// Reserve an ephemeral port instead of a fixed one — fixed ports collide
+	// under parallel test runs, and netIngest swallows bind failures, so a
+	// collision looks like a silent packet loss instead of an error.
+	port := reserveUDPPort(t)
+
 	// Start netIngest
 	wg.Add(1)
-	go netIngest(ctx, &wg, "127.0.0.1", 29995, dataChan, false)
+	go netIngest(ctx, &wg, "127.0.0.1", port, dataChan, false)
 
-	// Give listener time to start
-	time.Sleep(100 * time.Millisecond)
-
-	// Send a test packet
-	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 29995})
+	// Send a test packet, retrying until the listener is bound — packets sent
+	// to a not-yet-bound UDP port are dropped, not queued.
+	testPayload := []byte("test payload for record")
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
 	}
 	defer conn.Close()
 
-	testPayload := []byte("test payload for record")
-	_, err = conn.Write(testPayload)
-	if err != nil {
-		t.Fatalf("Failed to send: %v", err)
-	}
-
-	// Wait for packet to be received
-	select {
-	case payload := <-dataChan:
-		if !bytes.Equal(payload, testPayload) {
-			t.Errorf("Received wrong payload: got %v, want %v", payload, testPayload)
+	deadline := time.After(2 * time.Second)
+	for {
+		if _, err = conn.Write(testPayload); err != nil {
+			// A connected UDP socket surfaces an earlier ICMP
+			// port-unreachable as ECONNREFUSED — normal during the bind
+			// race, not fatal. Retry until the deadline.
+			if !errors.Is(err, syscall.ECONNREFUSED) {
+				t.Fatalf("Failed to send: %v", err)
+			}
 		}
-	case <-time.After(2 * time.Second):
-		t.Error("Timeout waiting for packet")
+		select {
+		case payload := <-dataChan:
+			if !bytes.Equal(payload, testPayload) {
+				t.Errorf("Received wrong payload: got %v, want %v", payload, testPayload)
+			}
+			// Cleanup
+			cancel()
+			wg.Wait()
+			close(dataChan)
+			return
+		case <-time.After(50 * time.Millisecond):
+			// Listener may not be bound yet — retry
+		case <-deadline:
+			t.Error("Timeout waiting for packet")
+			// Cleanup
+			cancel()
+			wg.Wait()
+			close(dataChan)
+			return
+		}
 	}
+}
 
-	// Cleanup
-	cancel()
-	wg.Wait()
-	close(dataChan)
+// reserveUDPPort binds an ephemeral UDP listener, records its port, and
+// releases it so netIngest can rebind. Using an ephemeral port avoids
+// fixed-port collisions across parallel tests and concurrent CI runs.
+func reserveUDPPort(t *testing.T) int {
+	t.Helper()
+	probe, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("Failed to reserve ephemeral UDP port: %v", err)
+	}
+	port := probe.LocalAddr().(*net.UDPAddr).Port
+	if err := probe.Close(); err != nil {
+		t.Fatalf("Failed to release probe listener: %v", err)
+	}
+	return port
 }
 
 // TestDbIngest tests that the database ingest can store payloads.
@@ -133,15 +166,13 @@ func TestParseFlow(t *testing.T) {
 	close(dataChan)
 }
 
-// TestRunIntegration tests the full record flow.
+// TestRunIntegration tests the record pipeline end-to-end (ingest → parse).
+// The DB stage is covered separately by TestDbIngest.
 func TestRunIntegration(t *testing.T) {
 	t.Parallel()
 	origStdout := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull) // hide logs
 	defer func() { os.Stdout = origStdout }()
-
-	// Create a temporary directory for the test DB
-	tmpDir := t.TempDir()
 
 	// Start the three components manually with context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -151,23 +182,24 @@ func TestRunIntegration(t *testing.T) {
 	parseChan := make(chan []byte, 1024)
 	var wg sync.WaitGroup
 
+	// Start the ingest → parse pipeline. dbIngest is intentionally NOT
+	// started: it would be a blocked receiver on dataChan and win every
+	// receive race against the test. The test itself is dataChan's only
+	// consumer, making the pipeline observation deterministic. (The DB
+	// stage is covered by TestDbIngest.)
+	port := reserveUDPPort(t)
+
 	// Start netIngest
 	wg.Add(1)
-	go netIngest(ctx, &wg, "127.0.0.1", 29996, parseChan, false)
+	go netIngest(ctx, &wg, "127.0.0.1", port, parseChan, false)
 
 	// Start parseFlow
 	wg.Add(1)
 	go parseFlow(ctx, &wg, parseChan, dataChan, false)
 
-	// Start dbIngest
-	wg.Add(1)
-	go dbIngest(ctx, &wg, tmpDir, dataChan, false)
-
-	// Give components time to start
-	time.Sleep(1 * time.Second)
-
-	// Send a valid NetFlow packet to the recorder
-	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 29996})
+	// Send a valid NetFlow packet to the recorder, retrying until the
+	// listener is bound.
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
 	}
@@ -176,13 +208,36 @@ func TestRunIntegration(t *testing.T) {
 	session := netflow.NewSession()
 	flow := netflow.GenerateTemplateNetflow(100, session)
 	buf := flow.ToBytes()
-	_, err = conn.Write(buf.Bytes())
-	if err != nil {
-		t.Fatalf("Failed to send: %v", err)
+
+	deadline := time.After(5 * time.Second)
+	for {
+		if _, err = conn.Write(buf.Bytes()); err != nil {
+			// A connected UDP socket surfaces an earlier ICMP
+			// port-unreachable as ECONNREFUSED — normal during the bind
+			// race, not fatal. Retry until the deadline.
+			if !errors.Is(err, syscall.ECONNREFUSED) {
+				t.Fatalf("Failed to send: %v", err)
+			}
+		}
+		select {
+		case payload := <-dataChan:
+			// The packet traversed ingest → parse. Verify it survived
+			// as a valid NetFlow packet.
+			if ok, verr := netflow.IsValidNetFlow(payload, 9); !ok {
+				t.Errorf("Received invalid NetFlow payload: %v", verr)
+			}
+			// Pipeline is live — let any in-flight packets drain.
+		case <-time.After(50 * time.Millisecond):
+			// Listener may not be bound yet — retry
+			continue
+		case <-deadline:
+			t.Fatal("Timeout waiting for packet to traverse the record pipeline")
+		}
+		break
 	}
 
-	// Wait a bit for processing
-	time.Sleep(2 * time.Second)
+	// Give parseFlow a moment to finish processing
+	time.Sleep(500 * time.Millisecond)
 
 	// Cleanup
 	cancel()
