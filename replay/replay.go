@@ -11,16 +11,19 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"runtime"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v3"
 	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/utils"
+	bolt "go.etcd.io/bbolt"
 	"golang.org/x/sync/errgroup"
 )
+
+// flowsBucket is the bbolt bucket holding recorded flow payloads; it must
+// match the bucket written by the record package.
+var flowsBucket = []byte("flows")
 
 // netflowVersion returns the version field from a flow packet header.
 // Returns 0 if the payload is too short.
@@ -96,9 +99,7 @@ func dbReader(ctx context.Context, dbdir string, dataChan chan<- []byte, loop bo
 		defer close(dataChan)
 	}
 
-	options := badger.DefaultOptions(dbdir)
-	options.Logger = nil
-	db, err := badger.Open(options)
+	db, err := bolt.Open(dbdir, 0o600, &bolt.Options{Timeout: time.Second})
 	if err != nil {
 		return fmt.Errorf("open DB %s: %w", dbdir, err)
 	}
@@ -106,8 +107,6 @@ func dbReader(ctx context.Context, dbdir string, dataChan chan<- []byte, loop bo
 	log.Printf("Reading from database %s\n", dbdir)
 
 	count := 0
-	itOptions := badger.DefaultIteratorOptions
-	itOptions.PrefetchSize = runtime.GOMAXPROCS(0)
 	for {
 		recordsThisPass := 0
 		select {
@@ -115,20 +114,22 @@ func dbReader(ctx context.Context, dbdir string, dataChan chan<- []byte, loop bo
 			log.Println("DB Reader exiting due to signal")
 			return nil
 		default:
-			err = db.View(func(txn *badger.Txn) error {
-				it := txn.NewIterator(itOptions)
-				defer it.Close()
-				for it.Rewind(); it.Valid(); it.Next() {
+			err = db.View(func(tx *bolt.Tx) error {
+				b := tx.Bucket(flowsBucket)
+				if b == nil {
+					return nil
+				}
+				c := b.Cursor()
+				for k, v := c.First(); k != nil; k, v = c.Next() {
 					select {
 					case <-ctx.Done():
 						log.Println("DB Reader exiting due to signal, finishing read")
 						return nil
 					default:
-						item := it.Item()
-						value, verr := item.ValueCopy(nil)
-						if verr != nil {
-							return fmt.Errorf("read value: %w", verr)
-						}
+						// Cursor values are only valid inside the view
+						// transaction, so copy before handing off.
+						value := make([]byte, len(v))
+						copy(value, v)
 						if updateTS {
 							newValue, verr := updateTimestamp(value)
 							if verr != nil {

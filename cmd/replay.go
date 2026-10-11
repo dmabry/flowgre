@@ -32,7 +32,7 @@ func (c *ReplayCommand) ParseFlags(args []string) error {
 	c.server = fs.String("server", "127.0.0.1", "target server to replay flows at (IPv4 or IPv6)")
 	c.port = fs.Int("port", 9995, "target server udp port")
 	c.delay = fs.Int("delay", 100, "number of milliseconds between packets sent")
-	c.dbDir = fs.String("db", "recorded_flows", "Directory to read recorded flows from")
+	c.dbDir = fs.String("db", "recorded_flows", "Path to the recorded flows database file to read from")
 	c.loop = fs.Bool("loop", false, "Loops the replays forever")
 	c.workers = fs.Int("workers", 1, "Number of workers to spawn for replay")
 	c.updateTS = fs.Bool("updatets", false, "Whether to update to the current timestamp on replayed flows")
