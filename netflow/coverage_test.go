@@ -430,9 +430,9 @@ func TestGenericFlow_Generate_AllProtocols(t *testing.T) {
 		t.Run(fmt.Sprintf("port_%d", tc.port), func(t *testing.T) {
 			session := NewSession()
 			gf, err := new(GenericFlow).Generate(srcIP, dstIP, tc.port, session)
-				if err != nil {
-					t.Fatalf("GenericFlow.Generate error: %v", err)
-				}
+			if err != nil {
+				t.Fatalf("GenericFlow.Generate error: %v", err)
+			}
 			if gf.L4DstPort != tc.wantPort {
 				t.Errorf("L4DstPort: got %d, want %d", gf.L4DstPort, tc.wantPort)
 			}
