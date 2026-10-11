@@ -16,5 +16,6 @@ license: "Apache License 2.0"
 contents:
 - src: ${BINARY}
   dst: /usr/bin/flowgre
+  expand: true
   file_info:
     mode: 0755
