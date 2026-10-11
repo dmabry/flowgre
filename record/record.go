@@ -111,8 +111,7 @@ func openRecordDB(path string) (*bolt.DB, error) {
 		_, err := tx.CreateBucketIfNotExists(flowsBucket)
 		return err
 	}); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("create flows bucket: %w", err)
+		return nil, errors.Join(db.Close(), fmt.Errorf("create flows bucket: %w", err))
 	}
 	return db, nil
 }
