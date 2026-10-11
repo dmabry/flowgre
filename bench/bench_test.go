@@ -123,16 +123,20 @@ func BenchmarkIPFIX_DataOnly_Generic(b *testing.B) {
 	dstRange := "172.16.0.0/12"
 	flowCount := 15
 	sourceID := 100
-	session := netflow.NewSession()
+	seq := ipfix.NewIPFIXSequence()
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+		pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, seq)
 		if err != nil {
 			b.Fatal(err)
 		}
-		_ = pkt.ToBytes()
+		pktBuf, err := pkt.ToBytes()
+		if err != nil {
+			b.Fatal(err)
+		}
+		_ = pktBuf.Bytes()
 	}
 }
 
@@ -167,12 +171,15 @@ func BenchmarkIPFIX_UpdateTimeStamp(b *testing.B) {
 	dstRange := "172.16.0.0/12"
 	flowCount := 15
 	sourceID := 100
-	session := netflow.NewSession()
-	pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+	seq := ipfix.NewIPFIXSequence()
+	pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, seq)
 	if err != nil {
 		b.Fatal(err)
 	}
-	buf := pkt.ToBytes()
+	buf, err := pkt.ToBytes()
+	if err != nil {
+		b.Fatal(err)
+	}
 	data := buf.Bytes()
 
 	b.ReportAllocs()
@@ -232,12 +239,15 @@ func BenchmarkValidate_IPFIX_Valid(b *testing.B) {
 	dstRange := "172.16.0.0/12"
 	flowCount := 15
 	sourceID := 100
-	session := netflow.NewSession()
-	pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, session)
+	seq := ipfix.NewIPFIXSequence()
+	pkt, err := ipfix.GenerateDataIPFIX(flowCount, sourceID, srcRange, dstRange, 0, seq)
 	if err != nil {
 		b.Fatal(err)
 	}
-	buf := pkt.ToBytes()
+	buf, err := pkt.ToBytes()
+	if err != nil {
+		b.Fatal(err)
+	}
 	data := buf.Bytes()
 
 	b.ReportAllocs()

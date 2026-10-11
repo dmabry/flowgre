@@ -127,10 +127,10 @@ func worker(cfg *workerConfig) {
 			cfg.statsChan <- wStats
 		case <-dataLimiter.C:
 			flowCount, err := utils.RandomNum(5, 25)
-				if err != nil {
-					log.Printf("%s [%2d] RandomNum failed: %v", label, cfg.id, err)
-					return
-				}
+			if err != nil {
+				log.Printf("%s [%2d] RandomNum failed: %v", label, cfg.id, err)
+				return
+			}
 			buf, err := cfg.gen.GenerateData(flowCount, cfg.sourceID, cfg.srcRange, cfg.dstRange, session)
 			if err != nil {
 				log.Printf("%s [%2d] GenerateData failed: %v", label, cfg.id, err)
@@ -184,10 +184,10 @@ func StartCtx(ctx context.Context, config *models.Config, gen FlowGenerator) *Ru
 	wg.Add(config.Workers)
 	for w := 1; w <= config.Workers; w++ {
 		sourceID, err := utils.RandomNum(sourceIDMin, sourceIDMax)
-			if err != nil {
-				log.Printf("Failed to generate source ID for worker %d: %v", w, err)
-				continue
-			}
+		if err != nil {
+			log.Printf("Failed to generate source ID for worker %d: %v", w, err)
+			continue
+		}
 		// Each worker gets its own generator with independent sequence counter
 		workerGen := gen.ForWorker()
 		go worker(&workerConfig{

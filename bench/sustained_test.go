@@ -4,7 +4,7 @@
 // that can be found in the LICENSE file.
 
 // Package bench contains sustained throughput benchmarks for flowgre.
-// These exercise real UDP sockets, BadgerDB storage, and the full barrage pipeline.
+// These exercise real UDP sockets, bbolt storage, and the full barrage pipeline.
 //
 // Run with: go test -tags=bench -bench=BenchmarkThroughput -run=^$ ./bench/
 package bench
@@ -19,10 +19,10 @@ import (
 	"testing"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v3"
 	"github.com/dmabry/flowgre/barrage"
 	"github.com/dmabry/flowgre/models"
 	"github.com/dmabry/flowgre/record"
+	bolt "go.etcd.io/bbolt"
 )
 
 // ---------------------------------------------------------------------------
@@ -40,31 +40,32 @@ func pickPortB(b *testing.B) int {
 	return port
 }
 
-func countDBEntriesB(b *testing.B, dir string) (total, v9, v10 int) {
+func countDBEntriesB(b *testing.B, dbPath string) (total, v9, v10 int) {
 	b.Helper()
-	db, err := badger.Open(badger.DefaultOptions(dir).WithReadOnly(true))
+	db, err := bolt.Open(dbPath, 0o600, &bolt.Options{ReadOnly: true})
 	if err != nil {
 		b.Fatalf("countDBEntries: %v", err)
 	}
 	defer db.Close()
 
-	err = db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			val, err := it.Item().ValueCopy(nil)
-			if err != nil || len(val) < 2 {
-				continue
+	err = db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("flows"))
+		if bucket == nil {
+			return nil
+		}
+		return bucket.ForEach(func(k, v []byte) error {
+			if len(v) < 2 {
+				return nil
 			}
 			total++
-			switch binary.BigEndian.Uint16(val[:2]) {
+			switch binary.BigEndian.Uint16(v[:2]) {
 			case 9:
 				v9++
 			case 10:
 				v10++
 			}
-		}
-		return nil
+			return nil
+		})
 	})
 	if err != nil {
 		b.Fatal(err)
@@ -123,7 +124,7 @@ func runThroughput(b *testing.B, workers, delayMs int, duration time.Duration, g
 	recCancel()
 	recWg.Wait()
 
-	// Extra pause to ensure BadgerDB file locks are released
+	// Extra pause to ensure bbolt file locks are released
 	time.Sleep(1 * time.Second)
 
 	return countDBEntriesB(b, dbDir)

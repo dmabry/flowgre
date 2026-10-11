@@ -39,9 +39,9 @@ func TestMinimalFlow_Generate_AllProtocols(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			session := NewSession()
 			mf, err := new(MinimalFlow).Generate(srcIP, dstIP, tc.port, session)
-				if err != nil {
-					t.Fatalf("MinimalFlow.Generate error: %v", err)
-				}
+			if err != nil {
+				t.Fatalf("MinimalFlow.Generate error: %v", err)
+			}
 			if mf.DstPort != tc.wantPort {
 				t.Errorf("DstPort: got %d, want %d", mf.DstPort, tc.wantPort)
 			}
@@ -81,9 +81,9 @@ func TestExtendedFlow_Generate_AllProtocols(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			session := NewSession()
 			ef, err := new(ExtendedFlow).Generate(srcIP, dstIP, tc.port, session)
-				if err != nil {
-					t.Fatalf("ExtendedFlow.Generate error: %v", err)
-				}
+			if err != nil {
+				t.Fatalf("ExtendedFlow.Generate error: %v", err)
+			}
 			if ef.DstPort != tc.wantPort {
 				t.Errorf("DstPort: got %d, want %d", ef.DstPort, tc.wantPort)
 			}

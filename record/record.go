@@ -1,7 +1,7 @@
 // Use of this source code is governed by Apache License 2.0
 // that can be found in the LICENSE file.
 
-// Record is used to take netflow packets off the wire and store them in a badger db
+// Record is used to take netflow packets off the wire and store them in a bbolt database
 
 package record
 
@@ -12,14 +12,15 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"sync"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v3"
 	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/lifecycle"
 	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/stats"
+	bolt "go.etcd.io/bbolt"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -84,7 +85,7 @@ func runNetIngest(ctx context.Context, ip string, port int, data chan<- []byte, 
 	}
 }
 
-// dbIngest pulls byte payload off the data chan and puts them in the badger db
+// dbIngest pulls byte payload off the data chan and puts them in the bbolt database
 func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan []byte, verbose bool) {
 	defer wg.Done()
 	if err := runDBIngest(ctx, dbdir, data, verbose); err != nil {
@@ -92,26 +93,42 @@ func dbIngest(ctx context.Context, wg *sync.WaitGroup, dbdir string, data <-chan
 	}
 }
 
-func nextRecordID(db *badger.DB) (uint32, error) {
-	var next uint32 = 1
-	err := db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Reverse = true
-		opts.PrefetchValues = false
-		it := txn.NewIterator(opts)
-		defer it.Close()
+// flowsBucket is the bbolt bucket holding recorded flow payloads. Records are
+// keyed by big-endian uint32 ID so cursor order matches record order.
+var flowsBucket = []byte("flows")
 
-		for it.Rewind(); it.Valid(); it.Next() {
-			key := it.Item().Key()
-			if len(key) != 4 {
-				continue
+// openRecordDB opens the recorded-flows database file at path, creating it if
+// needed, and ensures the flows bucket exists.
+func openRecordDB(path string) (*bolt.DB, error) {
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return nil, fmt.Errorf("%s is a directory: flowgre stores recorded flows in a single bbolt database file (older releases used a badger directory)", path)
+	}
+	db, err := bolt.Open(path, 0o600, &bolt.Options{Timeout: time.Second})
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(flowsBucket)
+		return err
+	}); err != nil {
+		return nil, errors.Join(db.Close(), fmt.Errorf("create flows bucket: %w", err))
+	}
+	return db, nil
+}
+
+func nextRecordID(db *bolt.DB) (uint32, error) {
+	var next uint32 = 1
+	err := db.View(func(tx *bolt.Tx) error {
+		c := tx.Bucket(flowsBucket).Cursor()
+		if k, _ := c.Last(); k != nil {
+			if len(k) != 4 {
+				return fmt.Errorf("unexpected record key length %d", len(k))
 			}
-			last := binary.BigEndian.Uint32(key)
+			last := binary.BigEndian.Uint32(k)
 			if last == ^uint32(0) {
 				return fmt.Errorf("record database key space exhausted")
 			}
 			next = last + 1
-			break
 		}
 		return nil
 	})
@@ -122,11 +139,7 @@ func nextRecordID(db *badger.DB) (uint32, error) {
 }
 
 func runDBIngest(ctx context.Context, dbdir string, data <-chan []byte, verbose bool) (retErr error) {
-	// Create/Open DB for writing
-	options := badger.DefaultOptions(dbdir)
-	// Disable badger logging output
-	options.Logger = nil
-	db, err := badger.Open(options)
+	db, err := openRecordDB(dbdir)
 	if err != nil {
 		return fmt.Errorf("open database %s: %w", dbdir, err)
 	}
@@ -153,9 +166,8 @@ func runDBIngest(ctx context.Context, dbdir string, data <-chan []byte, verbose 
 			}
 			key := make([]byte, 4)
 			binary.BigEndian.PutUint32(key, nextID)
-			err := db.Update(func(txn *badger.Txn) error {
-				entry := badger.NewEntry(key, payload)
-				return txn.SetEntry(entry)
+			err := db.Update(func(tx *bolt.Tx) error {
+				return tx.Bucket(flowsBucket).Put(key, payload)
 			})
 			if err != nil {
 				return fmt.Errorf("write record %d: %w", nextID, err)

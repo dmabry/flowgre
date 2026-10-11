@@ -4,7 +4,7 @@
 //go:build integration
 
 // Integration tests for the full record→replay pipeline.
-// Exercises real UDP sockets, BadgerDB storage, and binary round-trips.
+// Exercises real UDP sockets, bbolt storage, and binary round-trips.
 //
 // Run with: go test -tags=integration -v ./integration
 package integration
@@ -12,18 +12,18 @@ package integration
 import (
 	"context"
 	"encoding/binary"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v3"
 	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/record"
 	"github.com/dmabry/flowgre/single"
+	bolt "go.etcd.io/bbolt"
 )
 
 // ---------------------------------------------------------------------------
@@ -41,31 +41,32 @@ func pickPort(t *testing.T) int {
 	return port
 }
 
-func countDBEntries(t *testing.T, dir string) (total, v9, v10 int) {
+func countDBEntries(t *testing.T, dbPath string) (total, v9, v10 int) {
 	t.Helper()
-	db, err := badger.Open(badger.DefaultOptions(dir).WithReadOnly(true))
+	db, err := bolt.Open(dbPath, 0o600, &bolt.Options{ReadOnly: true})
 	if err != nil {
 		t.Fatalf("countDBEntries: %v", err)
 	}
 	defer db.Close()
 
-	err = db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			val, err := it.Item().ValueCopy(nil)
-			if err != nil || len(val) < 2 {
-				continue
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("flows"))
+		if b == nil {
+			return nil
+		}
+		return b.ForEach(func(k, v []byte) error {
+			if len(v) < 2 {
+				return nil
 			}
 			total++
-			switch binary.BigEndian.Uint16(val[:2]) {
+			switch binary.BigEndian.Uint16(v[:2]) {
 			case 9:
 				v9++
 			case 10:
 				v10++
 			}
-		}
-		return nil
+			return nil
+		})
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +101,7 @@ func sendRawPacket(t *testing.T, port int, data []byte) {
 // sendIPFIX sends IPFIX packets directly using the ipfix package.
 func sendIPFIX(t *testing.T, port int, count int) {
 	t.Helper()
-	session := netflow.NewSession()
+	seq := ipfix.NewIPFIXSequence()
 	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: port})
 	if err != nil {
 		t.Fatalf("sendIPFIX dial: %v", err)
@@ -108,26 +109,32 @@ func sendIPFIX(t *testing.T, port int, count int) {
 	defer conn.Close()
 
 	// Send template
-	tpl := ipfix.GenerateTemplateIPFIX(1, session)
-	tplBuf := tpl.ToBytes()
+	tpl := ipfix.GenerateTemplateIPFIX(1, seq)
+	tplBuf, err := tpl.ToBytes()
+	if err != nil {
+		t.Fatalf("sendIPFIX template: %v", err)
+	}
 	conn.Write(tplBuf.Bytes())
 
 	// Send data flows
-	for i := 0; i < count; i++ {
-		pkt, err := ipfix.GenerateDataIPFIX(1, 1, "10.0.0.0/8", "172.16.0.0/12", 0, session)
+	for range count {
+		pkt, err := ipfix.GenerateDataIPFIX(1, 1, "10.0.0.0/8", "172.16.0.0/12", 0, seq)
 		if err != nil {
 			t.Fatal(err)
 		}
-		pktBuf := pkt.ToBytes()
+		pktBuf, err := pkt.ToBytes()
+		if err != nil {
+			t.Fatal(err)
+		}
 		conn.Write(pktBuf.Bytes())
 		time.Sleep(10 * time.Millisecond)
 	}
 }
 
-// replayFromDB reads packets from a BadgerDB and sends them to the given port.
-func replayFromDB(t *testing.T, dbDir string, port int) {
+// replayFromDB reads packets from a recorded-flows bbolt database and sends them to the given port.
+func replayFromDB(t *testing.T, dbPath string, port int) {
 	t.Helper()
-	db, err := badger.Open(badger.DefaultOptions(dbDir).WithReadOnly(true))
+	db, err := bolt.Open(dbPath, 0o600, &bolt.Options{ReadOnly: true})
 	if err != nil {
 		t.Fatalf("replayFromDB open: %v", err)
 	}
@@ -139,18 +146,16 @@ func replayFromDB(t *testing.T, dbDir string, port int) {
 	}
 	defer conn.Close()
 
-	err = db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			val, err := it.Item().ValueCopy(nil)
-			if err != nil {
-				continue
-			}
-			conn.Write(val)
-			time.Sleep(10 * time.Millisecond)
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("flows"))
+		if b == nil {
+			return nil
 		}
-		return nil
+		return b.ForEach(func(k, v []byte) error {
+			conn.Write(v)
+			time.Sleep(10 * time.Millisecond)
+			return nil
+		})
 	})
 	if err != nil {
 		t.Fatalf("replayFromDB iterate: %v", err)
@@ -289,11 +294,11 @@ func TestNegative_GarbageRejected(t *testing.T) {
 		{"tiny-2", []byte{0xFF, 0xFE}},
 		{"empty-4", make([]byte, 4)},
 		{"dns-like", makeFakeHeader(0xABCD, 60)},
-		{"fake-nfv9", makeFakeHeader(9, 100)},
-		{"fake-ipfix", makeFakeHeader(10, 128)},
 		{"seq-noise", makeSequential(512)},
 		{"icmp-like", makeFakeHeader(0x0800, 64)},
 		{"all-zeros", make([]byte, 100)},
+		{"valid-nfv9", makeValidNetFlow(t)},
+		{"valid-ipfix", makeValidIPFIX(t)},
 	}
 
 	for _, tt := range tests {
@@ -346,13 +351,13 @@ func TestValidation_Unit(t *testing.T) {
 		t.Error("IPFIX: version mismatch should fail")
 	}
 
-	validNF := makeFakeHeader(9, 100)
+	validNF := makeValidNetFlow(t)
 	ok, err = netflow.IsValidNetFlow(validNF, 9)
 	if !ok || err != nil {
 		t.Errorf("NetFlow: valid v9 should pass: ok=%v, err=%v", ok, err)
 	}
 
-	validIPFIX := makeFakeHeader(10, 128)
+	validIPFIX := makeValidIPFIX(t)
 	ok, err = ipfix.IsValidIPFIX(validIPFIX)
 	if !ok || err != nil {
 		t.Errorf("IPFIX: valid v10 should pass: ok=%v, err=%v", ok, err)
@@ -388,9 +393,40 @@ func makeFakeHeader(version uint16, size int) []byte {
 	return buf
 }
 
+// makeValidNetFlow returns a real NetFlow v9 template packet produced by the
+// generator, guaranteed to pass IsValidNetFlow.
+func makeValidNetFlow(t *testing.T) []byte {
+	t.Helper()
+	nf := netflow.GenerateTemplateNetflow(100, netflow.NewSession())
+	buf := nf.ToBytes()
+	out := make([]byte, buf.Len())
+	if _, err := buf.Read(out); err != nil {
+		t.Fatalf("read generated NetFlow packet: %v", err)
+	}
+	return out
+}
+
+// makeValidIPFIX returns a real IPFIX template packet produced by the
+// generator, guaranteed to pass IsValidIPFIX.
+func makeValidIPFIX(t *testing.T) []byte {
+	t.Helper()
+	pkt := ipfix.GenerateTemplateIPFIX(1, ipfix.NewIPFIXSequence())
+	buf, err := pkt.ToBytes()
+	if err != nil {
+		t.Fatalf("serialize generated IPFIX packet: %v", err)
+	}
+	out := make([]byte, buf.Len())
+	if _, err := buf.Read(out); err != nil {
+		t.Fatalf("read generated IPFIX packet: %v", err)
+	}
+	return out
+}
+
 func makeRandom(size int) []byte {
 	buf := make([]byte, size)
-	rand.Read(buf)
+	for i := range buf {
+		buf[i] = byte(rand.IntN(256))
+	}
 	return buf
 }
 

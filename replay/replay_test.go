@@ -9,13 +9,14 @@ import (
 	"encoding/binary"
 	"net"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v3"
 	"github.com/dmabry/flowgre/ipfix"
 	"github.com/dmabry/flowgre/netflow"
 	"github.com/dmabry/flowgre/utils"
+	bolt "go.etcd.io/bbolt"
 )
 
 // TestWorker tests that workers can send packets to a target.
@@ -96,20 +97,22 @@ func TestDbReader(t *testing.T) {
 
 	// Create a temporary directory for the test DB
 	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "flows.db")
 	dataChan := make(chan []byte, 1024)
 
 	// First, write some test data to the DB
-	options := badger.DefaultOptions(tmpDir)
-	options.Logger = nil
-	db, err := badger.Open(options)
+	db, err := bolt.Open(dbPath, 0o600, nil)
 	if err != nil {
 		t.Fatalf("Failed to open DB: %v", err)
 	}
 
 	testPayload := []byte("test db reader payload")
-	err = db.Update(func(txn *badger.Txn) error {
-		entry := badger.NewEntry([]byte("test-key"), testPayload)
-		return txn.SetEntry(entry)
+	err = db.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(flowsBucket)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte("test-key"), testPayload)
 	})
 	if err != nil {
 		t.Fatalf("Failed to write to DB: %v", err)
@@ -119,7 +122,7 @@ func TestDbReader(t *testing.T) {
 	// Now read from the DB
 	done := make(chan struct{})
 	go func() {
-		dbReader(ctx, tmpDir, dataChan, false, false, false)
+		dbReader(ctx, dbPath, dataChan, false, false, false)
 		close(done)
 	}()
 
@@ -236,11 +239,10 @@ func TestRunIntegration(t *testing.T) {
 
 	// Create a temporary directory for the test DB
 	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "flows.db")
 
 	// Write test data to DB
-	options := badger.DefaultOptions(tmpDir)
-	options.Logger = nil
-	db, err := badger.Open(options)
+	db, err := bolt.Open(dbPath, 0o600, nil)
 	if err != nil {
 		t.Fatalf("Failed to open DB: %v", err)
 	}
@@ -250,9 +252,12 @@ func TestRunIntegration(t *testing.T) {
 	flow := netflow.GenerateTemplateNetflow(100, session)
 	buf := flow.ToBytes()
 
-	err = db.Update(func(txn *badger.Txn) error {
-		entry := badger.NewEntry([]byte("test-key"), buf.Bytes())
-		return txn.SetEntry(entry)
+	err = db.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(flowsBucket)
+		if err != nil {
+			return err
+		}
+		return b.Put([]byte("test-key"), buf.Bytes())
 	})
 	if err != nil {
 		t.Fatalf("Failed to write to DB: %v", err)
@@ -291,7 +296,7 @@ func TestRunIntegration(t *testing.T) {
 	replayDone := make(chan struct{})
 	go func() {
 		defer close(replayDone)
-		Run("127.0.0.1", port, 100, tmpDir, false, 1, false, false)
+		Run("127.0.0.1", port, 100, dbPath, false, 1, false, false)
 	}()
 
 	// Wait for packet to be received

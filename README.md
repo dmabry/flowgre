@@ -100,7 +100,7 @@ Source: [`cmd/record.go`](cmd/record.go)
 |---|---|---|---|
 | `-ip` | string | `127.0.0.1` | IP address to listen on (IPv4 or IPv6) |
 | `-port` | int | `9995` | Listen UDP port |
-| `-db` | string | `recorded_flows` | Directory to place recorded flows for later replay |
+| `-db` | string | `recorded_flows` | Path to the recorded flows database file (bbolt) for later replay |
 | `-verbose` | bool | `false` | Log every packet received (warning: high volume) |
 
 ### `replay` — Replay recorded flows
@@ -112,7 +112,7 @@ Source: [`cmd/replay.go`](cmd/replay.go)
 | `-server` | string | `127.0.0.1` | Target server to replay flows at (IPv4 or IPv6) |
 | `-port` | int | `9995` | Target server UDP port |
 | `-delay` | int | `100` | Milliseconds between packets sent |
-| `-db` | string | `recorded_flows` | Directory to read recorded flows from |
+| `-db` | string | `recorded_flows` | Path to the recorded flows database file (bbolt) to read from |
 | `-loop` | bool | `false` | Loop the replays indefinitely |
 | `-workers` | int | `1` | Number of concurrent workers for replay |
 | `-updatets` | bool | `false` | Update timestamps on replayed flows to the current time |
@@ -362,7 +362,7 @@ Record is used to record flows to a file for later replay testing.
 Usage of flowgre record:
 
   -db string
-        Directory to place recorded flows for later replay (default "recorded_flows")
+        Path to the recorded flows database file for later replay (default "recorded_flows")
   -ip string
         IP address record should listen on (default "127.0.0.1")
   -port int
@@ -373,6 +373,8 @@ Usage of flowgre record:
 
 Record accepts both NetFlow v9 and IPFIX v10 packets and stores them in the database.
 
+Recorded flows are stored in a single [bbolt](https://go.etcd.io/bbolt) database file (the `-db` path). Prior releases stored flows in a badger-format directory; those directories cannot be opened by `replay` — re-record the flows you need.
+
 ## Replay Mode
 
 ```shell
@@ -381,7 +383,7 @@ Replay is used to send recorded flows to a target server.
 Usage of flowgre replay:
 
   -db string
-        Directory to read recorded flows from (default "recorded_flows")
+        Path to the recorded flows database file to read from (default "recorded_flows")
   -delay int
         number of milliseconds between packets sent (default 100)
   -loop

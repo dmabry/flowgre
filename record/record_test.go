@@ -10,14 +10,15 @@ import (
 	"errors"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v3"
 	"github.com/dmabry/flowgre/netflow"
+	bolt "go.etcd.io/bbolt"
 )
 
 // TestNetIngest tests that the network listener can receive UDP packets.
@@ -387,7 +388,7 @@ func TestRunCtxReturnsListenerError(t *testing.T) {
 	defer blocker.Close()
 
 	port := blocker.LocalAddr().(*net.UDPAddr).Port
-	err = RunCtx(context.Background(), "127.0.0.1", port, t.TempDir(), false)
+	err = RunCtx(context.Background(), "127.0.0.1", port, filepath.Join(t.TempDir(), "flows.db"), false)
 	if err == nil {
 		t.Fatal("expected listener error")
 	}
@@ -397,8 +398,7 @@ func TestRunCtxReturnsListenerError(t *testing.T) {
 }
 
 func TestNextRecordIDAppendsAfterExistingRecords(t *testing.T) {
-	opts := badger.DefaultOptions(t.TempDir()).WithLogger(nil)
-	db, err := badger.Open(opts)
+	db, err := bolt.Open(filepath.Join(t.TempDir(), "flows.db"), 0o600, nil)
 	if err != nil {
 		t.Fatalf("open database: %v", err)
 	}
@@ -406,8 +406,12 @@ func TestNextRecordIDAppendsAfterExistingRecords(t *testing.T) {
 
 	key := make([]byte, 4)
 	binary.BigEndian.PutUint32(key, 7)
-	if err := db.Update(func(txn *badger.Txn) error {
-		return txn.Set(key, []byte("existing"))
+	if err := db.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists(flowsBucket)
+		if err != nil {
+			return err
+		}
+		return b.Put(key, []byte("existing"))
 	}); err != nil {
 		t.Fatalf("seed database: %v", err)
 	}

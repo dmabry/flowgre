@@ -217,9 +217,9 @@ func TestMinimalIPFIXFlow_Generate_AllProtocols(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("port_%d", tc.port), func(t *testing.T) {
 			mf, err := new(MinimalIPFIXFlow).Generate(srcIP, dstIP, tc.port, nil)
-				if err != nil {
-					t.Fatalf("MinimalIPFIXFlow.Generate error: %v", err)
-				}
+			if err != nil {
+				t.Fatalf("MinimalIPFIXFlow.Generate error: %v", err)
+			}
 			if mf.DestPort != tc.wantPort {
 				t.Errorf("DestPort: got %d, want %d", mf.DestPort, tc.wantPort)
 			}
@@ -650,9 +650,9 @@ func TestGenericFlow_Generate_AllProtocols(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("port_%d", tc.port), func(t *testing.T) {
 			gf, err := new(GenericFlow).Generate(srcIP, dstIP, tc.port, nil)
-				if err != nil {
-					t.Fatalf("GenericFlow.Generate error: %v", err)
-				}
+			if err != nil {
+				t.Fatalf("GenericFlow.Generate error: %v", err)
+			}
 			if gf.DestPort != tc.wantPort {
 				t.Errorf("DestPort: got %d, want %d", gf.DestPort, tc.wantPort)
 			}

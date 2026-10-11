@@ -27,7 +27,7 @@ func (c *RecordCommand) ParseFlags(args []string) error {
 	fs := flag.NewFlagSet("record", flag.ExitOnError)
 	c.ip = fs.String("ip", "127.0.0.1", "IP address to listen on (IPv4 or IPv6)")
 	c.port = fs.Int("port", 9995, "listen udp port")
-	c.dbDir = fs.String("db", "recorded_flows", "Directory to place recorded flows for later replay")
+	c.dbDir = fs.String("db", "recorded_flows", "Path to the recorded flows database file for later replay")
 	c.verbose = fs.Bool("verbose", false, "Whether to log every packet received. Warning can be a lot")
 	return fs.Parse(args)
 }
